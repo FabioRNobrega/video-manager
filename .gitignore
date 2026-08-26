@@ -1,0 +1,69 @@
+# =========================
+# .NET / Blazor build output
+# =========================
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+TestResults/
+**/[Bb]in/
+**/[Oo]bj/
+**/TestResults/
+*.pdb
+*.dll
+*.exe
+publish/
+*.publish.xml
+*.dll.config
+
+# =========================
+# Visual Studio / Rider / VS Code
+# =========================
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# =========================
+# NuGet
+# =========================
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+.nuget/
+
+# =========================
+# Secrets / environment / local config
+# =========================
+.env
+.env.*
+!.env.example
+*.pfx
+*.key
+*.pem
+secrets.json
+appsettings.*.local.json
+**/Properties/PublishProfiles/*.pubxml
+**/Properties/PublishProfiles/*.pubxml.user
+
+# =========================
+# Docker
+# =========================
+.agents/
+.codex/
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# OS cruft
+# =========================
+.DS_Store
+Thumbs.db

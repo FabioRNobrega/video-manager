@@ -1,0 +1,26 @@
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    environment:
+      ASPNETCORE_ENVIRONMENT: Testing
+    volumes:
+      - ./:/workspace
+      - /workspace/WebApp/WebApp/bin
+      - /workspace/WebApp/WebApp/obj
+      - /workspace/WebApp/WebApp.Client/bin
+      - /workspace/WebApp/WebApp.Client/obj
+      - /workspace/WebApp.Tests/bin
+      - /workspace/WebApp.Tests/obj
+      - test_nuget_cache:/root/.nuget/packages
+    command:
+      - sh
+      - -lc
+      - |
+        dotnet restore video-manager.slnx &&
+        dotnet test WebApp.Tests/WebApp.Tests.csproj --no-restore --logger "console;verbosity=minimal"
+
+volumes:
+  test_nuget_cache:

@@ -1,0 +1,81 @@
+COMPOSE ?= docker compose
+COMPOSE_PROJECT ?= video-manager
+TEST_COMPOSE_PROJECT ?= video-manager-test
+ARGS ?=
+
+DOCKER_HOST := $(shell \
+	if [ -S /var/run/docker.sock ]; then \
+		echo unix:///var/run/docker.sock; \
+	elif [ -S /run/user/$$(id -u)/podman/podman.sock ]; then \
+		echo unix:///run/user/$$(id -u)/podman/podman.sock; \
+	elif [ -S /run/user/$$(id -u)/docker.sock ]; then \
+		echo unix:///run/user/$$(id -u)/docker.sock; \
+	fi)
+export DOCKER_HOST
+
+.PHONY: help docker-env docker-build docker-run docker-run-bg docker-down docker-reset docker-logs docker-ps docker-shell docker-exec dotnet dotnet-new test docker-test docker-test-shell
+
+help:
+	@printf '%s\n' \
+		'make docker-build              Build the .NET 10 SDK image' \
+		'make dotnet-new                Generate the Blazor solution and xUnit project' \
+		'make docker-run                Start the app with hot reload' \
+		'make docker-run-bg             Start the app in the background' \
+		'make docker-down               Stop the app' \
+		'make docker-reset              Stop the app and delete Docker volumes' \
+		'make docker-logs               Follow application logs' \
+		'make docker-shell              Open a new .NET SDK container shell' \
+		'make docker-exec               Open the running web container shell' \
+		'make dotnet ARGS="build"       Run any dotnet command in Docker' \
+		'make test                      Run tests in an isolated stack'
+
+docker-env:
+	@echo "export DOCKER_HOST=$(DOCKER_HOST)"
+
+docker-build:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) build
+
+dotnet-new: docker-build
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet new sln -n video-manager
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet new blazor -o WebApp --framework net10.0 --interactivity WebAssembly
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet new xunit -o WebApp.Tests --framework net10.0
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet sln video-manager.slnx add WebApp/WebApp/WebApp.csproj WebApp/WebApp.Client/WebApp.Client.csproj WebApp.Tests/WebApp.Tests.csproj
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet add WebApp.Tests/WebApp.Tests.csproj reference WebApp/WebApp/WebApp.csproj
+
+docker-run:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) up --build
+
+docker-run-bg:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) up --build --detach
+
+docker-down:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) down --remove-orphans
+
+docker-reset:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) down --volumes --remove-orphans
+
+docker-logs:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) logs --follow webapp
+
+docker-ps:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) ps
+
+docker-shell:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --build webapp bash
+
+docker-exec:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) exec webapp bash
+
+dotnet:
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps --build webapp dotnet $(ARGS)
+
+test: docker-test
+
+docker-test:
+	@status=0; \
+	$(COMPOSE) -p $(TEST_COMPOSE_PROJECT) -f docker-compose.test.yml run --rm --build tests || status=$$?; \
+	$(COMPOSE) -p $(TEST_COMPOSE_PROJECT) -f docker-compose.test.yml down --volumes --remove-orphans; \
+	exit $$status
+
+docker-test-shell:
+	$(COMPOSE) -p $(TEST_COMPOSE_PROJECT) -f docker-compose.test.yml run --rm --build tests bash

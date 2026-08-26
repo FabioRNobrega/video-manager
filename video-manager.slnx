@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/WebApp/">
+    <Project Path="WebApp/WebApp.Client/WebApp.Client.csproj" />
+    <Project Path="WebApp/WebApp/WebApp.csproj" />
+  </Folder>
+  <Project Path="WebApp.Tests/WebApp.Tests.csproj" />
+</Solution>

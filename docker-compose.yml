@@ -1,0 +1,22 @@
+services:
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${WEBAPP_PORT:-8080}:8080"
+    volumes:
+      - ./:/workspace
+      - /workspace/WebApp/WebApp/bin
+      - /workspace/WebApp/WebApp/obj
+      - /workspace/WebApp/WebApp.Client/bin
+      - /workspace/WebApp/WebApp.Client/obj
+      - /workspace/WebApp.Tests/bin
+      - /workspace/WebApp.Tests/obj
+      - nuget_cache:/root/.nuget/packages
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER: "true"
+
+volumes:
+  nuget_cache:

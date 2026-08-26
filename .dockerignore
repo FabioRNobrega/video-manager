@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/TestResults/
+.git/
+.agents/
+.codex/
+.env
+.idea/
+.vscode/
