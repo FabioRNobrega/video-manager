@@ -62,7 +62,8 @@
     private DragSession? _drag;
     private bool _playbackError;
 
-    private string ObjectPosition => $"{_frame.PositionX:0.##}% {_frame.PositionY:0.##}%";
+    private string ObjectPosition => FormattableString.Invariant(
+        $"{_frame.PositionX:0.##}% {_frame.PositionY:0.##}%");
 
     protected override void OnParametersSet()
     {
