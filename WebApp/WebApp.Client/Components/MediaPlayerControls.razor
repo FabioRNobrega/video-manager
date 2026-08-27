@@ -1,6 +1,11 @@
 @using System.Globalization
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 
 <div class="@RootCssClass"
+     @ref="_controlsRoot"
+     role="group"
+     aria-label="Video player menu"
      aria-hidden="@(!IsVisible)"
      @onpointerdown="BeginInteractionAsync"
      @onpointerdown:stopPropagation="true"
@@ -11,8 +16,12 @@
      @onmouseenter="HandleMouseEnteredAsync"
      @onmouseleave="HandleMouseLeftAsync"
      @onclick:stopPropagation="true">
-    <div class="timeline-area">
+    <div class="timeline-area" aria-label="Video progress">
+        <output class="time-readout" aria-label="Elapsed time" aria-live="off">@DisplayedCurrentTime</output>
         <div class="timeline-track">
+            <div class="progress player-progress" aria-hidden="true">
+                <div class="progress-bar" style="@ProgressStyle"></div>
+            </div>
             @if (State.MarkerA is not null)
             {
                 <span class="timeline-marker marker-a" style="@MarkerStyle(State.MarkerA.Value)" aria-hidden="true"></span>
@@ -21,7 +30,7 @@
             {
                 <span class="timeline-marker marker-b" style="@MarkerStyle(State.MarkerB.Value)" aria-hidden="true"></span>
             }
-            <input class="timeline"
+            <input class="timeline form-range"
                    type="range"
                    min="0"
                    max="@DurationValue"
@@ -32,41 +41,66 @@
                    @oninput="PreviewTimeline"
                    @onchange="CommitTimelineAsync" />
         </div>
-        <output class="time-readout" aria-live="off">@DisplayedCurrentTime / @State.FormatDuration()</output>
+        <span class="time-readout" aria-label="Total duration">@State.FormatDuration()</span>
     </div>
 
-    <div class="control-row">
-        <button class="control-button primary-control"
+    <div class="control-row btn-toolbar d-flex flex-wrap align-items-center gap-2" role="toolbar" aria-label="Video player controls">
+        <div class="btn-group" role="group" aria-label="Playback">
+        <button class="btn control-button btn-player btn-icon"
                 type="button"
                 aria-label="@(State.IsPlaying ? "Pause" : "Play")"
+                title="@(State.IsPlaying ? "Pause" : "Play")"
+                data-bs-toggle="tooltip"
+                data-bs-title="@(State.IsPlaying ? "Pause" : "Play")"
                 aria-pressed="@BooleanValue(State.IsPlaying)"
                 @onclick="HandleTogglePlaybackAsync">
-            <span aria-hidden="true">@(State.IsPlaying ? "❚❚" : "▶")</span>
+            <i class="bi @(State.IsPlaying ? "bi-pause-fill" : "bi-play-fill")" aria-hidden="true"></i>
         </button>
 
-        <button class="control-button"
+        <button class="btn @ToggleCssClass(State.IsStandardLoop)"
+                type="button"
+                aria-label="Repeat current video"
+                title="Repeat current video"
+                data-bs-toggle="tooltip"
+                data-bs-title="Repeat current video"
+                aria-pressed="@BooleanValue(State.IsStandardLoop)"
+                @onclick="HandleToggleStandardLoopAsync">
+            <i class="bi bi-repeat-1" aria-hidden="true"></i>
+        </button>
+        </div>
+
+        <div class="audio-controls d-flex align-items-center gap-2">
+        <div class="btn-group" role="group" aria-label="Audio">
+        <button class="btn control-button btn-player btn-icon"
                 type="button"
                 aria-label="@(State.IsMuted ? "Unmute" : "Mute")"
+                title="@(State.IsMuted ? "Unmute" : "Mute")"
+                data-bs-toggle="tooltip"
+                data-bs-title="@(State.IsMuted ? "Unmute" : "Mute")"
                 aria-pressed="@BooleanValue(State.IsMuted)"
                 @onclick="HandleToggleMuteAsync">
-            <span aria-hidden="true">@(State.IsMuted ? "🔇" : "🔊")</span>
+            <i class="bi @(State.IsMuted ? "bi-volume-mute-fill" : "bi-volume-up-fill")" aria-hidden="true"></i>
         </button>
+        </div>
 
         <label class="volume-control">
             <span class="visually-hidden">Volume</span>
-            <input type="range"
+            <i class="bi bi-volume-down" aria-hidden="true"></i>
+            <input class="form-range" type="range"
                    min="0"
                    max="1"
                    step="0.01"
                    value="@Invariant(VolumeValue)"
+                   style="@VolumeProgressStyle"
                    aria-label="Volume"
                    @oninput="PreviewVolume"
                    @onchange="CommitVolumeAsync" />
         </label>
+        </div>
 
         <label class="rate-control">
             <span class="visually-hidden">Playback speed</span>
-            <select value="@Invariant(State.PlaybackRate)" aria-label="Playback speed" @onchange="ChangeRateAsync">
+            <select class="form-select form-select-sm" value="@Invariant(State.PlaybackRate)" aria-label="Playback speed" @onchange="ChangeRateAsync">
                 @foreach (var rate in MediaPlayerState.PlaybackRates)
                 {
                     <option value="@Invariant(rate)">@Invariant(rate)x</option>
@@ -74,48 +108,67 @@
             </select>
         </label>
 
-        <button class="@ToggleCssClass(State.IsStandardLoop)"
-                type="button"
-                aria-label="Loop entire video"
-                aria-pressed="@BooleanValue(State.IsStandardLoop)"
-                @onclick="HandleToggleStandardLoopAsync">Loop</button>
-
-        <button @ref="_fillTabButton"
-                class="control-button fill-control"
-                type="button"
-                disabled="@IsFillTabActive"
-                aria-label="Fill browser tab"
-                @onclick="HandleEnterFillTabAsync">
-            <svg class="bi" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
-            </svg>
-            <span>Fill</span>
+        <div class="btn-group loop-point-controls" role="group" aria-label="Loop points">
+        <button class="btn control-button btn-player btn-icon" type="button"
+                disabled="@(!State.HasDuration)"
+                aria-label="Set point A"
+                title="Set point A"
+                data-bs-toggle="tooltip"
+                data-bs-title="Set point A · @State.FormatMarker(State.MarkerA)"
+                @onclick="HandleSetMarkerAAsync">
+            <i class="bi bi-chevron-bar-left" aria-hidden="true"></i>
         </button>
-    </div>
-
-    <div class="ab-row">
-        <button class="control-button marker-button" type="button" disabled="@(!State.HasDuration)" @onclick="HandleSetMarkerAAsync">
-            A <span>@State.FormatMarker(State.MarkerA)</span>
+        <button class="btn control-button btn-player btn-icon" type="button"
+                disabled="@(!State.HasDuration)"
+                aria-label="Set point B"
+                title="Set point B"
+                data-bs-toggle="tooltip"
+                data-bs-title="Set point B · @State.FormatMarker(State.MarkerB)"
+                @onclick="HandleSetMarkerBAsync">
+            <i class="bi bi-chevron-bar-right" aria-hidden="true"></i>
         </button>
-        <button class="control-button marker-button" type="button" disabled="@(!State.HasDuration)" @onclick="HandleSetMarkerBAsync">
-            B <span>@State.FormatMarker(State.MarkerB)</span>
-        </button>
-        <button class="@ToggleCssClass(State.IsAbLoop)"
+        <button class="btn @ToggleCssClass(State.IsAbLoop)"
                 type="button"
                 disabled="@(!State.HasValidAbRange)"
                 aria-label="Loop between A and B"
+                title="Loop between A and B"
+                data-bs-toggle="tooltip"
+                data-bs-title="Loop A–B"
                 aria-pressed="@BooleanValue(State.IsAbLoop)"
-                @onclick="HandleToggleAbLoopAsync">A/B</button>
-        <button class="control-button" type="button" disabled="@(State.MarkerA is null && State.MarkerB is null)" @onclick="HandleClearAbLoopAsync">Clear</button>
+                @onclick="HandleToggleAbLoopAsync"><i class="bi bi-infinity" aria-hidden="true"></i></button>
+        <button class="btn control-button btn-player btn-icon" type="button"
+                disabled="@(State.MarkerA is null && State.MarkerB is null)"
+                aria-label="Clear loop points"
+                title="Clear loop points"
+                data-bs-toggle="tooltip"
+                data-bs-title="Clear loop points"
+                @onclick="HandleClearAbLoopAsync">
+            <i class="bi bi-x-circle" aria-hidden="true"></i>
+        </button>
+        </div>
+
+        <div class="btn-group" role="group" aria-label="Video actions">
+        <button @ref="_fillTabButton"
+                class="btn control-button btn-player btn-icon"
+                type="button"
+                aria-label="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
+                title="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
+                data-bs-toggle="tooltip"
+                data-bs-title="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
+                aria-pressed="@BooleanValue(IsFillTabActive)"
+                @onclick="HandleEnterFillTabAsync">
+            <i class="bi @(IsFillTabActive ? "bi-fullscreen-exit" : "bi-fullscreen")" aria-hidden="true"></i>
+        </button>
+        </div>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(State.ValidationMessage))
     {
-        <p class="control-message validation-message" role="status" aria-live="polite">@State.ValidationMessage</p>
+        <p class="control-message alert alert-warning" role="status" aria-live="polite">@State.ValidationMessage</p>
     }
     @if (!string.IsNullOrWhiteSpace(Error))
     {
-        <p class="control-message error-message" role="alert" aria-live="assertive">@Error</p>
+        <p class="control-message alert alert-danger" role="alert" aria-live="assertive">@Error</p>
     }
 </div>
 
@@ -141,21 +194,50 @@
     [Parameter] public bool IsFillTabActive { get; set; }
     [Parameter] public int FillTabFocusRequest { get; set; }
 
+    private ElementReference _controlsRoot;
     private ElementReference _fillTabButton;
+    private IJSObjectReference? _tooltipModule;
     private int _observedFillTabFocusRequest;
     private bool _timelineActive;
     private double _timelinePreview;
     private bool _volumeActive;
     private double _volumePreview;
+    private bool _disposed;
 
-    private string RootCssClass => IsVisible ? "media-controls is-visible" : "media-controls";
+    private string RootCssClass => $"media-controls{(IsVisible ? " is-visible" : string.Empty)}{(IsFillTabActive ? " fill-tab-controls" : string.Empty)}";
     private double TimelineValue => _timelineActive ? _timelinePreview : State.CurrentTime;
     private double VolumeValue => _volumeActive ? _volumePreview : State.Volume;
     private string DisplayedCurrentTime => MediaPlayerState.FormatTime(TimelineValue);
     private string DurationValue => Invariant(State.Duration ?? 0);
+    private string ProgressStyle => $"width: {Invariant(State.Duration is > 0 ? Math.Clamp(TimelineValue / State.Duration.Value * 100, 0, 100) : 0)}%";
+    private string VolumeProgressStyle => $"--volume-progress: {Invariant(Math.Clamp(VolumeValue * 100, 0, 100))}%";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            try
+            {
+                _tooltipModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bootstrapInterop.js");
+            }
+            catch (JSException)
+            {
+                // Native title attributes remain available when enhanced tooltips cannot start.
+            }
+        }
+
+        if (_tooltipModule is not null)
+        {
+            try
+            {
+                await _tooltipModule.InvokeVoidAsync("refreshTooltips", _controlsRoot);
+            }
+            catch (JSException)
+            {
+                // Controls stay fully operable without tooltip enhancement.
+            }
+        }
+
         if (!IsFillTabActive && FillTabFocusRequest != _observedFillTabFocusRequest)
         {
             _observedFillTabFocusRequest = FillTabFocusRequest;
@@ -239,8 +321,8 @@
     }
 
     private static string ToggleCssClass(bool active) => active
-        ? "control-button toggle-control is-active"
-        : "control-button toggle-control";
+        ? "control-button btn-player btn-icon toggle-control is-active"
+        : "control-button btn-player btn-icon toggle-control";
 
     private static string BooleanValue(bool value) => value ? "true" : "false";
     private static string Invariant(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
@@ -248,4 +330,28 @@
     private static bool TryReadDouble(ChangeEventArgs args, out double value) =>
         double.TryParse(Convert.ToString(args.Value, CultureInfo.InvariantCulture), NumberStyles.Float,
             CultureInfo.InvariantCulture, out value);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        if (_tooltipModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _tooltipModule.InvokeVoidAsync("disposeTooltips", _controlsRoot);
+            await _tooltipModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser has already disconnected.
+        }
+    }
 }

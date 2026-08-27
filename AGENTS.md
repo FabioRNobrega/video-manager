@@ -8,6 +8,7 @@
   - [Architecture Summary](#architecture-summary)
   - [Execution Environment](#execution-environment)
   - [Coding Conventions](#coding-conventions)
+  - [Design System](#design-system)
   - [Microsoft Learn MCP Server](#microsoft-learn-mcp-server)
   - [Constraints](#constraints)
   - [Available Commands](#available-commands)
@@ -16,39 +17,40 @@
 
 ## Project Overview
 
-Video Manager is a .NET 10 Blazor Web App (server + Interactive WebAssembly client) that is being built into a local, privacy-preserving vertical-video browser and manual reframing tool. It reads a user-selected host directory of videos through a Docker-only, read-only bind mount, exposes only opaque logical IDs to the browser (never host paths), and lets the user preview and drag-reposition a 9:16 crop over supported video files. As of this writing the repository is still the stock `dotnet new blazor` scaffold plus Docker/Compose/Makefile plumbing — the feature described in `Specs/20260826213348-local-vertical-video-manager/` has not been implemented yet (see [Spec-Kit Workflow](#spec-kit-workflow)).
+Perene Tech Videos is an implemented .NET 10 Blazor Web App (server + Interactive WebAssembly client) for locally browsing and manually reframing vertical video. It reads a user-selected host directory through a Docker-only, read-only bind mount, exposes only snapshot-scoped opaque IDs to the browser, streams supported files with range processing, and provides a draggable 9:16 preview with custom playback, A/B looping, dark/light themes, and Fill-tab mode. Its presentation follows the design system in `Specs/20260827194328-perene-tech-design-system-refactor/` without changing these data or behavior boundaries.
 
 ## Repository Map
 
-- `WebApp/WebApp/` — ASP.NET Core hosted Blazor server project (`WebApp.csproj`), currently the default template: `Program.cs`, `Components/` (App, Layout, Pages), `appsettings*.json`, `wwwroot/` (app.css, favicon, vendored Bootstrap under `lib/bootstrap/`).
-- `WebApp/WebApp.Client/` — Blazor WebAssembly client project (`WebApp.Client.csproj`), currently the default template: `Program.cs`, `Pages/Counter.razor`, `_Imports.razor`, `wwwroot/appsettings*.json`.
-- `WebApp.Tests/` — xUnit test project (`WebApp.Tests.csproj`), currently one empty placeholder test (`UnitTest1.cs`), referencing `WebApp.csproj`.
+- `WebApp/WebApp/` — ASP.NET Core host with startup composition in `Program.cs`, validated video-library configuration, the snapshot service, minimal video endpoints, server-owned layout/error components, global `wwwroot/app.css`, and unreferenced legacy vendored Bootstrap assets.
+- `WebApp/WebApp.Client/` — Interactive WebAssembly UI with `Home.razor`, the library/editor/theme/player components, browser-safe models/state objects, CSS-isolated styles, and focused `theme.js`, `videoEditor.js`, and `bootstrapInterop.js` browser interop.
+- `WebApp.Tests/` — xUnit tests organized under `Services/`, `Endpoints/`, and `Client/`, using `WebApplicationFactory` for host/endpoint/static-root checks and direct tests for C# state models.
 - `video-manager.slnx` — solution file listing the three projects above.
 - `Dockerfile` — `mcr.microsoft.com/dotnet/sdk:10.0` image running `dotnet watch run` for the web project on port 8080.
 - `docker-compose.yml` — dev stack for the `webapp` service (hot reload, bind-mounts source and NuGet cache volumes).
 - `docker-compose.test.yml` — isolated `tests` service that restores and runs `dotnet test` in a throwaway container.
 - `Makefile` — single source of truth for build/run/test commands; wraps `docker compose` and detects the local Docker/Podman socket.
-- `Specs/` — spec-kit folders (`<timestamp>-<slug>/Requirements.md`, `Plan.md`, `Validation.md`) documenting features to implement; currently one spec, not yet implemented.
-- `.gitignore` / `.dockerignore` — exclude build output, secrets, and `.env` (but not `.env.example`, which does not exist yet — see the pending spec's FR20).
+- `Specs/` — spec-kit folders (`<timestamp>-<slug>/Requirements.md`, `Plan.md`, `Validation.md`) documenting implemented and pending features; the latest design-system spec also contains its authoritative `design-guide-en.html` reference.
+- `.env.example` — safe template for the required host `VIDEO_ROOT` and optional `WEBAPP_PORT`; the real `.env` remains ignored.
+- `.gitignore` / `.dockerignore` — exclude build output, secrets, and the real `.env`.
 
 ## Architecture Summary
 
-This is the standard Blazor Web App "hosted WebAssembly" split: `WebApp` is the ASP.NET Core host that maps Razor components and (per the pending spec) will map minimal API endpoints; `WebApp.Client` is the Interactive WebAssembly project whose assemblies are added via `AddInteractiveWebAssemblyRenderMode().AddAdditionalAssemblies(...)` in `WebApp/WebApp/Program.cs`. `WebApp.Tests` references `WebApp` directly and will (per the plan) use `Microsoft.AspNetCore.Mvc.Testing`'s `WebApplicationFactory` once that package is added.
+This is the standard Blazor Web App hosted-WebAssembly split: `WebApp` is the ASP.NET Core host that maps Razor components and minimal API endpoints; `WebApp.Client` is the Interactive WebAssembly project whose assemblies are added via `AddInteractiveWebAssemblyRenderMode().AddAdditionalAssemblies(...)` in `WebApp/WebApp/Program.cs`. `WebApp.Tests` references `WebApp` directly and already uses `Microsoft.AspNetCore.Mvc.Testing`'s `WebApplicationFactory`.
 
-The intended architecture (from `Specs/20260826213348-local-vertical-video-manager/Plan.md`, not yet built) is:
+The implemented architecture is:
 
 - **Configuration boundary**: `docker-compose.yml` requires `VIDEO_ROOT` from a repo-root `.env`, bind-mounts it read-only to a fixed internal path, and passes it to ASP.NET Core as `VideoLibrary__Path`. A `VideoLibraryOptions` type validates it's absolute, existing, and readable at startup.
 - **Server library snapshot**: a singleton `IVideoLibraryService`/`VideoLibraryService` recursively enumerates the mounted root (skipping symlinks/reparse points, canonical-path containment checks, extension allowlist `.mp4/.webm/.mov/.m4v`), and holds an atomically-replaced in-memory snapshot mapping opaque IDs to internal `VideoFileEntry` records. No physical or root-relative path is ever sent to the browser.
 - **Minimal API endpoints** (`MapVideoEndpoints` in `WebApp/WebApp/Endpoints/`): `POST /api/videos/scan` triggers a rescan and returns browser-safe `VideoItemDto`s (from `WebApp.Client/Models/`); `GET /api/videos/{id}/stream` resolves only current-snapshot IDs and returns a range-enabled file stream (404 otherwise).
-- **Interactive WebAssembly UI**: a client-owned `WebApp.Client/Pages/Home.razor` (`@rendermode InteractiveWebAssembly`) coordinates a `VideoLibrary.razor` (explicit scan/rescan, row selection) and a `VerticalVideoEditor.razor` (9:16 `object-fit: cover` viewport, pointer-driven `PositionX`/`PositionY` framing state clamped 0–100, Reset). A small isolated JS module (`wwwroot/js/videoEditor.js`) only bridges pointer capture and element/media dimensions; all framing math and state stay in C#.
+- **Interactive WebAssembly UI**: client-owned `Home.razor` coordinates `VideoLibrary.razor` and `VerticalVideoEditor.razor`. `VideoFrameState`, `FillTabState`, and `MediaPlayerState` own framing, presentation, and playback rules in C#; `MediaPlayerControls.razor` renders custom playback/A/B controls. Focused JavaScript in `theme.js` and `videoEditor.js` bridges browser storage, pointer/media DOM operations, and Fill-tab lifecycle without owning application rules.
 
-### Request flow (target design)
+### Request flow
 
-`User → VideoLibrary.razor (Scan) → Home.razor → POST /api/videos/scan → VideoLibraryService.ScanAsync() → enumerates /videos (read-only mount) → new opaque-ID snapshot → VideoItemDto list → Home.razor renders list → user selects → VerticalVideoEditor sets src="/api/videos/{id}/stream" → GET with Range header → VideoLibraryService resolves snapshot entry → range-enabled response → drag events update C# frame state → object-position style updates`. See the Mermaid sequence diagram in `Specs/20260826213348-local-vertical-video-manager/Plan.md` for the full version.
+`User → VideoLibrary.razor (Scan) → Home.razor → POST /api/videos/scan → VideoLibraryService.ScanAsync() → enumerates /videos (read-only mount) → new opaque-ID snapshot → VideoItemDto list → user selects → VerticalVideoEditor sets src="/api/videos/{id}/stream" → range-enabled stream → video/crop events update C# state → object-position and MediaPlayerControls update`. Fill-tab changes only presentation around the same keyed video element; theme preference is applied early from browser-local storage.
 
 ## Execution Environment
 
-This project is Docker Compose-only; there is no documented native `dotnet run` workflow (the pending spec explicitly keeps native execution out of scope). All commands go through the `Makefile`, which wraps `docker compose` and auto-detects a Docker or Podman socket via `DOCKER_HOST`.
+This project is Docker Compose-only; there is no documented native `dotnet run` workflow. All commands go through the `Makefile`, which wraps `docker compose` and auto-detects a Docker or Podman socket via `DOCKER_HOST`.
 
 - `make docker-build` — build the .NET 10 SDK image.
 - `make docker-run` / `make docker-run-bg` — start the app (hot reload via `dotnet watch`) in foreground/background.
@@ -59,20 +61,30 @@ This project is Docker Compose-only; there is no documented native `dotnet run` 
 - `make test` (alias `make docker-test`) — run `WebApp.Tests` in the isolated `video-manager-test` compose project (`docker-compose.test.yml`), always tearing down volumes afterward regardless of test outcome.
 - `make docker-test-shell` — shell into the test image without running tests.
 
-Once the pending spec lands, running the app will additionally require a repo-root `.env` (copied from `.env.example`) defining `VIDEO_ROOT` (absolute host path to a video directory) and optionally `WEBAPP_PORT`.
+Running the app requires a repo-root `.env` copied from `.env.example`, with `VIDEO_ROOT` set to an absolute host video directory and optional `WEBAPP_PORT`. Compose mounts the directory read-only at `/videos`, supplies `VideoLibrary__Path`, and publishes only on loopback.
 
 ## Coding Conventions
 
 - `Nullable` and `ImplicitUsings` are enabled in every project; keep new code nullable-aware.
-- The client (`WebApp.Client`) and server (`WebApp`) projects are kept as separate concerns: the server owns filesystem/path/config logic, the client owns Razor components, rendering, and browser-side state — the pending spec explicitly keeps physical path manipulation out of endpoints/components and confines it to a server-only service.
+- The client (`WebApp.Client`) and server (`WebApp`) projects are kept as separate concerns: the server owns filesystem/path/config logic, the client owns Razor components, rendering, and browser-side state. Physical path manipulation stays confined to a server-only service.
 - Browser-visible DTOs live in `WebApp.Client/Models/` (reusing the existing project reference from server to client) rather than a separate shared project.
 - CSS is component-scoped using Blazor CSS isolation (`ComponentName.razor.css`); `wwwroot/app.css` holds shared/global styles; vendored Bootstrap under `wwwroot/lib/bootstrap/` is generated/vendored and should not be hand-edited.
-- Custom JavaScript is kept minimal and isolated to what Blazor can't do natively (e.g. pointer capture, element/media geometry) — no framing logic or state belongs in JS.
-- Tests are xUnit, organized by concern under `WebApp.Tests/` (e.g. `Services/`, `Endpoints/`, `Client/` once added), and run exclusively through `make test` in an isolated Docker Compose stack, not on the host.
+- Custom JavaScript is kept minimal and isolated to what Blazor can't do natively (for example pointer capture, element/media geometry, and Bootstrap tooltip lifecycle) — no framing, playback, or application state belongs in JS.
+- Tests are xUnit, organized by concern under `WebApp.Tests/Services`, `Endpoints`, and `Client`, and run exclusively through `make test` in an isolated Docker Compose stack, not on the host.
+
+## Design System
+
+- `Specs/20260827194328-perene-tech-design-system-refactor/design-guide-en.html` is the detailed visual source of truth for every current and future UI feature. `WebApp/WebApp/wwwroot/app.css` owns shared palette, typography, semantic feedback, Bootstrap variable mappings, and reusable control states; matching `.razor.css` files own only component/page composition and responsive layout.
+- The approved design contract is Bootstrap 5.3.8 plus Bootstrap Icons 1.13.1, Zilla Slab for headings/product titles, and Montserrat for body, labels, metadata, forms, and controls. For the current setup these assets are version-pinned CDN dependencies; complete presentation therefore requires Internet access, while declared font fallbacks and semantic controls must remain usable when a CDN is unavailable.
+- Use real Bootstrap components/classes and their public CSS custom properties wherever the guide defines a matching pattern. The hierarchy decision is gold-filled `btn-primary` for the one principal screen action and green-filled `btn-secondary` for complementary actions; semantic variants are reserved for matching feedback or destructive/confirming meaning.
+- Use Bootstrap Icons at `currentColor`, not hand-authored SVGs, emoji, or text glyphs for interface icons. Icon-only controls require an accessible name, visible focus, programmatic toggle state where applicable, a minimum 40×40 CSS-pixel target, and a Bootstrap tooltip or equivalent documented fallback.
+- Apply the same system to the complete video-player menu: timeline/time, playback, audio, speed, whole-video loop, Fill-tab, A/B marker/loop, Clear, validation, and error regions must remain a cohesive responsive Bootstrap toolbar in normal and Fill-tab modes.
+- Preserve the guide's dark and Kindle-paper light tokens, WCAG AA normal-text contrast, non-color state cues, live status/error semantics, responsive states, and reduced-motion behavior. Do not hand-edit vendored/generated Bootstrap assets.
+- The governing implemented design-system spec is `Specs/20260827194328-perene-tech-design-system-refactor/`. New UI must follow this contract instead of extending the superseded styling.
 
 ## Microsoft Learn MCP Server
 
-This repository is a Microsoft-stack project: .NET 10 (`net10.0`), ASP.NET Core (`Microsoft.NET.Sdk.Web`), Blazor WebAssembly (`Microsoft.NET.Sdk.BlazorWebAssembly`, `Microsoft.AspNetCore.Components.WebAssembly*`), and (once the pending spec is implemented) `Microsoft.AspNetCore.Mvc.Testing`. Use the Microsoft Learn MCP Server as the first-party documentation source for decisions involving these technologies:
+This repository is a Microsoft-stack project: .NET 10 (`net10.0`), ASP.NET Core (`Microsoft.NET.Sdk.Web`), Blazor WebAssembly (`Microsoft.NET.Sdk.BlazorWebAssembly`, `Microsoft.AspNetCore.Components.WebAssembly*`), and `Microsoft.AspNetCore.Mvc.Testing`. Use the Microsoft Learn MCP Server as the first-party documentation source for decisions involving these technologies:
 
 - Start with `microsoft_docs_search` to locate current official guidance (e.g. ASP.NET Core configuration/options binding, minimal API file/range responses, Blazor WebAssembly render modes, CSS isolation).
 - Use `microsoft_code_sample_search` when a decision depends on API usage or examples (e.g. `enableRangeProcessing`, `WebApplicationFactory` setup, pointer event handling in Blazor).
@@ -111,10 +123,11 @@ This repository is a Microsoft-stack project: .NET 10 (`net10.0`), ASP.NET Core 
 
 ## Spec-Kit Workflow
 
-Features are designed before implementation under `Specs/<timestamp>-<slug>/`, each containing `Requirements.md` (problem, user stories, functional/non-functional requirements, out-of-scope, open questions), `Plan.md` (technical approach, component breakdown, dependencies, external documentation evidence, flow diagram, risk assessment), and `Validation.md`. The current spec, `Specs/20260826213348-local-vertical-video-manager/`, defines the video-discovery/streaming/reframing feature described in [Project Overview](#project-overview) and has not yet been implemented — use the `implement-spec` workflow to build the most recent unimplemented spec, and `new-spec` to add another one.
+Features are designed before implementation under `Specs/<timestamp>-<slug>/`, each containing `Requirements.md`, `Plan.md`, and `Validation.md`. The discovery, theme, Fill-tab, custom-media-control, and Perene Tech design-system specs are implemented. Use the `implement-spec` workflow to build the most recent unimplemented spec and `new-spec` to add another one.
 
 ## Key Documentation
 
-- [Specs/20260826213348-local-vertical-video-manager/Requirements.md](Specs/20260826213348-local-vertical-video-manager/Requirements.md) — current feature's requirements.
-- [Specs/20260826213348-local-vertical-video-manager/Plan.md](Specs/20260826213348-local-vertical-video-manager/Plan.md) — current feature's technical plan and risk assessment.
-- [Specs/20260826213348-local-vertical-video-manager/Validation.md](Specs/20260826213348-local-vertical-video-manager/Validation.md) — current feature's validation criteria.
+- [design-guide-en.html](Specs/20260827194328-perene-tech-design-system-refactor/design-guide-en.html) — mandatory visual and component design reference colocated with the governing spec.
+- [Specs/20260827194328-perene-tech-design-system-refactor/Requirements.md](Specs/20260827194328-perene-tech-design-system-refactor/Requirements.md) — approved product, asset, accessibility, and compatibility requirements.
+- [Specs/20260827194328-perene-tech-design-system-refactor/Plan.md](Specs/20260827194328-perene-tech-design-system-refactor/Plan.md) — implemented technical design and official documentation evidence.
+- [Specs/20260827194328-perene-tech-design-system-refactor/Validation.md](Specs/20260827194328-perene-tech-design-system-refactor/Validation.md) — acceptance criteria and Docker/browser validation procedure.

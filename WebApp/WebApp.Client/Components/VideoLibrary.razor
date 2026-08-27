@@ -1,5 +1,5 @@
-<section class="library-card" aria-labelledby="library-heading">
-    <div class="library-header">
+<section class="library-card card" aria-labelledby="library-heading">
+    <div class="library-header card-header">
         <div>
             <p class="section-label">Library</p>
             <h2 id="library-heading">Your videos</h2>
@@ -9,34 +9,42 @@
             {
                 <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
             }
+            else
+            {
+                <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+            }
             @(HasScanned ? "Rescan" : "Scan")
         </button>
     </div>
 
     @if (IsScanning)
     {
-        <div class="library-state" role="status" aria-live="polite">
+        <div class="library-state card-body" role="status" aria-live="polite">
+            <i class="bi bi-search" aria-hidden="true"></i>
             <strong>Scanning your library…</strong>
             <span>Looking for supported video files.</span>
         </div>
     }
     else if (!string.IsNullOrEmpty(Error))
     {
-        <div class="library-state error" role="alert">
+        <div class="library-state alert alert-danger m-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
             <strong>Scan failed</strong>
             <span>@Error</span>
         </div>
     }
     else if (!HasScanned)
     {
-        <div class="library-state" role="status">
+        <div class="library-state card-body" role="status">
+            <i class="bi bi-collection-play" aria-hidden="true"></i>
             <strong>Ready when you are</strong>
             <span>Nothing is read until you choose Scan.</span>
         </div>
     }
     else if (Items.Count == 0)
     {
-        <div class="library-state" role="status" aria-live="polite">
+        <div class="library-state card-body" role="status" aria-live="polite">
+            <i class="bi bi-film" aria-hidden="true"></i>
             <strong>No supported videos found</strong>
             <span>Add MP4, WebM, MOV, or M4V files, then rescan.</span>
         </div>
@@ -44,25 +52,23 @@
     else
     {
         <p class="result-count" role="status">@Items.Count @(Items.Count == 1 ? "video" : "videos")</p>
-        <ul class="video-list" aria-label="Discovered videos">
+        <div class="video-list list-group list-group-flush" aria-label="Discovered videos">
             @foreach (var item in Items)
             {
                 var selected = item.Id == SelectedId;
-                <li>
-                    <button type="button"
-                            class="video-row @(selected ? "selected" : null)"
-                            aria-pressed="@selected"
-                            @onclick="() => OnSelect.InvokeAsync(item)">
-                        <span class="video-name">@item.Name</span>
-                        <span class="video-meta">@item.Extension.TrimStart('.').ToUpperInvariant() · @FormatSize(item.SizeBytes)</span>
-                        @if (selected)
-                        {
-                            <span class="selected-label">Selected</span>
-                        }
-                    </button>
-                </li>
+                <button type="button"
+                        class="video-row list-group-item list-group-item-action @(selected ? "active" : null)"
+                        aria-pressed="@selected"
+                        @onclick="() => OnSelect.InvokeAsync(item)">
+                    <span class="video-name">@item.Name</span>
+                    <span class="video-meta">@item.Extension.TrimStart('.').ToUpperInvariant() · @FormatSize(item.SizeBytes)</span>
+                    @if (selected)
+                    {
+                        <span class="selected-label"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Selected</span>
+                    }
+                </button>
             }
-        </ul>
+        </div>
     }
 </section>
 

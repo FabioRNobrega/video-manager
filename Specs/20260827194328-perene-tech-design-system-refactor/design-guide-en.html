@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style Guide — Perene.Tech Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Zilla+Slab:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+<style>
+:root, html[data-bs-theme="dark"]{
+  --font-family-title: 'Zilla Slab', serif;
+  --font-family-base: 'Montserrat', 'Helvetica', 'Arial', sans-serif;
+  --font-family-meta: 'Montserrat', 'Helvetica', 'Arial', sans-serif;
+
+  --bg-app:#0D1512;
+  --bg-surface:#141F19;
+  --bg-elevated:#1B2A22;
+  --border:#28352D;
+  --border-strong:#3A4A40;
+  --text-strong:#EDEAE0;
+  --text-body:#C9D2CB;
+  --text-muted:#8FA398;
+  --shadow: 0 1px 2px rgba(0,0,0,0.4);
+
+  --alert-success-bg: rgba(47,122,79,0.14);
+  --alert-success-border: rgba(66,160,107,0.45);
+  --alert-success-text: #85C79E;
+
+  --alert-warning-bg: rgba(201,118,46,0.15);
+  --alert-warning-border: rgba(224,148,84,0.45);
+  --alert-warning-text: #E7AC79;
+
+  --alert-danger-bg: rgba(181,67,46,0.15);
+  --alert-danger-border: rgba(214,105,84,0.45);
+  --alert-danger-text: #E89C89;
+
+  --alert-info-bg: rgba(47,102,144,0.15);
+  --alert-info-border: rgba(76,143,196,0.45);
+  --alert-info-text: #85B8D6;
+
+  --brand-green-onbg:#85C79E;
+  --brand-gold-onbg:#E0BA76;
+  --brand-blue-onbg:#85B8D6;
+
+  --hover-bg: rgba(47,122,79,0.14);
+  --hover-border: rgba(66,160,107,0.4);
+  --hover-ring: rgba(66,160,107,0.45);
+
+  --tint-green-bg: rgba(47,122,79,0.14);
+  --tint-green-fg: #85C79E;
+  --tint-gold-bg: rgba(185,138,46,0.15);
+  --tint-gold-fg: #E0BA76;
+  --tint-blue-bg: rgba(47,102,144,0.15);
+  --tint-blue-fg: #85B8D6;
+
+  /* Map Bootstrap's own theming variables to our tokens, dark mode */
+  --bs-body-bg: var(--bg-app);
+  --bs-body-color: var(--text-body);
+  --bs-border-color: var(--border);
+  --bs-border-color-translucent: var(--border);
+  --bs-secondary-bg: var(--bg-elevated);
+  --bs-tertiary-bg: var(--bg-elevated);
+  --bs-secondary-color: var(--text-muted);
+  --bs-emphasis-color: var(--text-strong);
+  --bs-link-color: var(--brand-blue-onbg);
+  --bs-link-hover-color: var(--brand-blue-onbg);
+  --bs-link-color-rgb: 133,184,214;
+  --bs-primary: #B98A2E;
+  --bs-primary-rgb: 185,138,46;
+  --bs-danger: #B5432E;
+  --bs-danger-rgb: 181,67,46;
+  --bs-info: #2F6690;
+  --bs-info-rgb: 47,102,144;
+  --bs-form-invalid-color: #E89C89;
+}
+html[data-bs-theme="light"]{
+  /* Kindle-paper light mode: warm cream, not white */
+  --bg-app:#EFE3C6;
+  --bg-surface:#F8EFD9;
+  --bg-elevated:#E6D6AE;
+  --border:#D2BE8D;
+  --border-strong:#B9A578;
+  --text-strong:#2B2418;
+  --text-body:#4A4030;
+  --text-muted:#6B6048;
+  --shadow: 0 1px 3px rgba(43,36,24,0.12);
+
+  --alert-success-bg:#E4EEDD;
+  --alert-success-border:#A3D3B4;
+  --alert-success-text:#1D4F33;
+
+  --alert-warning-bg:#F5E5CE;
+  --alert-warning-border:#E3B98F;
+  --alert-warning-text:#8A4A1D;
+
+  --alert-danger-bg:#F4E1D6;
+  --alert-danger-border:#E3A99A;
+  --alert-danger-text:#7A2C1D;
+
+  --alert-info-bg:#DEE9EE;
+  --alert-info-border:#96C0D8;
+  --alert-info-text:#1D3E59;
+
+  --brand-green-onbg:#1D4F33;
+  --brand-gold-onbg:#755618;
+  --brand-blue-onbg:#1D3E59;
+
+  --hover-bg: #EAF5EE;
+  --hover-border: #A3D3B4;
+  --hover-ring: rgba(47,122,79,0.3);
+
+  --tint-green-bg: #EAF5EE;
+  --tint-green-fg: #A3D3B4;
+  --tint-gold-bg: #FBF3E3;
+  --tint-gold-fg: #E7C787;
+  --tint-blue-bg: #E8F1F7;
+  --tint-blue-fg: #96C0D8;
+
+  /* Map Bootstrap's own theming variables to our tokens, light mode */
+  --bs-body-bg: var(--bg-app);
+  --bs-body-color: var(--text-body);
+  --bs-border-color: var(--border);
+  --bs-border-color-translucent: var(--border);
+  --bs-secondary-bg: var(--bg-elevated);
+  --bs-tertiary-bg: var(--bg-elevated);
+  --bs-secondary-color: var(--text-muted);
+  --bs-emphasis-color: var(--text-strong);
+  --bs-link-color: var(--brand-blue-onbg);
+  --bs-link-hover-color: var(--brand-blue-onbg);
+  --bs-link-color-rgb: 29,62,89;
+  --bs-primary: #B98A2E;
+  --bs-primary-rgb: 185,138,46;
+  --bs-danger: #B5432E;
+  --bs-danger-rgb: 181,67,46;
+  --bs-info: #2F6690;
+  --bs-info-rgb: 47,102,144;
+  --bs-form-invalid-color: #7A2C1D;
+}
+
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:var(--bg-app); color:var(--text-body);
+  font-family:var(--font-family-base); font-size:15px; line-height:1.6;
+  transition:background .2s ease, color .2s ease;
+}
+h1,h2,h3,h4{ font-family:var(--font-family-title); color:var(--text-strong); font-weight:600; letter-spacing:0; }
+code, .meta-font{ font-family:var(--font-family-meta); }
+a{ color:var(--brand-blue-onbg); }
+
+/* ---- Layout ---- */
+.shell{ display:flex; min-height:100vh; }
+.sidebar{
+  width:236px; flex:none; position:sticky; top:0; height:100vh; overflow-y:auto;
+  border-right:1px solid var(--border); padding:28px 20px; background:var(--bg-surface);
+}
+.sidebar .brand-mark{ font-family:var(--font-family-title); font-weight:600; font-size:1.15rem; color:var(--text-strong); margin-bottom:2px;}
+.sidebar .sub{ font-size:.76rem; color:var(--text-muted); margin-bottom:28px; font-family:var(--font-family-meta); }
+.sidebar .nav-link{ font-size:.87rem; color:var(--text-muted); padding:.42rem .6rem; border-radius:6px; }
+.sidebar .nav-link:hover{ color:var(--text-strong); }
+.sidebar .nav-pills{ --bs-nav-pills-link-active-color:#16211B; --bs-nav-pills-link-active-bg:#B98A2E; }
+.sidebar .nav-pills .nav-link.active{ font-weight:600; }
+.sidebar .grp{ font-family:var(--font-family-meta); font-size:.68rem; letter-spacing:.12em; color:var(--text-muted); text-transform:uppercase; margin:20px 0 6px; padding-left:.6rem; }
+
+.main{ flex:1; min-width:0; padding:36px 48px 100px; max-width:980px; }
+
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:44px;
+  padding-bottom:20px; border-bottom:1px solid var(--border);
+}
+.topbar .eyebrow{ font-family:var(--font-family-meta); font-size:.72rem; letter-spacing:.14em; color:var(--brand-gold-onbg); text-transform:uppercase; margin-bottom:6px; }
+.topbar h1{ font-size:1.7rem; margin:0; }
+
+#themeToggle{ margin:0; display:flex; align-items:center; gap:.55rem; }
+#themeToggle .form-check-input{ margin:0; width:2.35em; height:1.2em; cursor:pointer; background-color:var(--bg-elevated); border-color:var(--border-strong); }
+#themeToggle .form-check-input:checked{ background-color:#B98A2E; border-color:#B98A2E; }
+#themeToggle .form-check-input:focus{ border-color:var(--brand-gold-onbg); box-shadow:0 0 0 .2rem rgba(185,138,46,.2); }
+/* Bootstrap uses a blue SVG thumb on switch focus. Keep the light-mode thumb on-brand. */
+html[data-bs-theme="light"] #themeToggle .form-check-input,
+html[data-bs-theme="light"] #themeToggle .form-check-input:focus{
+  --bs-form-switch-bg:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23B98A2E'/%3e%3c/svg%3e");
+  border-color:#B98A2E;
+}
+#themeToggle .form-check-label{ cursor:pointer; color:var(--text-muted); font-family:var(--font-family-meta); font-size:.76rem; font-weight:600; display:flex; align-items:center; gap:.4rem; }
+#themeToggle .theme-icon{ color:var(--brand-gold-onbg); font-size:.9rem; }
+
+section{ margin-bottom:64px; scroll-margin-top:24px; }
+.section-head{ display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+.section-bar{ width:4px; height:22px; border-radius:2px; }
+.bar-green{ background:#2F7A4F; } .bar-gold{ background:#B98A2E; } .bar-blue{ background:#2F6690; }
+section h2{ font-size:1.3rem; margin:0; }
+.section-desc{ color:var(--text-muted); font-size:.92rem; margin:6px 0 24px; max-width:640px; }
+
+/* ---- Swatches ---- */
+.scale-row{ display:grid; grid-template-columns:120px repeat(9,1fr); gap:0; border-radius:10px; overflow:hidden; border:1px solid var(--border); margin-bottom:10px;}
+.scale-label{
+  display:flex; flex-direction:column; justify-content:center; padding:12px 14px; background:var(--bg-elevated);
+  font-size:.82rem; color:var(--text-strong); font-weight:600; font-family:var(--font-family-title);
+}
+.scale-label small{ font-family:var(--font-family-meta); font-weight:400; color:var(--text-muted); font-size:.7rem; }
+.swatch{ display:flex; flex-direction:column; justify-content:flex-end; padding:8px; min-height:64px; position:relative; }
+.swatch .step{ font-family:var(--font-family-meta); font-size:.62rem; opacity:.75; }
+.swatch .hex{ font-family:var(--font-family-meta); font-size:.66rem; }
+.swatch.base::after{ content:"base"; position:absolute; top:6px; right:8px; font-family:var(--font-family-meta); font-size:.58rem; opacity:.8; }
+
+.usage-note{
+  font-size:.82rem; color:var(--text-muted); background:var(--bg-elevated); border:1px solid var(--border);
+  border-radius:8px; padding:12px 14px; margin-top:6px;
+}
+.usage-note b{ color:var(--text-strong); }
+
+/* ---- Neutral rows ---- */
+.neutral-row{ display:flex; gap:0; border-radius:10px; overflow:hidden; border:1px solid var(--border); margin-bottom:10px; }
+.n-cell{ flex:1; min-height:56px; display:flex; flex-direction:column; justify-content:flex-end; padding:8px; }
+.n-cell .step{ font-family:var(--font-family-meta); font-size:.6rem; }
+.n-cell .hex{ font-family:var(--font-family-meta); font-size:.62rem; }
+
+/* ---- Alerts: real Bootstrap .alert, themed via --bs-alert-* ---- */
+.alert{ font-size:.87rem; }
+.alert-success{ --bs-alert-bg:var(--alert-success-bg); --bs-alert-border-color:var(--alert-success-border); --bs-alert-color:var(--alert-success-text); }
+.alert-warning{ --bs-alert-bg:var(--alert-warning-bg); --bs-alert-border-color:var(--alert-warning-border); --bs-alert-color:var(--alert-warning-text); }
+.alert-danger{ --bs-alert-bg:var(--alert-danger-bg); --bs-alert-border-color:var(--alert-danger-border); --bs-alert-color:var(--alert-danger-text); }
+.alert-info{ --bs-alert-bg:var(--alert-info-bg); --bs-alert-border-color:var(--alert-info-border); --bs-alert-color:var(--alert-info-text); }
+.alert .body{ color:var(--text-body); }
+
+/* ---- Tokens table ---- */
+table.tokens{ --bs-table-bg:transparent; --bs-table-color:var(--text-body); --bs-table-border-color:var(--border); width:100%; font-size:.85rem; margin-bottom:0; }
+table.tokens th{ font-family:var(--font-family-meta); font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); font-weight:500; padding:8px 12px; border-bottom-color:var(--border-strong); }
+table.tokens td{ padding:9px 12px; color:var(--text-body); }
+table.tokens td.chip-cell{ display:flex; align-items:center; gap:8px; }
+table.tokens .swatch-dot{ width:14px; height:14px; border-radius:4px; border:1px solid rgba(0,0,0,0.15); flex:none; }
+table.tokens code{ font-size:.78rem; color:var(--text-strong); }
+.pass{ color:var(--alert-success-text); font-weight:600; }
+.fail{ color:var(--alert-danger-text); font-weight:600; }
+
+/* ---- Type scale ---- */
+.type-row{ display:flex; align-items:baseline; gap:24px; padding:16px 0; border-bottom:1px solid var(--border); }
+.type-row .meta{ width:200px; flex:none; font-family:var(--font-family-meta); font-size:.72rem; color:var(--text-muted); }
+.type-row .sample{ color:var(--text-strong); }
+
+/* ---- Bootstrap button variants, themed via Bootstrap's own CSS custom properties ---- */
+.btn{ font-family:var(--font-family-base); font-weight:600; }
+.btn-primary{
+  --bs-btn-color:#16211B; --bs-btn-bg:#B98A2E; --bs-btn-border-color:#B98A2E;
+  --bs-btn-hover-color:#16211B; --bs-btn-hover-bg:#9D7527; --bs-btn-hover-border-color:#946E25;
+  --bs-btn-focus-shadow-rgb:185,138,46;
+  --bs-btn-active-color:#16211B; --bs-btn-active-bg:#946E25; --bs-btn-active-border-color:#8B6822;
+  --bs-btn-disabled-color:#16211B; --bs-btn-disabled-bg:#B98A2E; --bs-btn-disabled-border-color:#B98A2E;
+}
+.btn-secondary{
+  --bs-btn-color:#fff; --bs-btn-bg:#2F7A4F; --bs-btn-border-color:#2F7A4F;
+  --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#286843; --bs-btn-hover-border-color:#26623F;
+  --bs-btn-focus-shadow-rgb:47,122,79;
+  --bs-btn-active-color:#fff; --bs-btn-active-bg:#26623F; --bs-btn-active-border-color:#235C3B;
+  --bs-btn-disabled-color:#fff; --bs-btn-disabled-bg:#2F7A4F; --bs-btn-disabled-border-color:#2F7A4F;
+}
+.btn-success{ --bs-btn-bg:#2F7A4F; --bs-btn-border-color:#2F7A4F; --bs-btn-hover-bg:#286843; --bs-btn-hover-border-color:#26623F; --bs-btn-active-bg:#26623F; --bs-btn-active-border-color:#235C3B; --bs-btn-disabled-bg:#2F7A4F; --bs-btn-disabled-border-color:#2F7A4F; --bs-btn-focus-shadow-rgb:47,122,79; }
+.btn-warning{ --bs-btn-color:#fff; --bs-btn-bg:#C9762E; --bs-btn-border-color:#C9762E; --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#AB6427; --bs-btn-hover-border-color:#A15E25; --bs-btn-active-color:#fff; --bs-btn-active-bg:#A15E25; --bs-btn-active-border-color:#975823; --bs-btn-disabled-color:#fff; --bs-btn-disabled-bg:#C9762E; --bs-btn-disabled-border-color:#C9762E; --bs-btn-focus-shadow-rgb:201,118,46; }
+.btn-danger{ --bs-btn-bg:#B5432E; --bs-btn-border-color:#B5432E; --bs-btn-hover-bg:#9A3927; --bs-btn-hover-border-color:#903525; --bs-btn-active-bg:#903525; --bs-btn-active-border-color:#873223; --bs-btn-disabled-bg:#B5432E; --bs-btn-disabled-border-color:#B5432E; --bs-btn-focus-shadow-rgb:181,67,46; }
+.btn-info{ --bs-btn-color:#fff; --bs-btn-bg:#2F6690; --bs-btn-border-color:#2F6690; --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#28577A; --bs-btn-hover-border-color:#265273; --bs-btn-active-color:#fff; --bs-btn-active-bg:#265273; --bs-btn-active-border-color:#244D6C; --bs-btn-disabled-color:#fff; --bs-btn-disabled-bg:#2F6690; --bs-btn-disabled-border-color:#2F6690; --bs-btn-focus-shadow-rgb:47,102,144; }
+.btn-link{ --bs-btn-color: var(--brand-blue-onbg); --bs-btn-hover-color: var(--brand-blue-onbg); font-weight:600; }
+.btn-outline-secondary{ --bs-btn-color:var(--text-body); --bs-btn-border-color:var(--border-strong); --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#2F7A4F; --bs-btn-hover-border-color:#2F7A4F; --bs-btn-active-bg:#2F7A4F; --bs-btn-active-border-color:#2F7A4F; }
+.btn-check:checked + .btn-outline-secondary{ --bs-btn-active-color:#16211B; background:#B98A2E; border-color:#B98A2E; color:#16211B; }
+.state-label{ font-family:var(--font-family-meta); font-size:.68rem; color:var(--text-muted); margin-bottom:6px; display:block; }
+
+/* ---- Icon-only buttons / video player controls ---- */
+.btn-icon{
+  --bs-btn-padding-x:0; --bs-btn-padding-y:0;
+  width:2.5rem; height:2.5rem;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.btn-icon .bi{ font-size:1.05rem; line-height:1; }
+.btn-player{
+  --bs-btn-color:var(--text-body); --bs-btn-border-color:var(--border-strong);
+  --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#2F7A4F; --bs-btn-hover-border-color:#2F7A4F;
+  --bs-btn-active-color:#16211B; --bs-btn-active-bg:#B98A2E; --bs-btn-active-border-color:#B98A2E;
+  --bs-btn-focus-shadow-rgb:185,138,46;
+}
+.btn-player.active, .btn-player[aria-pressed="true"]{ color:#16211B; background:#B98A2E; border-color:#B98A2E; }
+.player-demo{ overflow:hidden; border-color:var(--border); background:var(--bg-surface); }
+.player-screen{
+  background:
+    radial-gradient(circle at 50% 42%, rgba(185,138,46,.10), transparent 28%),
+    linear-gradient(145deg,var(--bg-elevated),var(--bg-app));
+  border-bottom:1px solid var(--border);
+}
+.player-screen .player-placeholder{ color:var(--text-muted); }
+.player-toolbar{ background:var(--bg-surface); }
+.player-time{ color:var(--text-muted); font-family:var(--font-family-meta); font-size:.72rem; font-variant-numeric:tabular-nums; }
+.player-progress{
+  --bs-progress-height:.4rem;
+  --bs-progress-bg:var(--bg-elevated);
+  --bs-progress-bar-bg:#B98A2E;
+  flex:1 1 12rem; min-width:8rem;
+}
+.control-caption{ color:var(--text-muted); font-family:var(--font-family-meta); font-size:.68rem; }
+
+/* ---- Icons ---- */
+.icon-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(108px,1fr)); gap:10px; }
+.icon-tile{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px 8px; border:1px solid var(--border); border-radius:10px; background:var(--bg-surface); }
+.icon-tile .icon{ font-size:1.3rem; width:1em; height:1em; color:var(--text-strong); }
+.icon-tile .icon-name{ font-family:var(--font-family-meta); font-size:.65rem; color:var(--text-muted); text-align:center; }
+
+/* ---- Dropdown: real Bootstrap .dropdown, themed ---- */
+.dropdown-menu{ --bs-dropdown-bg:var(--bg-surface); --bs-dropdown-border-color:var(--border); --bs-dropdown-color:var(--text-body); --bs-dropdown-link-color:var(--text-body); --bs-dropdown-link-hover-bg:var(--hover-bg); --bs-dropdown-link-hover-color:var(--brand-green-onbg); --bs-dropdown-link-active-bg:var(--tint-gold-bg); --bs-dropdown-link-active-color:var(--brand-gold-onbg); font-size:.87rem; }
+.dropdown-item{ display:flex; align-items:center; gap:10px; }
+.dropdown-item .icon{ color:var(--text-muted); width:1em; }
+.dropdown-item.active .icon, .dropdown-item:hover .icon{ color:inherit; }
+
+/* ---- Cards: real Bootstrap .card, themed ---- */
+.card-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:16px; }
+.card{ --bs-card-bg:var(--bg-surface); --bs-card-border-color:var(--border); transition:border-color .15s ease, background .15s ease; }
+.card:hover{ border-color:var(--hover-border); background:var(--hover-bg); }
+.card-title{ font-family:var(--font-family-title); font-size:.95rem; font-weight:600; }
+.book-cover{ aspect-ratio:2/3; border-radius:var(--bs-border-radius,8px); background:linear-gradient(150deg,var(--bg-elevated),var(--border)); display:flex; align-items:center; justify-content:center; color:var(--text-muted); }
+.folder-icon-tile{ width:40px; height:40px; border-radius:9px; background:var(--tint-gold-bg); display:flex; align-items:center; justify-content:center; color:var(--brand-gold-onbg); font-size:1.1rem; flex:none; }
+
+/* ---- List group: real Bootstrap .list-group, themed ---- */
+.list-group{ --bs-list-group-bg:var(--bg-surface); --bs-list-group-border-color:var(--border); --bs-list-group-action-hover-bg:var(--hover-bg); --bs-list-group-action-hover-color:var(--brand-green-onbg); --bs-list-group-active-bg:var(--tint-gold-bg); --bs-list-group-active-color:var(--brand-gold-onbg); --bs-list-group-active-border-color:var(--border); }
+.list-group-item{ font-size:.9rem; }
+.row-icon{ width:36px; height:36px; border-radius:8px; background:var(--bg-elevated); display:flex; align-items:center; justify-content:center; color:var(--text-muted); flex:none; font-size:1rem; }
+.row-icon.tint-green{ background:var(--tint-green-bg); color:var(--tint-green-fg); }
+.row-icon.tint-gold{ background:var(--tint-gold-bg); color:var(--tint-gold-fg); }
+.row-icon.tint-blue{ background:var(--tint-blue-bg); color:var(--tint-blue-fg); }
+.row-sub{ font-size:.76rem; color:var(--text-muted); font-family:var(--font-family-meta); }
+.row-chevron{ color:var(--text-muted); font-size:.95rem; }
+
+/* ---- Forms: real Bootstrap .form-control / .form-label, themed ---- */
+.form-label{ font-size:.78rem; color:var(--text-muted); font-family:var(--font-family-meta); }
+.form-control{ background-color:var(--bg-elevated); border-color:var(--border); color:var(--text-strong); font-family:var(--font-family-base); }
+.form-control:focus{ background-color:var(--bg-elevated); color:var(--text-strong); border-color:var(--brand-blue-onbg); box-shadow:0 0 0 .25rem rgba(53,114,165,.25); }
+.form-control.is-invalid:focus{ border-color:var(--alert-danger-border); box-shadow:0 0 0 .25rem rgba(181,67,46,.2); }
+.invalid-feedback{ font-size:.78rem; }
+
+/* ---- Badges: real Bootstrap .badge, themed ---- */
+.badge{ font-family:var(--font-family-meta); font-weight:500; }
+.badge-blue-subtle{ background-color:var(--tint-blue-bg); color:var(--brand-blue-onbg); }
+.badge .icon{ width:.85em; height:.85em; margin-right:2px; }
+
+/* ---- Do/Dont ---- */
+.dd-card{ --bs-card-bg:var(--bg-surface); --bs-card-border-color:var(--border); }
+.dd-card .tag{ font-family:var(--font-family-meta); font-size:.68rem; letter-spacing:.1em; margin-bottom:8px; display:inline-block; }
+.dd-do .tag{ color:var(--alert-success-text); }
+.dd-dont .tag{ color:var(--alert-danger-text); }
+.dd-card p{ margin:0; font-size:.86rem; color:var(--text-body); }
+
+/* ---- Bootstrap Icons ---- */
+.icon{ width:1em; height:1em; display:inline-block; line-height:1; vertical-align:-0.125em; flex:none; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand-mark">Perene.Tech</div>
+    <div class="sub">Design system · style guide v1.0</div>
+    <nav id="sidebarNav" class="nav nav-pills flex-column">
+      <div class="grp">Foundations</div>
+      <a class="nav-link" href="#principles">Principles</a>
+      <a class="nav-link" href="#brand">Brand color</a>
+      <a class="nav-link" href="#neutrals">Neutrals</a>
+      <div class="grp">Feedback</div>
+      <a class="nav-link" href="#semantic">Semantic colors</a>
+      <a class="nav-link" href="#alerts">Alerts</a>
+      <div class="grp">Interface</div>
+      <a class="nav-link" href="#typography">Typography</a>
+      <a class="nav-link" href="#buttons">Buttons</a>
+      <a class="nav-link" href="#icon-buttons">Icon buttons</a>
+      <a class="nav-link" href="#dropdowns">Dropdowns</a>
+      <a class="nav-link" href="#icons">Icons</a>
+      <a class="nav-link" href="#forms">Forms</a>
+      <div class="grp">Patterns</div>
+      <a class="nav-link" href="#cards">Cards</a>
+      <a class="nav-link" href="#lists">Folders &amp; books</a>
+      <div class="grp">Reference</div>
+      <a class="nav-link" href="#accessibility">Accessibility</a>
+      <a class="nav-link" href="#usage">Usage — do/don't</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Style guide · not a page implementation</div>
+        <h1>Color, type and component states</h1>
+      </div>
+      <div class="form-check form-switch" id="themeToggle">
+        <input class="form-check-input" type="checkbox" role="switch" id="themeSwitch" switch checked aria-label="Toggle dark mode">
+        <label class="form-check-label" for="themeSwitch">
+          <i class="bi bi-moon-stars-fill theme-icon" id="themeIcon" aria-hidden="true"></i>
+          <span id="themeLabel">Dark mode</span>
+        </label>
+      </div>
+    </div>
+
+    <section id="principles">
+      <div class="section-head"><span class="section-bar bar-green"></span><h2>Principles</h2></div>
+      <p class="section-desc">
+        The palette starts from green and gold, deepened to work as interface color rather than flag color, joined by a blue as a third brand hue. All three live as <b>identity</b> — navigation, primary actions, categorization. The <b>feedback</b> colors (success/warning/danger/info) are a separate system: they reuse green and blue where the meaning already lines up, but warning and danger use their own hues, so "this is gold because it's the brand" is never confused with "this is gold because it's an alert."
+      </p>
+    </section>
+
+    <section id="brand">
+      <div class="section-head"><span class="section-bar bar-green"></span><h2>Brand color</h2></div>
+      <p class="section-desc">Each hue has a scale from 50 (lightest) to 900 (darkest). Step <code>500</code> is the base used for primary actions; the light steps (50–200) serve as backgrounds in light mode, the dark steps (700–900) serve as backgrounds in dark mode.</p>
+
+      <div class="scale-row">
+        <div class="scale-label">Signal Green<small>primary</small></div>
+        <div class="swatch" style="background:#EAF5EE"><span class="step meta-font" style="color:#1D4F33">50</span><span class="hex meta-font" style="color:#1D4F33">#EAF5EE</span></div>
+        <div class="swatch" style="background:#CFE9D7"><span class="step meta-font" style="color:#1D4F33">100</span><span class="hex meta-font" style="color:#1D4F33">#CFE9D7</span></div>
+        <div class="swatch" style="background:#A3D3B4"><span class="step meta-font" style="color:#163C27">200</span><span class="hex meta-font" style="color:#163C27">#A3D3B4</span></div>
+        <div class="swatch" style="background:#74BB8F"><span class="step meta-font" style="color:#10291B">300</span><span class="hex meta-font" style="color:#10291B">#74BB8F</span></div>
+        <div class="swatch" style="background:#4A9E6D"><span class="step meta-font" style="color:#0B1C12">400</span><span class="hex meta-font" style="color:#0B1C12">#4A9E6D</span></div>
+        <div class="swatch base" style="background:#2F7A4F"><span class="step meta-font" style="color:#EAF5EE">500</span><span class="hex meta-font" style="color:#EAF5EE">#2F7A4F</span></div>
+        <div class="swatch" style="background:#256440"><span class="step meta-font" style="color:#EAF5EE">600</span><span class="hex meta-font" style="color:#EAF5EE">#256440</span></div>
+        <div class="swatch" style="background:#1D4F33"><span class="step meta-font" style="color:#EAF5EE">700</span><span class="hex meta-font" style="color:#EAF5EE">#1D4F33</span></div>
+        <div class="swatch" style="background:#163C27"><span class="step meta-font" style="color:#EAF5EE">800</span><span class="hex meta-font" style="color:#EAF5EE">#163C27</span></div>
+        <div class="swatch" style="background:#10291B"><span class="step meta-font" style="color:#EAF5EE">900</span><span class="hex meta-font" style="color:#EAF5EE">#10291B</span></div>
+      </div>
+      <div class="usage-note"><b>Usage:</b> light mode — text/icon at <code>700</code> on a <code>50</code> background; primary button at <code>500</code> with white text. Dark mode — text/icon at <code>300</code> on a <code>900</code> background; the primary button stays <code>500</code> (5.2:1 contrast in both modes).</div>
+
+      <div class="scale-row" style="margin-top:22px;">
+        <div class="scale-label">Ochre Gold<small>secondary</small></div>
+        <div class="swatch" style="background:#FBF3E3"><span class="step meta-font" style="color:#755618">50</span><span class="hex meta-font" style="color:#755618">#FBF3E3</span></div>
+        <div class="swatch" style="background:#F3E0B8"><span class="step meta-font" style="color:#755618">100</span><span class="hex meta-font" style="color:#755618">#F3E0B8</span></div>
+        <div class="swatch" style="background:#E7C787"><span class="step meta-font" style="color:#543D10">200</span><span class="hex meta-font" style="color:#543D10">#E7C787</span></div>
+        <div class="swatch" style="background:#D8AC5C"><span class="step meta-font" style="color:#362809">300</span><span class="hex meta-font" style="color:#362809">#D8AC5C</span></div>
+        <div class="swatch" style="background:#C89B3F"><span class="step meta-font" style="color:#241a06">400</span><span class="hex meta-font" style="color:#241a06">#C89B3F</span></div>
+        <div class="swatch base" style="background:#B98A2E"><span class="step meta-font" style="color:#FBF3E3">500</span><span class="hex meta-font" style="color:#FBF3E3">#B98A2E</span></div>
+        <div class="swatch" style="background:#967021"><span class="step meta-font" style="color:#FBF3E3">600</span><span class="hex meta-font" style="color:#FBF3E3">#967021</span></div>
+        <div class="swatch" style="background:#755618"><span class="step meta-font" style="color:#FBF3E3">700</span><span class="hex meta-font" style="color:#FBF3E3">#755618</span></div>
+        <div class="swatch" style="background:#543D10"><span class="step meta-font" style="color:#FBF3E3">800</span><span class="hex meta-font" style="color:#FBF3E3">#543D10</span></div>
+        <div class="swatch" style="background:#362809"><span class="step meta-font" style="color:#FBF3E3">900</span><span class="hex meta-font" style="color:#FBF3E3">#362809</span></div>
+      </div>
+      <div class="usage-note"><b>Usage:</b> the secondary button at <code>500</code> uses <b>dark</b> text (<code>#16211B</code>), not white — white on <code>500</code> lands at 3.1:1, below the minimum for normal text (see Accessibility). In dark mode, text/links sit at <code>300</code> on a <code>900</code> background.</div>
+
+      <div class="scale-row" style="margin-top:22px;">
+        <div class="scale-label">Deep Blue<small>tertiary</small></div>
+        <div class="swatch" style="background:#E8F1F7"><span class="step meta-font" style="color:#1D3E59">50</span><span class="hex meta-font" style="color:#1D3E59">#E8F1F7</span></div>
+        <div class="swatch" style="background:#C4DCEA"><span class="step meta-font" style="color:#1D3E59">100</span><span class="hex meta-font" style="color:#1D3E59">#C4DCEA</span></div>
+        <div class="swatch" style="background:#96C0D8"><span class="step meta-font" style="color:#152B3F">200</span><span class="hex meta-font" style="color:#152B3F">#96C0D8</span></div>
+        <div class="swatch" style="background:#67A3C4"><span class="step meta-font" style="color:#0E1B29">300</span><span class="hex meta-font" style="color:#0E1B29">#67A3C4</span></div>
+        <div class="swatch" style="background:#4587AC"><span class="step meta-font" style="color:#0A141E">400</span><span class="hex meta-font" style="color:#0A141E">#4587AC</span></div>
+        <div class="swatch base" style="background:#2F6690"><span class="step meta-font" style="color:#E8F1F7">500</span><span class="hex meta-font" style="color:#E8F1F7">#2F6690</span></div>
+        <div class="swatch" style="background:#255174"><span class="step meta-font" style="color:#E8F1F7">600</span><span class="hex meta-font" style="color:#E8F1F7">#255174</span></div>
+        <div class="swatch" style="background:#1D3E59"><span class="step meta-font" style="color:#E8F1F7">700</span><span class="hex meta-font" style="color:#E8F1F7">#1D3E59</span></div>
+        <div class="swatch" style="background:#152B3F"><span class="step meta-font" style="color:#E8F1F7">800</span><span class="hex meta-font" style="color:#E8F1F7">#152B3F</span></div>
+        <div class="swatch" style="background:#0E1B29"><span class="step meta-font" style="color:#E8F1F7">900</span><span class="hex meta-font" style="color:#E8F1F7">#0E1B29</span></div>
+      </div>
+      <div class="usage-note"><b>Usage:</b> reserved for tertiary actions/links and for "Info" in the semantic system below — it's the only brand color reused 1:1 as a feedback color, because blue = information is already a convention that doesn't conflict with its role as a brand hue.</div>
+    </section>
+
+    <section id="neutrals">
+      <div class="section-head"><span class="section-bar bar-gold"></span><h2>Neutrals</h2></div>
+      <p class="section-desc">A neutral scale with a warm, paper-like cast in light mode and a cool green-tinted cast in dark mode. Two independent ramps — one per mode — not the same scale inverted.</p>
+      <div class="usage-note" style="margin-bottom:14px;"><b>Dark mode</b> — app background <code>900</code>, card <code>850</code>, elevated <code>800</code>, border <code>700</code>.</div>
+      <div class="neutral-row">
+        <div class="n-cell" style="background:#0D1512"><span class="step meta-font" style="color:#8FA398">900 · app</span><span class="hex meta-font" style="color:#8FA398">#0D1512</span></div>
+        <div class="n-cell" style="background:#121C17"><span class="step meta-font" style="color:#8FA398">850 · card</span><span class="hex meta-font" style="color:#8FA398">#121C17</span></div>
+        <div class="n-cell" style="background:#1B2A22"><span class="step meta-font" style="color:#8FA398">800 · elevated</span><span class="hex meta-font" style="color:#8FA398">#1B2A22</span></div>
+        <div class="n-cell" style="background:#28352D"><span class="step meta-font" style="color:#DCE0D8">700 · border</span><span class="hex meta-font" style="color:#DCE0D8">#28352D</span></div>
+        <div class="n-cell" style="background:#54655B"><span class="step meta-font" style="color:#0D1512">500 · muted</span><span class="hex meta-font" style="color:#0D1512">#54655B</span></div>
+        <div class="n-cell" style="background:#8FA398"><span class="step meta-font" style="color:#0D1512">300 · weak text</span><span class="hex meta-font" style="color:#0D1512">#8FA398</span></div>
+        <div class="n-cell" style="background:#EDEAE0"><span class="step meta-font" style="color:#0D1512">0 · strong text</span><span class="hex meta-font" style="color:#0D1512">#EDEAE0</span></div>
+      </div>
+      <div class="usage-note" style="margin:14px 0;"><b>Light mode — Kindle-paper</b> — instead of white, the app background is a warm, darker cream (<code>#EFE3C6</code>), like an e-reader page. Cards sit one notch lighter, never pure white.</div>
+      <div class="neutral-row">
+        <div class="n-cell" style="background:#EFE3C6;border-right:1px solid #D2BE8D"><span class="step meta-font" style="color:#6B6048">app</span><span class="hex meta-font" style="color:#6B6048">#EFE3C6</span></div>
+        <div class="n-cell" style="background:#F8EFD9;border-right:1px solid #D2BE8D"><span class="step meta-font" style="color:#6B6048">card</span><span class="hex meta-font" style="color:#6B6048">#F8EFD9</span></div>
+        <div class="n-cell" style="background:#E6D6AE;border-right:1px solid #D2BE8D"><span class="step meta-font" style="color:#6B6048">elevated</span><span class="hex meta-font" style="color:#6B6048">#E6D6AE</span></div>
+        <div class="n-cell" style="background:#D2BE8D;border-right:1px solid #B9A578"><span class="step meta-font" style="color:#4A4030">border</span><span class="hex meta-font" style="color:#4A4030">#D2BE8D</span></div>
+        <div class="n-cell" style="background:#6B6048"><span class="step meta-font" style="color:#F8EFD9">muted</span><span class="hex meta-font" style="color:#F8EFD9">#6B6048</span></div>
+        <div class="n-cell" style="background:#4A4030"><span class="step meta-font" style="color:#F8EFD9">text</span><span class="hex meta-font" style="color:#F8EFD9">#4A4030</span></div>
+        <div class="n-cell" style="background:#2B2418"><span class="step meta-font" style="color:#F8EFD9">strong text</span><span class="hex meta-font" style="color:#F8EFD9">#2B2418</span></div>
+      </div>
+      <div class="usage-note"><b>Why not white:</b> a pure white app background makes the brand hues look harsh and screen-like next to a paper-toned brand voice. The cream base (<code>#EFE3C6</code>) keeps the same warm undertone as the dark mode's green-black, so both modes read as one family instead of "dark theme" and "generic light theme" bolted together.</div>
+    </section>
+
+    <section id="semantic">
+      <div class="section-head"><span class="section-bar bar-blue"></span><h2>Semantic colors</h2></div>
+      <p class="section-desc">Success reuses Signal Green and Info reuses Deep Blue — the meaning already matches the brand. Warning and Danger are their own hues (burnt orange and terracotta), deliberately different from the brand's Ochre Gold, so "this is gold" is never read as "this is a warning."</p>
+      <div class="table-responsive mb-2">
+      <table class="table table-sm align-middle tokens">
+        <tr><th>Role</th><th>Source</th><th>Base</th><th>Token</th></tr>
+        <tr><td class="chip-cell"><span class="swatch-dot" style="background:#2F7A4F"></span>Success</td><td>Signal Green 500</td><td><code>#2F7A4F</code></td><td><code>--color-success</code></td></tr>
+        <tr><td class="chip-cell"><span class="swatch-dot" style="background:#C9762E"></span>Warning</td><td>own hue — never the brand gold</td><td><code>#C9762E</code></td><td><code>--color-warning</code></td></tr>
+        <tr><td class="chip-cell"><span class="swatch-dot" style="background:#B5432E"></span>Danger</td><td>own hue</td><td><code>#B5432E</code></td><td><code>--color-danger</code></td></tr>
+        <tr><td class="chip-cell"><span class="swatch-dot" style="background:#2F6690"></span>Info</td><td>Deep Blue 500</td><td><code>#2F6690</code></td><td><code>--color-info</code></td></tr>
+      </table>
+      </div>
+    </section>
+
+    <section id="alerts">
+      <div class="section-head"><span class="section-bar bar-blue"></span><h2>Alerts — recipe per mode</h2></div>
+      <p class="section-desc">Real Bootstrap <code>.alert .alert-success</code> markup — themed by overriding each variant's own <code>--bs-alert-bg/border-color/color</code>, the same technique used for buttons. The block below responds to the Dark/Light switch at the top. Formula: <b>light</b> = background 50/100 + border 200/300 + text 700; <b>dark</b> = base-tone background at 14% opacity + border at 45% + text at step 300.</p>
+
+      <div class="row g-3 mb-2">
+        <div class="col-12 col-md-6"><div class="alert alert-success h-100 mb-0" role="alert"><strong>Success.</strong> <span class="body">Project saved and synced locally.</span></div></div>
+        <div class="col-12 col-md-6"><div class="alert alert-info h-100 mb-0" role="alert"><strong>Info.</strong> <span class="body">Original files are never modified.</span></div></div>
+        <div class="col-12 col-md-6"><div class="alert alert-warning h-100 mb-0" role="alert"><strong>Warning.</strong> <span class="body">2 clips still haven't been cropped.</span></div></div>
+        <div class="col-12 col-md-6"><div class="alert alert-danger h-100 mb-0" role="alert"><strong>Error.</strong> <span class="body">Couldn't read the selected folder.</span></div></div>
+      </div>
+    </section>
+
+    <section id="typography">
+      <div class="section-head"><span class="section-bar bar-green"></span><h2>Typography</h2></div>
+      <p class="section-desc">Zilla Slab for titles (a warm, editorial slab serif) and Montserrat for body copy, labels, metadata, and utility text — the same pairing works unchanged in both modes; only the surrounding contrast changes.</p>
+
+      <div class="type-row"><div class="meta">Display · 44/1.05<br>Zilla Slab 600</div><div class="sample" style="font-family:var(--font-family-title);font-size:2.2rem;font-weight:600;">Built to last</div></div>
+      <div class="type-row"><div class="meta">H1 · 28/1.2<br>Zilla Slab 600</div><div class="sample" style="font-family:var(--font-family-title);font-size:1.75rem;font-weight:600;">Section title</div></div>
+      <div class="type-row"><div class="meta">H2 · 22/1.3<br>Zilla Slab 500</div><div class="sample" style="font-family:var(--font-family-title);font-size:1.35rem;font-weight:500;">Block subtitle</div></div>
+      <div class="type-row"><div class="meta">Body · 16/1.6<br>Montserrat 400</div><div class="sample" style="font-family:var(--font-family-base);font-size:1rem;">Standard paragraph text for reading content.</div></div>
+      <div class="type-row"><div class="meta">Caption · 13/1.4<br>Montserrat 500, muted</div><div class="sample" style="font-family:var(--font-family-base);font-size:.82rem;color:var(--text-muted);">Helper text, field labels, metadata.</div></div>
+      <div class="type-row" style="border-bottom:none;"><div class="meta">Metadata · 12/1.4<br>Montserrat 500</div><div class="sample meta-font" style="font-size:.78rem;">00:42 · session_014.mp4</div></div>
+    </section>
+
+    <section id="buttons">
+      <div class="section-head"><span class="section-bar bar-gold"></span><h2>Buttons — Bootstrap variants, themed</h2></div>
+      <p class="section-desc">These are real Bootstrap 5 <code>.btn</code> classes, not bespoke ones — <code>btn-primary</code> is gold, <code>btn-secondary</code> is green, and the semantic variants (<code>btn-success/warning/danger/info</code>) match the feedback palette from earlier in this guide. Everything — resting, hover, active, focus ring, disabled — is themed through Bootstrap's own CSS custom properties, so it stays a normal Bootstrap button underneath: same markup, same JS, same accessibility behavior, only the color tokens changed.</p>
+
+      <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <button type="button" class="btn btn-primary">Primary</button>
+        <button type="button" class="btn btn-secondary">Secondary</button>
+        <button type="button" class="btn btn-success">Success</button>
+        <button type="button" class="btn btn-danger">Danger</button>
+        <button type="button" class="btn btn-warning">Warning</button>
+        <button type="button" class="btn btn-info">Info</button>
+        <button type="button" class="btn btn-light">Light</button>
+        <button type="button" class="btn btn-dark">Dark</button>
+        <button type="button" class="btn btn-link">Link</button>
+      </div>
+      <div class="usage-note" style="margin-bottom:18px;">Hover any of these — the shade darkens using the same 15%/20% hover/active mix Bootstrap applies to every variant, just computed from our hex instead of the Bootstrap defaults. <code>Light</code> and <code>Dark</code> are left as Bootstrap's own neutrals on purpose; they're utility, not brand. <code>Link</code> is set to Deep Blue — the one place a button is allowed to read as blue, because a link-styled button <i>is</i> a link.</div>
+
+      <span class="state-label">Applied — primary action + a real disabled state</span>
+      <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2"><i class="bi bi-check2 lh-1 flex-shrink-0" aria-hidden="true"></i><span>Save crop</span></button>
+        <button type="button" class="btn btn-secondary d-inline-flex align-items-center gap-2"><i class="bi bi-arrow-repeat lh-1 flex-shrink-0" aria-hidden="true"></i><span>Rescan</span></button>
+        <button type="button" class="btn btn-secondary" disabled>Unavailable</button>
+      </div>
+      <div class="usage-note mb-3"><b>Icon button rule:</b> use Bootstrap utilities <code>d-inline-flex align-items-center gap-2</code> on the button and <code>lh-1 flex-shrink-0</code> on the icon. The <code>gap-2</code> utility provides a consistent 0.5rem safe space between icon and label without manual margins or whitespace-dependent layout.</div>
+
+      <div class="table-responsive mb-2">
+      <table class="table table-sm align-middle tokens">
+        <tr><th>Class</th><th>Role</th><th>Base</th><th>Text</th></tr>
+        <tr><td><code>.btn-primary</code></td><td>the one main action on a screen or card</td><td><code>Gold 500 #B98A2E</code></td><td><code>#16211B</code> (dark, fixed — see Accessibility)</td></tr>
+        <tr><td><code>.btn-secondary</code></td><td>a complementary action beside it</td><td><code>Green 500 #2F7A4F</code></td><td>white</td></tr>
+        <tr><td><code>.btn-success / .btn-warning / .btn-danger / .btn-info</code></td><td>maps 1:1 to the semantic tokens</td><td>same hex as the Semantic colors table</td><td>white / dark / white / white</td></tr>
+        <tr><td><code>.btn-link</code></td><td>the one blue button — because it's a link</td><td colspan="2"><code>Deep Blue</code>, no fill</td></tr>
+      </table>
+      </div>
+      <div class="usage-note"><b>Rule:</b> a screen shows at most one <code>btn-primary</code> at a time — everything else beside it is <code>btn-secondary</code> or plain <code>btn-link</code>. The semantic variants (<code>success/warning/danger/info</code>) are for confirm/destroy actions inside a flow ("Delete", "Confirm"), not general navigation.</div>
+    </section>
+
+    <section id="icon-buttons">
+      <div class="section-head"><span class="section-bar bar-gold"></span><h2>Icon buttons — video player controls</h2></div>
+      <p class="section-desc">Use icon-only buttons for compact, familiar player actions. They remain real Bootstrap <code>.btn</code> controls; <code>.btn-icon</code> only gives them a consistent 40×40px square hit area and centers the Bootstrap Icon. Every icon-only action must include an <code>aria-label</code> and a Bootstrap tooltip so meaning never depends on the glyph alone.</p>
+
+      <span class="state-label">Control set</span>
+      <div class="d-flex flex-wrap gap-3 mb-4">
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Play" data-bs-toggle="tooltip" data-bs-title="Play"><i class="bi bi-play-fill" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Play</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Pause" data-bs-toggle="tooltip" data-bs-title="Pause"><i class="bi bi-pause-fill" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Pause</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Mute" data-bs-toggle="tooltip" data-bs-title="Mute"><i class="bi bi-volume-mute-fill" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Muted</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Unmute" data-bs-toggle="tooltip" data-bs-title="Unmute"><i class="bi bi-volume-up-fill" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Not muted</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Fullscreen" data-bs-toggle="tooltip" data-bs-title="Fullscreen"><i class="bi bi-fullscreen" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Fullscreen</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Loop" data-bs-toggle="tooltip" data-bs-title="Loop"><i class="bi bi-infinity" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Loop</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Repeat video" data-bs-toggle="tooltip" data-bs-title="Repeat one"><i class="bi bi-repeat-1" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Repeat</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Set point A" data-bs-toggle="tooltip" data-bs-title="Point A"><i class="bi bi-chevron-bar-left" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Point A</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Set point B" data-bs-toggle="tooltip" data-bs-title="Point B"><i class="bi bi-chevron-bar-right" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Point B</div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-player btn-icon" aria-label="Download" data-bs-toggle="tooltip" data-bs-title="Download"><i class="bi bi-download" aria-hidden="true"></i></button>
+          <div class="control-caption mt-1">Download</div>
+        </div>
+      </div>
+
+      <span class="state-label">Applied — compact video player toolbar</span>
+      <div class="card player-demo mb-3">
+        <div class="ratio ratio-16x9 player-screen">
+          <div class="d-flex flex-column align-items-center justify-content-center player-placeholder">
+            <i class="bi bi-play-circle mb-2" style="font-size:2.5rem;" aria-hidden="true"></i>
+            <span class="small">Video preview · 1920×1080</span>
+          </div>
+        </div>
+        <div class="card-body player-toolbar py-2 px-2 px-sm-3">
+          <div class="d-flex align-items-center gap-2 gap-sm-3 mb-2" aria-label="Video progress">
+            <span class="player-time" aria-label="Elapsed time">00:42</span>
+            <div class="progress player-progress" role="progressbar" aria-label="Video playback progress" aria-valuenow="21" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" style="width:21%"></div>
+            </div>
+            <span class="player-time" aria-label="Total duration">03:18</span>
+          </div>
+
+          <div class="btn-toolbar d-flex flex-wrap align-items-center gap-2" role="toolbar" aria-label="Video player controls">
+            <div class="btn-group" role="group" aria-label="Playback">
+              <button type="button" class="btn btn-player btn-icon" aria-label="Play" data-bs-toggle="tooltip" data-bs-title="Play"><i class="bi bi-play-fill" aria-hidden="true"></i></button>
+              <button type="button" class="btn btn-player btn-icon" aria-label="Pause" data-bs-toggle="tooltip" data-bs-title="Pause"><i class="bi bi-pause-fill" aria-hidden="true"></i></button>
+              <button type="button" class="btn btn-player btn-icon" aria-label="Repeat current video" aria-pressed="false" data-player-toggle="repeat-one" data-bs-toggle="tooltip" data-bs-title="Repeat one"><i class="bi bi-repeat-1" aria-hidden="true"></i></button>
+            </div>
+
+            <div class="btn-group" role="group" aria-label="Audio">
+              <button type="button" class="btn btn-player btn-icon" aria-label="Mute" data-bs-toggle="tooltip" data-bs-title="Mute"><i class="bi bi-volume-mute-fill" aria-hidden="true"></i></button>
+              <button type="button" class="btn btn-player btn-icon" aria-label="Unmute" data-bs-toggle="tooltip" data-bs-title="Unmute"><i class="bi bi-volume-up-fill" aria-hidden="true"></i></button>
+            </div>
+
+            <div class="btn-group ms-md-auto" role="group" aria-label="Loop points">
+              <button type="button" class="btn btn-player btn-icon" aria-label="Set point A" data-bs-toggle="tooltip" data-bs-title="Set point A"><i class="bi bi-chevron-bar-left" aria-hidden="true"></i></button>
+              <button type="button" class="btn btn-player btn-icon" aria-label="Set point B" data-bs-toggle="tooltip" data-bs-title="Set point B"><i class="bi bi-chevron-bar-right" aria-hidden="true"></i></button>
+              <button type="button" class="btn btn-player btn-icon" aria-label="Loop between points A and B" aria-pressed="false" data-player-toggle="loop" data-bs-toggle="tooltip" data-bs-title="Loop A–B"><i class="bi bi-infinity" aria-hidden="true"></i></button>
+            </div>
+
+            <div class="btn-group" role="group" aria-label="Video actions">
+              <button type="button" class="btn btn-player btn-icon" aria-label="Fullscreen" data-bs-toggle="tooltip" data-bs-title="Fullscreen"><i class="bi bi-fullscreen" aria-hidden="true"></i></button>
+              <button type="button" class="btn btn-player btn-icon" aria-label="Download video" data-bs-toggle="tooltip" data-bs-title="Download"><i class="bi bi-download" aria-hidden="true"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="usage-note"><b>Rule:</b> icon-only controls use a minimum 40×40px target, stay centered with <code>d-inline-flex</code> behavior, and never rely on color alone for state. Use <code>aria-pressed</code> for toggles such as Loop and Repeat One; the active state is gold. Playback position uses Bootstrap <code>.progress</code> with elapsed and total time on either side; the filled track uses Brand Gold. Keep related actions inside Bootstrap <code>.btn-group</code>s and use <code>.btn-toolbar</code> plus <code>gap-2</code> to create safe space between control groups.</div>
+    </section>
+
+    <section id="dropdowns">
+      <div class="section-head"><span class="section-bar bar-gold"></span><h2>Dropdowns</h2></div>
+      <p class="section-desc">A real Bootstrap <code>.dropdown</code> — click it, it opens and closes via Bootstrap's own JS. The trigger uses the reversed-gold outline button treatment; the open menu sits one step up from the page background, and the active item is picked out with a soft gold tint via <code>--bs-dropdown-link-active-bg</code> — never a filled row.</p>
+      <div class="d-flex flex-wrap gap-4 align-items-start">
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="--bs-btn-color:var(--brand-gold-onbg); --bs-btn-border-color:var(--brand-gold-onbg); --bs-btn-hover-color:var(--brand-gold-onbg); --bs-btn-hover-bg:var(--tint-gold-bg); --bs-btn-hover-border-color:var(--brand-gold-onbg);">
+            Sort by
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item active" href="#"><i class="bi bi-clock-history icon" aria-hidden="true"></i>Recently added</a></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-sort-alpha-down icon" aria-hidden="true"></i>Title A–Z</a></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-person icon" aria-hidden="true"></i>Author</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#"><i class="bi bi-bookmark icon" aria-hidden="true"></i>Highlight count</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="icons">
+      <div class="section-head"><span class="section-bar bar-blue"></span><h2>Icons</h2></div>
+      <p class="section-desc">Bootstrap Icons throughout, drawn at 1–1.4rem and always set to <code>currentColor</code> — an icon never carries its own color, it inherits whatever text color surrounds it (muted by default, gold when the row or item is active).</p>
+      <div class="icon-grid">
+        <div class="icon-tile"><i class="bi bi-folder2 icon" aria-hidden="true"></i><span class="icon-name">bi-folder2</span></div>
+        <div class="icon-tile"><i class="bi bi-folder2-open icon" aria-hidden="true"></i><span class="icon-name">bi-folder2-open</span></div>
+        <div class="icon-tile"><i class="bi bi-book icon" aria-hidden="true"></i><span class="icon-name">bi-book</span></div>
+        <div class="icon-tile"><i class="bi bi-journal-bookmark icon" aria-hidden="true"></i><span class="icon-name">bi-journal-bookmark</span></div>
+        <div class="icon-tile"><i class="bi bi-bookmark icon" aria-hidden="true"></i><span class="icon-name">bi-bookmark</span></div>
+        <div class="icon-tile"><i class="bi bi-bookmark-star icon" aria-hidden="true"></i><span class="icon-name">bi-bookmark-star</span></div>
+        <div class="icon-tile"><i class="bi bi-search icon" aria-hidden="true"></i><span class="icon-name">bi-search</span></div>
+        <div class="icon-tile"><i class="bi bi-plus-lg icon" aria-hidden="true"></i><span class="icon-name">bi-plus-lg</span></div>
+        <div class="icon-tile"><i class="bi bi-three-dots-vertical icon" aria-hidden="true"></i><span class="icon-name">bi-three-dots-vertical</span></div>
+        <div class="icon-tile"><i class="bi bi-chevron-down icon" aria-hidden="true"></i><span class="icon-name">bi-chevron-down</span></div>
+        <div class="icon-tile"><i class="bi bi-funnel icon" aria-hidden="true"></i><span class="icon-name">bi-funnel</span></div>
+        <div class="icon-tile"><i class="bi bi-grid-3x3-gap icon" aria-hidden="true"></i><span class="icon-name">bi-grid-3x3-gap</span></div>
+        <div class="icon-tile"><i class="bi bi-list-ul icon" aria-hidden="true"></i><span class="icon-name">bi-list-ul</span></div>
+        <div class="icon-tile"><i class="bi bi-star icon" aria-hidden="true"></i><span class="icon-name">bi-star</span></div>
+        <div class="icon-tile"><i class="bi bi-download icon" aria-hidden="true"></i><span class="icon-name">bi-download</span></div>
+        <div class="icon-tile"><i class="bi bi-trash icon" aria-hidden="true"></i><span class="icon-name">bi-trash</span></div>
+        <div class="icon-tile"><i class="bi bi-pencil icon" aria-hidden="true"></i><span class="icon-name">bi-pencil</span></div>
+        <div class="icon-tile"><i class="bi bi-gear icon" aria-hidden="true"></i><span class="icon-name">bi-gear</span></div>
+        <div class="icon-tile"><i class="bi bi-tag icon" aria-hidden="true"></i><span class="icon-name">bi-tag</span></div>
+        <div class="icon-tile"><i class="bi bi-clock-history icon" aria-hidden="true"></i><span class="icon-name">bi-clock-history</span></div>
+      </div>
+    </section>
+
+    <section id="forms">
+      <div class="section-head"><span class="section-bar bar-blue"></span><h2>Forms — states</h2></div>
+      <p class="section-desc">Real Bootstrap <code>.form-control</code> and <code>.form-label</code> — click into any of these, the focus ring you see is the live <code>:focus</code> state, not a screenshot of one.</p>
+      <div class="mb-3" style="max-width:320px;">
+        <label class="form-label">Default</label>
+        <input type="text" class="form-control" placeholder="project-name">
+      </div>
+      <div class="mb-3" style="max-width:320px;">
+        <label class="form-label">Try focusing this one</label>
+        <input type="text" class="form-control" value="summer-reels-2026">
+      </div>
+      <div class="mb-3" style="max-width:320px;">
+        <label class="form-label">Error</label>
+        <input type="text" class="form-control is-invalid" value="invalid name">
+        <div class="invalid-feedback d-block">Use lowercase letters and hyphens only.</div>
+      </div>
+    </section>
+
+    <section id="cards">
+      <div class="section-head"><span class="section-bar bar-blue"></span><h2>Cards</h2></div>
+      <p class="section-desc">Real Bootstrap <code>.card</code> markup — <code>.card-body</code>, <code>.card-title</code>, <code>.card-text</code> — themed only by pointing <code>--bs-card-bg</code> at our surface color. Two shapes cover most of the library: a tall, cover-forward book card for a browsing grid, and a flat folder card for a horizontal shelf. Neither carries a filled button — the card itself is the click target.</p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-body">
+            <div class="book-cover mb-3"><i class="bi bi-book icon" style="font-size:1.6rem;" aria-hidden="true"></i></div>
+            <h4 class="card-title">The Pragmatic Programmer</h4>
+            <p class="card-text text-muted small mb-2">David Thomas, Andrew Hunt</p>
+            <div class="d-flex justify-content-between small text-muted meta-font">
+              <span><i class="bi bi-bookmark icon" aria-hidden="true"></i> 42 highlights</span><span>82%</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <div class="book-cover mb-3"><i class="bi bi-book icon" style="font-size:1.6rem;" aria-hidden="true"></i></div>
+            <h4 class="card-title">Designing Data-Intensive Applications</h4>
+            <p class="card-text text-muted small mb-2">Martin Kleppmann</p>
+            <div class="d-flex justify-content-between small text-muted meta-font">
+              <span><i class="bi bi-bookmark icon" aria-hidden="true"></i> 117 highlights</span><span>54%</span>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="grid-column:span 2;">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="folder-icon-tile"><i class="bi bi-folder2 icon" aria-hidden="true"></i></div>
+            <div>
+              <h4 class="card-title mb-0">Software Engineering</h4>
+              <p class="card-text text-muted small meta-font mb-0">14 books · 3 sub-folders</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="lists">
+      <div class="section-head"><span class="section-bar bar-green"></span><h2>Folders &amp; book lists</h2></div>
+      <p class="section-desc">Real Bootstrap <code>.list-group</code> / <code>.list-group-item-action</code> — the same row pattern serves both folders and books, using Bootstrap's own hover/active mechanics (<code>--bs-list-group-action-hover-bg</code>, <code>--bs-list-group-active-bg</code>) instead of bespoke CSS. Hover this list for real.</p>
+      <div class="usage-note" style="margin-bottom:18px;"><b>Interaction color:</b> hover is always green, everywhere — rows, cards, menu items, and it's also the resting fill of the Secondary button. Gold stays reserved for the one Primary action per screen (and for <code>.active</code> here). Blue never appears as a hover or interactive surface color at all; it's kept small — a tag badge, a link, an info icon — never a background you mouse over.</div>
+
+      <span class="state-label">Folders — with category-tinted icon tiles</span>
+      <div class="list-group mb-3">
+        <a href="#" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+          <div class="row-icon tint-green"><i class="bi bi-folder2 icon" aria-hidden="true"></i></div>
+          <div class="flex-grow-1"><div class="fw-medium">Software Engineering</div><div class="row-sub">14 books · 3 sub-folders</div></div>
+          <i class="bi bi-chevron-right icon row-chevron" aria-hidden="true"></i>
+        </a>
+        <a href="#" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+          <div class="row-icon tint-gold"><i class="bi bi-folder2 icon" aria-hidden="true"></i></div>
+          <div class="flex-grow-1"><div class="fw-medium">Philosophy</div><div class="row-sub">6 books</div></div>
+          <i class="bi bi-chevron-right icon row-chevron" aria-hidden="true"></i>
+        </a>
+        <a href="#" class="list-group-item list-group-item-action active d-flex align-items-center gap-3">
+          <div class="row-icon tint-blue"><i class="bi bi-folder2-open icon" aria-hidden="true"></i></div>
+          <div class="flex-grow-1"><div class="fw-medium">Currently reading</div><div class="row-sub">3 books · smart folder · <code>.active</code></div></div>
+          <i class="bi bi-chevron-right icon row-chevron" aria-hidden="true"></i>
+        </a>
+      </div>
+      <div class="usage-note" style="margin-bottom:22px;"><b>Category tint recipe:</b> hue-50 background + hue-200 icon — e.g. blue tile is icon <code>#96C0D8</code> on <code>#E8F1F7</code>, and green/gold follow the same two steps. It's deliberately quiet (around 1.6:1 contrast, below the 3:1 needed for a stand-alone graphic) so pair it with the label next to it, not with the icon alone carrying meaning — this is a color-coding accent for scanning a list, not the only way to tell folders apart. The default, meaning-neutral tile stays <code>--bg-elevated</code> with a muted icon, as used in the Books list below.</div>
+
+      <span class="state-label">Books</span>
+      <div class="list-group">
+        <a href="#" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+          <div class="row-icon"><i class="bi bi-book icon" aria-hidden="true"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-medium">The Pragmatic Programmer</div>
+            <div class="row-sub">David Thomas, Andrew Hunt · 42 highlights</div>
+          </div>
+          <span class="badge rounded-pill badge-blue-subtle"><i class="bi bi-tag icon" aria-hidden="true"></i> Craft</span>
+          <i class="bi bi-three-dots-vertical icon row-chevron" aria-hidden="true"></i>
+        </a>
+        <a href="#" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+          <div class="row-icon"><i class="bi bi-book icon" aria-hidden="true"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-medium">Designing Data-Intensive Applications</div>
+            <div class="row-sub">Martin Kleppmann · 117 highlights</div>
+          </div>
+          <span class="badge rounded-pill badge-blue-subtle"><i class="bi bi-tag icon" aria-hidden="true"></i> Systems</span>
+          <i class="bi bi-three-dots-vertical icon row-chevron" aria-hidden="true"></i>
+        </a>
+        <a href="#" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+          <div class="row-icon"><i class="bi bi-bookmark-star icon" aria-hidden="true"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-medium">Thinking, Fast and Slow</div>
+            <div class="row-sub">Daniel Kahneman · 89 highlights · <a href="#">new</a></div>
+          </div>
+          <i class="bi bi-three-dots-vertical icon row-chevron" aria-hidden="true"></i>
+        </a>
+      </div>
+      <div class="usage-note"><b>Where blue is allowed:</b> the <code>tag</code> badge and the <code>new</code> link above are it — small, low-weight, never the row's dominant color. That's the whole rule for blue outside of Info alerts.</div>
+    </section>
+
+    <section id="accessibility">
+      <div class="section-head"><span class="section-bar bar-green"></span><h2>Accessibility — contrast (WCAG)</h2></div>
+      <p class="section-desc">Contrast ratios calculated for the most-used text/background pairs. Minimum for normal text: 4.5:1 (AA). Large text (≥18px, or 14px bold) accepts 3:1.</p>
+      <div class="table-responsive mb-2">
+      <table class="table table-sm align-middle tokens">
+        <tr><th>Pair</th><th>Ratio</th><th>Result</th></tr>
+        <tr><td>Green 500 on white</td><td class="meta-font">5.23:1</td><td class="pass">AA</td></tr>
+        <tr><td>Gold 500 on white</td><td class="meta-font">3.12:1</td><td class="fail">AA, large text only</td></tr>
+        <tr><td>Dark text (#16211B) on Gold 500</td><td class="meta-font">5.95:1</td><td class="pass">AA</td></tr>
+        <tr><td>Blue 500 on white</td><td class="meta-font">6.13:1</td><td class="pass">AA</td></tr>
+        <tr><td>Strong text on dark app background</td><td class="meta-font">15.40:1</td><td class="pass">AAA</td></tr>
+        <tr><td>Strong text on Kindle-paper background</td><td class="meta-font">12.37:1</td><td class="pass">AAA</td></tr>
+        <tr><td>Muted text on Kindle-paper background</td><td class="meta-font">4.99:1</td><td class="pass">AA</td></tr>
+      </table>
+      </div>
+      <div class="usage-note">The one pairing that breaks the general rule is <b>white on Gold 500</b> — that's why the secondary button is the single documented exception with fixed dark text, covered above under Buttons.</div>
+    </section>
+
+    <section id="usage">
+      <div class="section-head"><span class="section-bar bar-gold"></span><h2>Usage — do / don't</h2></div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6"><div class="card dd-card dd-do h-100"><div class="card-body"><span class="tag">✓ DO</span><p>Use Ochre Gold for brand actions and highlights — navigation, secondary button, categorization.</p></div></div></div>
+        <div class="col-12 col-md-6"><div class="card dd-card dd-dont h-100"><div class="card-body"><span class="tag">✗ DON'T</span><p>Don't use Ochre Gold to signal a warning state — use the orange from <code>--color-warning</code> instead.</p></div></div></div>
+        <div class="col-12 col-md-6"><div class="card dd-card dd-do h-100"><div class="card-body"><span class="tag">✓ DO</span><p>Keep every button gold — filled for the one primary action, reversed for the rest. Keep the filled version's text fixed dark, in both modes.</p></div></div></div>
+        <div class="col-12 col-md-6"><div class="card dd-card dd-dont h-100"><div class="card-body"><span class="tag">✗ DON'T</span><p>Don't reach for green or blue to rank a second or third button — reverse the gold instead. And don't switch the filled button's text to white "to match" — it breaks the minimum contrast.</p></div></div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Theme toggle — Bootstrap form-switch + Bootstrap 5.3 color mode attribute
+  const themeSwitch = document.getElementById('themeSwitch');
+  const themeLabel = document.getElementById('themeLabel');
+  const themeIcon = document.getElementById('themeIcon');
+
+  function applyTheme(isDark) {
+    document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+    themeLabel.textContent = isDark ? 'Dark mode' : 'Light mode';
+    themeIcon.className = isDark ? 'bi bi-moon-stars-fill theme-icon' : 'bi bi-sun-fill theme-icon';
+  }
+
+  themeSwitch.addEventListener('change', () => applyTheme(themeSwitch.checked));
+  applyTheme(themeSwitch.checked);
+
+  // Bootstrap tooltips for icon-only controls.
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => new bootstrap.Tooltip(el));
+
+  // Interactive pressed states for player toggle buttons such as Loop and Repeat One.
+  document.querySelectorAll('[data-player-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', String(next));
+      button.classList.toggle('active', next);
+    });
+  });
+
+  // Scrollspy on the sidebar nav-pills, targeting the scrollable window
+  new bootstrap.ScrollSpy(document.body, { target: '#sidebarNav', rootMargin: '0px 0px -70%' });
+</script>
+</body>
+</html>

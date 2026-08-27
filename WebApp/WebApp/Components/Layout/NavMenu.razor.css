@@ -1,8 +1,10 @@
-.app-nav { width: min(100%, 90rem); min-height: 4.5rem; margin: 0 auto; padding: .75rem clamp(1rem, 2.5vw, 2.5rem); display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.brand { min-width: 0; color: var(--color-header-text); display: inline-flex; align-items: center; gap: .8rem; text-decoration: none; }
-.brand-mark { width: 1.5rem; aspect-ratio: 9 / 16; flex: 0 0 auto; border: 2px solid var(--color-accent); border-radius: .3rem; box-shadow: .3rem .3rem 0 var(--shadow-brand); }
+.app-nav { width: min(100%, 90rem); min-height: 4.5rem; margin: 0 auto; padding: .75rem clamp(1rem, 2.5vw, 2.5rem); gap: 1rem; }
+.brand { min-width: 0; color: var(--text-strong); gap: .8rem; }
+.brand:hover { color: var(--brand-gold-onbg); }
+.brand-mark { width: 2.35rem; height: 2.35rem; flex: 0 0 auto; color: var(--brand-gold-onbg); background: var(--tint-gold-bg); border: 1px solid var(--border); border-radius: .55rem; box-shadow: var(--shadow); }
+.brand-mark .bi { font-size: 1.2rem; line-height: 1; }
 .brand strong, .brand small { display: block; }
-.brand strong { letter-spacing: .02em; }
-.brand small, .privacy-note { color: var(--color-header-muted); font-size: .78rem; }
-.nav-actions { display: flex; align-items: center; justify-content: flex-end; gap: .85rem; flex: 0 0 auto; }
-@media (max-width: 32rem) { .privacy-note { display: none; } .app-nav { gap: .65rem; } .brand small { font-size: .7rem; } }
+.brand strong { font-family: var(--font-family-title); font-size: 1.08rem; font-weight: 600; letter-spacing: .01em; }
+.brand small, .privacy-note { color: var(--text-muted); font-family: var(--font-family-meta); font-size: .76rem; }
+.nav-actions { justify-content: flex-end; gap: .85rem; flex: 0 0 auto; }
+@media (max-width: 32rem) { .app-nav { gap: .65rem; } .brand small { font-size: .68rem; } .brand-mark { width: 2.1rem; height: 2.1rem; } }

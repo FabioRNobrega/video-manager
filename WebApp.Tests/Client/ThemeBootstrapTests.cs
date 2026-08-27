@@ -18,10 +18,11 @@ public sealed class ThemeBootstrapTests
 
         Assert.Contains("<html lang=\"en\" data-bs-theme=\"dark\">", html);
         Assert.Contains("<meta name=\"color-scheme\" content=\"dark light\"", html);
+        Assert.Contains("Perene Tech Videos", html);
     }
 
     [Fact]
-    public async Task Theme_bootstrap_executes_before_application_styles()
+    public async Task Root_document_loads_design_assets_in_required_order()
     {
         using var root = new TemporaryDirectory();
         using var factory = new VideoManagerFactory(root.Path);
@@ -30,13 +31,28 @@ public sealed class ThemeBootstrapTests
         var html = await client.GetStringAsync("/");
         var colorSchemeIndex = html.IndexOf("name=\"color-scheme\"", StringComparison.Ordinal);
         var themeScriptIndex = html.IndexOf("js/theme", StringComparison.Ordinal);
-        var bootstrapStylesIndex = html.IndexOf("lib/bootstrap/dist/css/bootstrap", StringComparison.Ordinal);
+        var fontStylesIndex = html.IndexOf("fonts.googleapis.com/css2?family=Montserrat", StringComparison.Ordinal);
+        var bootstrapStylesIndex = html.IndexOf("bootstrap@5.3.8/dist/css/bootstrap.min.css", StringComparison.Ordinal);
+        var iconStylesIndex = html.IndexOf("bootstrap-icons@1.13.1/font/bootstrap-icons.min.css", StringComparison.Ordinal);
         var applicationStylesIndex = html.IndexOf("app.", StringComparison.Ordinal);
+        var isolatedStylesIndex = html.IndexOf("WebApp.", applicationStylesIndex + 1, StringComparison.Ordinal);
+        var blazorScriptIndex = html.IndexOf("_framework/blazor.web.js", StringComparison.Ordinal);
+        var bootstrapBundleIndex = html.IndexOf("bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js", StringComparison.Ordinal);
 
         Assert.True(colorSchemeIndex >= 0);
         Assert.True(themeScriptIndex > colorSchemeIndex);
-        Assert.True(bootstrapStylesIndex > themeScriptIndex);
-        Assert.True(applicationStylesIndex > themeScriptIndex);
+        Assert.True(fontStylesIndex > themeScriptIndex);
+        Assert.True(bootstrapStylesIndex > fontStylesIndex);
+        Assert.True(iconStylesIndex > bootstrapStylesIndex);
+        Assert.True(applicationStylesIndex > iconStylesIndex);
+        Assert.True(isolatedStylesIndex > applicationStylesIndex);
+        Assert.True(blazorScriptIndex > isolatedStylesIndex);
+        Assert.True(bootstrapBundleIndex > blazorScriptIndex);
+
+        Assert.Contains("family=Zilla+Slab", html);
+        Assert.Contains("integrity=\"sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB\"", html);
+        Assert.Contains("integrity=\"sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI\"", html);
+        Assert.DoesNotContain("lib/bootstrap/dist/css/bootstrap.min.css", html);
     }
 
     [Fact]

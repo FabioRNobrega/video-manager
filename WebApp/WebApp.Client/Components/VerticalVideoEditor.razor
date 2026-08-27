@@ -2,18 +2,21 @@
 @inject IJSRuntime JS
 
 <section class="@EditorCssClass" aria-labelledby="editor-heading">
-    <div class="editor-header">
+    <div class="editor-header card-header">
         <div>
             <p class="section-label">Vertical preview</p>
             <h2 id="editor-heading">@(Selected?.Name ?? "Choose a video")</h2>
         </div>
-        <button class="btn btn-outline-secondary btn-sm" type="button" disabled="@(Selected is null)" @onclick="Reset">Reset crop</button>
+        <button class="btn btn-secondary btn-sm" type="button" disabled="@(Selected is null)" @onclick="Reset">
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+            Reset crop
+        </button>
     </div>
 
     @if (Selected is null)
     {
-        <div class="editor-empty" role="status">
-            <div class="empty-frame" aria-hidden="true"></div>
+        <div class="editor-empty card-body" role="status">
+            <i class="bi bi-aspect-ratio empty-frame" aria-hidden="true"></i>
             <strong>No video selected</strong>
             <span>Scan the library and choose a clip to begin.</span>
         </div>
@@ -71,7 +74,8 @@
             </div>
             @if (_playbackError)
             {
-                <div class="playback-error" role="alert" aria-live="assertive">
+                <div class="playback-error alert alert-danger" role="alert" aria-live="assertive">
+                    <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
                     This browser can’t play the video’s encoding. You can still select another clip or reset the crop.
                 </div>
             }
@@ -113,8 +117,8 @@
     private bool _disposed;
 
     private string EditorCssClass => _fillTab.IsActive
-        ? "editor-card fill-tab-mode"
-        : "editor-card";
+        ? "editor-card card fill-tab-mode"
+        : "editor-card card";
 
     private string ObjectPosition => FormattableString.Invariant(
         $"{_frame.PositionX:0.##}% {_frame.PositionY:0.##}%");
@@ -170,7 +174,18 @@
 
     private async Task EnterFillTabAsync()
     {
-        if (_module is null || !_fillTab.Enter())
+        if (_module is null)
+        {
+            return;
+        }
+
+        if (_fillTab.IsActive)
+        {
+            await ExitFillTabAsync();
+            return;
+        }
+
+        if (!_fillTab.Enter())
         {
             return;
         }
@@ -180,7 +195,9 @@
     }
 
     [JSInvokable]
-    public async Task ExitFillTabFromEscapeAsync()
+    public Task ExitFillTabFromEscapeAsync() => ExitFillTabAsync();
+
+    private async Task ExitFillTabAsync()
     {
         var exited = _fillTab.Exit();
         if (_module is not null)
