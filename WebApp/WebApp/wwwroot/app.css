@@ -1,9 +1,136 @@
-html, body { min-height: 100%; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1d2924; background: #f4f2ed; }
+:root,
+[data-bs-theme="dark"] {
+    color-scheme: dark;
+    --color-canvas: #0f1713;
+    --color-header: #101914;
+    --color-header-text: #f6faf8;
+    --color-header-muted: #aab9b1;
+    --color-header-border: rgba(232, 177, 94, 0.28);
+    --color-header-control: rgba(255, 255, 255, 0.06);
+    --color-header-control-hover: rgba(232, 177, 94, 0.14);
+    --color-surface: #18231e;
+    --color-surface-elevated: #1d2a24;
+    --color-stage: #111b17;
+    --color-border: #33453b;
+    --color-border-subtle: #29382f;
+    --color-border-strong: #667a6f;
+    --color-text: #dfe8e3;
+    --color-text-strong: #f6faf8;
+    --color-text-muted: #a7b6ae;
+    --color-primary: #69c19d;
+    --color-primary-button: #337b60;
+    --color-primary-button-hover: #3d8e6f;
+    --color-primary-button-active: #295f4b;
+    --color-on-primary: #ffffff;
+    --color-accent: #e8b15e;
+    --color-accent-strong: #ffd080;
+    --color-accent-text: #e8b15e;
+    --color-on-accent: #17211d;
+    --color-row-hover: #22352d;
+    --color-selection: #264638;
+    --color-selection-border: #69ad8f;
+    --color-error-text: #ffb4ab;
+    --color-error-bg: #3b2221;
+    --color-error-border: #81504b;
+    --color-warning-text: #ffe2a8;
+    --color-warning-bg: #422f17;
+    --color-focus: #f0b85f;
+    --color-video: #080c0a;
+    --shadow-card: 0 .7rem 2rem rgba(0, 0, 0, .28);
+    --shadow-video: 0 1rem 3rem rgba(0, 0, 0, .45);
+    --shadow-brand: rgba(232, 177, 94, .28);
+}
+
+[data-bs-theme="light"] {
+    color-scheme: light;
+    --color-canvas: #f4f2ed;
+    --color-header: #17211d;
+    --color-header-text: #ffffff;
+    --color-header-muted: #bfc9c4;
+    --color-header-border: rgba(255, 255, 255, .14);
+    --color-header-control: rgba(255, 255, 255, .06);
+    --color-header-control-hover: rgba(226, 168, 85, .16);
+    --color-surface: #ffffff;
+    --color-surface-elevated: #fbfcfa;
+    --color-stage: #edf0ec;
+    --color-border: #d9ddd9;
+    --color-border-subtle: #e6e9e6;
+    --color-border-strong: #829189;
+    --color-text: #1d2924;
+    --color-text-strong: #17211d;
+    --color-text-muted: #647068;
+    --color-primary: #286653;
+    --color-primary-button: #286653;
+    --color-primary-button-hover: #1f5142;
+    --color-primary-button-active: #173f33;
+    --color-on-primary: #ffffff;
+    --color-accent: #e2a855;
+    --color-accent-strong: #f0bd70;
+    --color-accent-text: #9a5b1f;
+    --color-on-accent: #17211d;
+    --color-row-hover: #f3f7f4;
+    --color-selection: #e7f1ec;
+    --color-selection-border: #82a897;
+    --color-error-text: #812d2d;
+    --color-error-bg: #fff3f1;
+    --color-error-border: #e2b7b2;
+    --color-warning-text: #4b350f;
+    --color-warning-bg: #fff3cd;
+    --color-focus: #d6862a;
+    --color-video: #0d1210;
+    --shadow-card: 0 .7rem 2rem rgba(36, 48, 42, .07);
+    --shadow-video: 0 1rem 3rem rgba(13, 18, 16, .2);
+    --shadow-brand: rgba(226, 168, 85, .25);
+}
+
+html,
+body {
+    min-height: 100%;
+    color: var(--color-text);
+    background: var(--color-canvas);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 body { margin: 0; }
 button, video { font: inherit; }
-a { color: #286653; }
-:focus-visible { outline: 3px solid #d6862a; outline-offset: 3px; }
+a { color: var(--color-primary); }
+:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
 h1:focus { outline: none; }
-.btn-primary { --bs-btn-bg: #286653; --bs-btn-border-color: #286653; --bs-btn-hover-bg: #1f5142; --bs-btn-hover-border-color: #1f5142; --bs-btn-active-bg: #173f33; --bs-btn-active-border-color: #173f33; }
-.blazor-error-boundary { padding: 1rem; color: #fff; background: #9b2c2c; }
+
+.btn-primary {
+    --bs-btn-color: var(--color-on-primary);
+    --bs-btn-bg: var(--color-primary-button);
+    --bs-btn-border-color: var(--color-primary-button);
+    --bs-btn-hover-color: var(--color-on-primary);
+    --bs-btn-hover-bg: var(--color-primary-button-hover);
+    --bs-btn-hover-border-color: var(--color-primary-button-hover);
+    --bs-btn-active-color: var(--color-on-primary);
+    --bs-btn-active-bg: var(--color-primary-button-active);
+    --bs-btn-active-border-color: var(--color-primary-button-active);
+    --bs-btn-disabled-color: var(--color-on-primary);
+    --bs-btn-disabled-bg: var(--color-primary-button);
+    --bs-btn-disabled-border-color: var(--color-primary-button);
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--color-text-muted);
+    --bs-btn-border-color: var(--color-border-strong);
+    --bs-btn-hover-color: var(--color-on-accent);
+    --bs-btn-hover-bg: var(--color-accent);
+    --bs-btn-hover-border-color: var(--color-accent);
+    --bs-btn-active-color: var(--color-on-accent);
+    --bs-btn-active-bg: var(--color-accent-strong);
+    --bs-btn-active-border-color: var(--color-accent-strong);
+    --bs-btn-disabled-color: var(--color-text-muted);
+    --bs-btn-disabled-border-color: var(--color-border);
+}
+
+.blazor-error-boundary { padding: 1rem; color: var(--color-error-text); background: var(--color-error-bg); }
 .blazor-error-boundary::after { content: "An error has occurred."; }
+
+@media (prefers-reduced-motion: no-preference) {
+    body,
+    .btn {
+        transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+    }
+}

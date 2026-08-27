@@ -1,0 +1,37 @@
+.theme-toggle {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--color-accent);
+    background: var(--color-header-control);
+    border: 1px solid var(--color-header-border);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.theme-toggle:hover {
+    color: var(--color-accent-strong);
+    background: var(--color-header-control-hover);
+}
+
+.theme-toggle:active {
+    transform: translateY(1px);
+}
+
+.theme-toggle svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.theme-toggle svg circle {
+    fill: currentColor;
+    stroke: none;
+}

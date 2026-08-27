@@ -1,6 +1,6 @@
 .workspace-heading { margin-bottom: clamp(1.25rem, 3vw, 2.25rem); }
-.eyebrow { margin: 0 0 .35rem; color: #9a5b1f; font-size: .78rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
-h1 { margin: 0; color: #17211d; font-size: clamp(2rem, 5vw, 4rem); font-weight: 760; letter-spacing: -.045em; line-height: 1; }
-.workspace-heading > p:last-child { max-width: 42rem; margin: .8rem 0 0; color: #59665f; font-size: clamp(1rem, 2vw, 1.15rem); }
+.eyebrow { margin: 0 0 .35rem; color: var(--color-accent-text); font-size: .78rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+h1 { margin: 0; color: var(--color-text-strong); font-size: clamp(2rem, 5vw, 4rem); font-weight: 760; letter-spacing: -.045em; line-height: 1; }
+.workspace-heading > p:last-child { max-width: 42rem; margin: .8rem 0 0; color: var(--color-text-muted); font-size: clamp(1rem, 2vw, 1.15rem); }
 .workspace { display: grid; grid-template-columns: minmax(17rem, 25rem) minmax(20rem, 1fr); gap: clamp(1rem, 2.5vw, 2rem); align-items: start; }
 @media (max-width: 52rem) { .workspace { grid-template-columns: 1fr; } }
