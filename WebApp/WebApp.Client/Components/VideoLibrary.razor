@@ -1,0 +1,91 @@
+<section class="library-card" aria-labelledby="library-heading">
+    <div class="library-header">
+        <div>
+            <p class="section-label">Library</p>
+            <h2 id="library-heading">Your videos</h2>
+        </div>
+        <button class="btn btn-primary" type="button" disabled="@IsScanning" @onclick="OnScan">
+            @if (IsScanning)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            }
+            @(HasScanned ? "Rescan" : "Scan")
+        </button>
+    </div>
+
+    @if (IsScanning)
+    {
+        <div class="library-state" role="status" aria-live="polite">
+            <strong>Scanning your library…</strong>
+            <span>Looking for supported video files.</span>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="library-state error" role="alert">
+            <strong>Scan failed</strong>
+            <span>@Error</span>
+        </div>
+    }
+    else if (!HasScanned)
+    {
+        <div class="library-state" role="status">
+            <strong>Ready when you are</strong>
+            <span>Nothing is read until you choose Scan.</span>
+        </div>
+    }
+    else if (Items.Count == 0)
+    {
+        <div class="library-state" role="status" aria-live="polite">
+            <strong>No supported videos found</strong>
+            <span>Add MP4, WebM, MOV, or M4V files, then rescan.</span>
+        </div>
+    }
+    else
+    {
+        <p class="result-count" role="status">@Items.Count @(Items.Count == 1 ? "video" : "videos")</p>
+        <ul class="video-list" aria-label="Discovered videos">
+            @foreach (var item in Items)
+            {
+                var selected = item.Id == SelectedId;
+                <li>
+                    <button type="button"
+                            class="video-row @(selected ? "selected" : null)"
+                            aria-pressed="@selected"
+                            @onclick="() => OnSelect.InvokeAsync(item)">
+                        <span class="video-name">@item.Name</span>
+                        <span class="video-meta">@item.Extension.TrimStart('.').ToUpperInvariant() · @FormatSize(item.SizeBytes)</span>
+                        @if (selected)
+                        {
+                            <span class="selected-label">Selected</span>
+                        }
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<VideoItemDto> Items { get; set; } = Array.Empty<VideoItemDto>();
+    [Parameter] public bool HasScanned { get; set; }
+    [Parameter] public bool IsScanning { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public string? SelectedId { get; set; }
+    [Parameter] public EventCallback OnScan { get; set; }
+    [Parameter] public EventCallback<VideoItemDto> OnSelect { get; set; }
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var size = (double)Math.Max(0, bytes);
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
+    }
+}

@@ -17,6 +17,7 @@ export DOCKER_HOST
 
 help:
 	@printf '%s\n' \
+		'Before running: copy .env.example to .env and set VIDEO_ROOT' \
 		'make docker-build              Build the .NET 10 SDK image' \
 		'make dotnet-new                Generate the Blazor solution and xUnit project' \
 		'make docker-run                Start the app with hot reload' \

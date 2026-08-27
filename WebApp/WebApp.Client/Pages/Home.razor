@@ -1,0 +1,65 @@
+@page "/"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject HttpClient Http
+
+<PageTitle>Video Manager</PageTitle>
+
+<header class="workspace-heading">
+    <p class="eyebrow">Local video library</p>
+    <h1>Frame the moment.</h1>
+    <p>Scan your private library, choose a clip, and position its vertical crop.</p>
+</header>
+
+<div class="workspace">
+    <VideoLibrary Items="_videos"
+                  HasScanned="_hasScanned"
+                  IsScanning="_isScanning"
+                  Error="@_scanError"
+                  SelectedId="@(_selected?.Id)"
+                  OnScan="ScanAsync"
+                  OnSelect="SelectVideo" />
+    <VerticalVideoEditor Selected="_selected" />
+</div>
+
+@code {
+    private IReadOnlyList<VideoItemDto> _videos = Array.Empty<VideoItemDto>();
+    private VideoItemDto? _selected;
+    private bool _hasScanned;
+    private bool _isScanning;
+    private string? _scanError;
+
+    private async Task ScanAsync()
+    {
+        _selected = null;
+        _videos = Array.Empty<VideoItemDto>();
+        _scanError = null;
+        _isScanning = true;
+
+        try
+        {
+            using var response = await Http.PostAsync("api/videos/scan", content: null);
+            if (!response.IsSuccessStatusCode)
+            {
+                _scanError = "The library could not be scanned. Check its local configuration and try again.";
+                return;
+            }
+
+            _videos = await response.Content.ReadFromJsonAsync<List<VideoItemDto>>() ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _scanError = "The library could not be reached. Try scanning again.";
+        }
+        catch (TaskCanceledException)
+        {
+            _scanError = "The scan was interrupted. Try scanning again.";
+        }
+        finally
+        {
+            _hasScanned = true;
+            _isScanning = false;
+        }
+    }
+
+    private void SelectVideo(VideoItemDto video) => _selected = video;
+}
