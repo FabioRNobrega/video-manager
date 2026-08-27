@@ -92,6 +92,7 @@ body {
 }
 
 body { margin: 0; }
+body.fill-tab-active { overflow: hidden; }
 button, video { font: inherit; }
 a { color: var(--color-primary); }
 :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
