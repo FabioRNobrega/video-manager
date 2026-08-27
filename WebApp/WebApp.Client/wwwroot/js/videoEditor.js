@@ -17,3 +17,8 @@ export function releasePointer(video, pointerId) {
         video.releasePointerCapture(pointerId);
     }
 }
+
+export function setMuted(video) {
+    video.defaultMuted = true;
+    video.muted = true;
+}

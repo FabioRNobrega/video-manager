@@ -26,6 +26,7 @@
                        @ref="_video"
                        src="@($"api/videos/{Selected.Id}/stream")"
                        controls
+                       muted
                        preload="metadata"
                        aria-label="Vertical preview of @Selected.Name"
                        style="object-position: @ObjectPosition"
@@ -36,7 +37,7 @@
                        @onpointerleave="EndDragAsync"
                        @onlostpointercapture="EndDragAsync"
                        @onerror="ShowPlaybackError"
-                       @onloadedmetadata="ClearPlaybackError">
+                       @onloadedmetadata="HandleLoadedMetadataAsync">
                     Your browser does not support HTML5 video.
                 </video>
             </div>
@@ -61,6 +62,7 @@
     private IJSObjectReference? _module;
     private DragSession? _drag;
     private bool _playbackError;
+    private bool _pendingInitialMute;
 
     private string ObjectPosition => FormattableString.Invariant(
         $"{_frame.PositionX:0.##}% {_frame.PositionY:0.##}%");
@@ -72,6 +74,7 @@
             _frame.Select(Selected?.Id);
             _drag = null;
             _playbackError = false;
+            _pendingInitialMute = Selected is not null;
         }
     }
 
@@ -80,6 +83,12 @@
         if (firstRender)
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/videoEditor.js");
+        }
+
+        if (_module is not null && Selected is not null && _pendingInitialMute)
+        {
+            await _module.InvokeVoidAsync("setMuted", _video);
+            _pendingInitialMute = false;
         }
     }
 
@@ -125,7 +134,15 @@
 
     private void Reset() => _frame.Reset();
     private void ShowPlaybackError() => _playbackError = true;
-    private void ClearPlaybackError() => _playbackError = false;
+
+    private async Task HandleLoadedMetadataAsync()
+    {
+        _playbackError = false;
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("setMuted", _video);
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {
