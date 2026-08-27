@@ -25,21 +25,49 @@
                 <video @key="Selected.Id"
                        @ref="_video"
                        src="@($"api/videos/{Selected.Id}/stream")"
-                       controls
                        muted
                        preload="metadata"
                        aria-label="Vertical preview of @Selected.Name"
                        style="object-position: @ObjectPosition"
                        @onpointerdown="StartDragAsync"
                        @onpointermove="MoveDrag"
-                       @onpointerup="EndDragAsync"
-                       @onpointercancel="EndDragAsync"
-                       @onpointerleave="EndDragAsync"
-                       @onlostpointercapture="EndDragAsync"
+                       @onpointerup="args => EndDragAsync(args, revealControls: true)"
+                       @onpointercancel="args => EndDragAsync(args, revealControls: false)"
+                       @onpointerleave="args => EndDragAsync(args, revealControls: false)"
+                       @onlostpointercapture="args => EndDragAsync(args, revealControls: false)"
                        @onerror="ShowPlaybackError"
-                       @onloadedmetadata="HandleLoadedMetadataAsync">
+                       @onloadedmetadata="HandleLoadedMetadataAsync"
+                       @ondurationchange="SynchronizeMediaStateAsync"
+                       @onplay="SynchronizeMediaStateAsync"
+                       @onpause="SynchronizeMediaStateAsync"
+                       @ontimeupdate="HandleTimeUpdateAsync"
+                       @onvolumechange="SynchronizeMediaStateAsync"
+                       @onratechange="SynchronizeMediaStateAsync"
+                       @onseeking="SynchronizeMediaStateAsync"
+                       @onseeked="HandleSeekedAsync"
+                       @onended="SynchronizeMediaStateAsync">
                     Your browser does not support HTML5 video.
                 </video>
+                <MediaPlayerControls State="_player"
+                                     IsVisible="_controlsVisible"
+                                     Error="@_playerError"
+                                     TogglePlayback="TogglePlaybackAsync"
+                                     Seek="SeekAsync"
+                                     ToggleMute="ToggleMuteAsync"
+                                     SetVolume="SetVolumeAsync"
+                                     SetPlaybackRate="SetPlaybackRateAsync"
+                                     ToggleStandardLoop="ToggleStandardLoopAsync"
+                                     SetMarkerA="SetMarkerA"
+                                     SetMarkerB="SetMarkerB"
+                                     ToggleAbLoop="ToggleAbLoopAsync"
+                                     ClearAbLoop="ClearAbLoop"
+                                     InteractionStarted="HandleControlInteractionStarted"
+                                     InteractionEnded="HandleControlInteractionEnded"
+                                     HoverStarted="HandleControlHoverStarted"
+                                     HoverEnded="HandleControlHoverEnded"
+                                     EnterFillTab="EnterFillTabAsync"
+                                     IsFillTabActive="_fillTab.IsActive"
+                                     FillTabFocusRequest="_fillTabFocusRequest" />
             </div>
             @if (_playbackError)
             {
@@ -52,19 +80,6 @@
                     <p class="position-readout" aria-live="off">Crop position: @Math.Round(_frame.PositionX)% horizontal · @Math.Round(_frame.PositionY)% vertical</p>
                     <p class="drag-hint">Drag the video with a mouse, touch, or pen to reposition cropped content.</p>
                 </div>
-                <div class="fill-tab-control">
-                    <button @ref="_fillTabButton"
-                            class="fill-tab-button"
-                            type="button"
-                            aria-label="Fill browser tab"
-                            aria-describedby="fill-tab-tooltip"
-                            @onclick="EnterFillTabAsync">
-                        <svg class="bi bi-arrows-fullscreen" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
-                        </svg>
-                    </button>
-                    <span id="fill-tab-tooltip" class="fill-tab-tooltip" role="tooltip">Fill this browser tab. Press Escape to exit.</span>
-                </div>
             </div>
         </div>
     }
@@ -73,18 +88,29 @@
 @code {
     [Parameter] public VideoItemDto? Selected { get; set; }
 
+    private const double DragThreshold = 6;
+    private static readonly TimeSpan ControlHideDelay = TimeSpan.FromSeconds(1);
+
     private readonly VideoFrameState _frame = new();
     private readonly FillTabState _fillTab = new();
+    private readonly MediaPlayerState _player = new();
     private ElementReference _viewport;
     private ElementReference _video;
-    private ElementReference _fillTabButton;
     private IJSObjectReference? _module;
     private DotNetObjectReference<VerticalVideoEditor>? _dotNetReference;
+    private CancellationTokenSource? _controlsHideCancellation;
     private DragSession? _drag;
     private bool _playbackError;
-    private bool _pendingInitialMute;
+    private string? _playerError;
+    private bool _pendingMediaInitialization;
     private bool _pendingFillTabCleanup;
-    private bool _pendingFillTabFocus;
+    private int _fillTabFocusRequest;
+    private bool _pendingControlsTimer;
+    private bool _controlsVisible;
+    private bool _controlInteractionActive;
+    private bool _controlHoverActive;
+    private bool _abSeekPending;
+    private bool _disposed;
 
     private string EditorCssClass => _fillTab.IsActive
         ? "editor-card fill-tab-mode"
@@ -95,14 +121,24 @@
 
     protected override void OnParametersSet()
     {
-        if (!string.Equals(_frame.SelectionId, Selected?.Id, StringComparison.Ordinal))
+        if (string.Equals(_frame.SelectionId, Selected?.Id, StringComparison.Ordinal))
         {
-            _frame.Select(Selected?.Id);
-            _pendingFillTabCleanup |= _fillTab.Select(Selected?.Id);
-            _drag = null;
-            _playbackError = false;
-            _pendingInitialMute = Selected is not null;
+            return;
         }
+
+        _frame.Select(Selected?.Id);
+        _player.Select(Selected?.Id);
+        _pendingFillTabCleanup |= _fillTab.Select(Selected?.Id);
+        _drag = null;
+        _playbackError = false;
+        _playerError = null;
+        _abSeekPending = false;
+        _pendingMediaInitialization = Selected is not null;
+        _controlsVisible = Selected is not null;
+        _pendingControlsTimer = Selected is not null;
+        _controlInteractionActive = false;
+        _controlHoverActive = false;
+        CancelControlsHideTimer();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -118,17 +154,18 @@
             _pendingFillTabCleanup = false;
         }
 
-        if (_module is not null && Selected is not null && _pendingInitialMute)
+        if (_module is not null && Selected is not null && _pendingMediaInitialization)
         {
-            await _module.InvokeVoidAsync("setMuted", _video);
-            _pendingInitialMute = false;
+            _pendingMediaInitialization = false;
+            await ApplyPlayerPreferencesAsync();
         }
 
-        if (_pendingFillTabFocus && !_fillTab.IsActive)
+        if (_pendingControlsTimer && Selected is not null)
         {
-            _pendingFillTabFocus = false;
-            await _fillTabButton.FocusAsync();
+            _pendingControlsTimer = false;
+            ArmControlsHideTimer();
         }
+
     }
 
     private async Task EnterFillTabAsync()
@@ -153,7 +190,8 @@
 
         if (exited)
         {
-            _pendingFillTabFocus = true;
+            _fillTabFocusRequest++;
+            RevealControls();
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -178,23 +216,37 @@
             return;
         }
 
+        var deltaX = args.ClientX - _drag.StartClientX;
+        var deltaY = args.ClientY - _drag.StartClientY;
+        _drag.HasMoved |= Math.Sqrt((deltaX * deltaX) + (deltaY * deltaY)) >= DragThreshold;
+        if (!_drag.HasMoved)
+        {
+            return;
+        }
+
         _frame.ApplyDrag(_drag.StartPositionX, _drag.StartPositionY,
-            args.ClientX - _drag.StartClientX, args.ClientY - _drag.StartClientY,
+            deltaX, deltaY,
             _drag.Geometry.ViewportWidth, _drag.Geometry.ViewportHeight,
             _drag.Geometry.VideoWidth, _drag.Geometry.VideoHeight);
     }
 
-    private async Task EndDragAsync(PointerEventArgs args)
+    private async Task EndDragAsync(PointerEventArgs args, bool revealControls)
     {
         if (_drag is null || _drag.PointerId != args.PointerId)
         {
             return;
         }
 
+        var completedDrag = _drag;
         _drag = null;
         if (_module is not null)
         {
             await _module.InvokeVoidAsync("releasePointer", _video, args.PointerId);
+        }
+
+        if (revealControls && !completedDrag.HasMoved)
+        {
+            RevealControls();
         }
     }
 
@@ -204,14 +256,205 @@
     private async Task HandleLoadedMetadataAsync()
     {
         _playbackError = false;
-        if (_module is not null)
+        await ApplyPlayerPreferencesAsync();
+    }
+
+    private async Task ApplyPlayerPreferencesAsync()
+    {
+        if (_module is null || Selected is null)
         {
-            await _module.InvokeVoidAsync("setMuted", _video);
+            return;
         }
+
+        try
+        {
+            await _module.InvokeVoidAsync("setVolume", _video, _player.Volume);
+            await _module.InvokeVoidAsync("setMuted", _video, _player.IsMuted);
+            await _module.InvokeVoidAsync("setPlaybackRate", _video, _player.PlaybackRate);
+            await _module.InvokeVoidAsync("setLoop", _video, false);
+            await SynchronizeMediaStateAsync();
+        }
+        catch (JSException)
+        {
+            ShowPlayerCommandError();
+        }
+    }
+
+    private async Task SynchronizeMediaStateAsync()
+    {
+        if (_module is null || Selected is null)
+        {
+            return;
+        }
+
+        var snapshot = await _module.InvokeAsync<MediaSnapshot>("readMediaSnapshot", _video);
+        _player.Synchronize(snapshot);
+    }
+
+    private async Task HandleTimeUpdateAsync()
+    {
+        await SynchronizeMediaStateAsync();
+        if (_module is null || _abSeekPending || !_player.TryMoveToAbStart(out var target))
+        {
+            return;
+        }
+
+        _abSeekPending = true;
+        await ExecuteMediaCommandAsync("seekVideo", target);
+    }
+
+    private async Task HandleSeekedAsync()
+    {
+        _abSeekPending = false;
+        await SynchronizeMediaStateAsync();
+    }
+
+    private Task TogglePlaybackAsync() => ExecuteMediaCommandAsync(
+        _player.IsPlaying ? "pauseVideo" : "playVideo");
+
+    private async Task SeekAsync(double value)
+    {
+        _player.PreviewTime(value);
+        await ExecuteMediaCommandAsync("seekVideo", _player.CurrentTime);
+    }
+
+    private Task ToggleMuteAsync() => ExecuteMediaCommandAsync("setMuted", !_player.IsMuted);
+
+    private Task SetVolumeAsync(double value) =>
+        ExecuteMediaCommandAsync("setVolume", Math.Clamp(value, 0, 1));
+
+    private Task SetPlaybackRateAsync(double value) =>
+        ExecuteMediaCommandAsync("setPlaybackRate", value);
+
+    private async Task ToggleStandardLoopAsync()
+    {
+        _player.SetStandardLoop(!_player.IsStandardLoop);
+        await ExecuteMediaCommandAsync("setLoop", _player.IsStandardLoop);
+        await SynchronizeMediaStateAsync();
+    }
+
+    private void SetMarkerA() => _player.SetMarkerA();
+    private void SetMarkerB() => _player.SetMarkerB();
+
+    private async Task ToggleAbLoopAsync()
+    {
+        var enable = !_player.IsAbLoop;
+        if (!_player.SetAbLoop(enable))
+        {
+            return;
+        }
+
+        if (enable)
+        {
+            await ExecuteMediaCommandAsync("setLoop", false);
+            await SynchronizeMediaStateAsync();
+        }
+    }
+
+    private void ClearAbLoop() => _player.ClearAbLoop();
+
+    private async Task ExecuteMediaCommandAsync(string identifier, params object?[] values)
+    {
+        if (_module is null || Selected is null)
+        {
+            return;
+        }
+
+        var arguments = new object?[values.Length + 1];
+        arguments[0] = _video;
+        Array.Copy(values, 0, arguments, 1, values.Length);
+
+        try
+        {
+            _playerError = null;
+            await _module.InvokeVoidAsync(identifier, arguments);
+        }
+        catch (JSException)
+        {
+            ShowPlayerCommandError();
+        }
+    }
+
+    private void ShowPlayerCommandError()
+    {
+        _playerError = "The browser couldn’t complete that media command. Try again or choose another clip.";
+        RevealControls();
+    }
+
+    private void HandleControlInteractionStarted()
+    {
+        _controlInteractionActive = true;
+        _controlsVisible = true;
+        CancelControlsHideTimer();
+    }
+
+    private void HandleControlInteractionEnded()
+    {
+        _controlInteractionActive = false;
+        ArmControlsHideTimer();
+    }
+
+    private void HandleControlHoverStarted()
+    {
+        _controlHoverActive = true;
+        _controlsVisible = true;
+        CancelControlsHideTimer();
+    }
+
+    private void HandleControlHoverEnded()
+    {
+        _controlHoverActive = false;
+        ArmControlsHideTimer();
+    }
+
+    private void RevealControls()
+    {
+        _controlsVisible = true;
+        ArmControlsHideTimer();
+    }
+
+    private void ArmControlsHideTimer()
+    {
+        CancelControlsHideTimer();
+        if (_disposed || Selected is null || _controlInteractionActive || _controlHoverActive)
+        {
+            return;
+        }
+
+        _controlsHideCancellation = new CancellationTokenSource();
+        _ = HideControlsAfterDelayAsync(_controlsHideCancellation.Token);
+    }
+
+    private async Task HideControlsAfterDelayAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(ControlHideDelay, cancellationToken);
+            await InvokeAsync(() =>
+            {
+                if (!_controlInteractionActive && !_controlHoverActive)
+                {
+                    _controlsVisible = false;
+                    StateHasChanged();
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void CancelControlsHideTimer()
+    {
+        _controlsHideCancellation?.Cancel();
+        _controlsHideCancellation?.Dispose();
+        _controlsHideCancellation = null;
     }
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
+        CancelControlsHideTimer();
         _fillTab.Exit();
 
         try
@@ -232,6 +475,16 @@
     }
 
     private sealed record VideoGeometry(double ViewportWidth, double ViewportHeight, double VideoWidth, double VideoHeight);
-    private sealed record DragSession(long PointerId, double StartClientX, double StartClientY,
-        double StartPositionX, double StartPositionY, VideoGeometry Geometry);
+
+    private sealed class DragSession(long pointerId, double startClientX, double startClientY,
+        double startPositionX, double startPositionY, VideoGeometry geometry)
+    {
+        public long PointerId { get; } = pointerId;
+        public double StartClientX { get; } = startClientX;
+        public double StartClientY { get; } = startClientY;
+        public double StartPositionX { get; } = startPositionX;
+        public double StartPositionY { get; } = startPositionY;
+        public VideoGeometry Geometry { get; } = geometry;
+        public bool HasMoved { get; set; }
+    }
 }

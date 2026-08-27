@@ -1,0 +1,251 @@
+@using System.Globalization
+
+<div class="@RootCssClass"
+     aria-hidden="@(!IsVisible)"
+     @onpointerdown="BeginInteractionAsync"
+     @onpointerdown:stopPropagation="true"
+     @onpointerup="EndInteractionAsync"
+     @onpointerup:stopPropagation="true"
+     @onpointercancel="EndInteractionAsync"
+     @onpointercancel:stopPropagation="true"
+     @onmouseenter="HandleMouseEnteredAsync"
+     @onmouseleave="HandleMouseLeftAsync"
+     @onclick:stopPropagation="true">
+    <div class="timeline-area">
+        <div class="timeline-track">
+            @if (State.MarkerA is not null)
+            {
+                <span class="timeline-marker marker-a" style="@MarkerStyle(State.MarkerA.Value)" aria-hidden="true"></span>
+            }
+            @if (State.MarkerB is not null)
+            {
+                <span class="timeline-marker marker-b" style="@MarkerStyle(State.MarkerB.Value)" aria-hidden="true"></span>
+            }
+            <input class="timeline"
+                   type="range"
+                   min="0"
+                   max="@DurationValue"
+                   step="0.01"
+                   value="@Invariant(TimelineValue)"
+                   disabled="@(!State.HasDuration)"
+                   aria-label="Playback position"
+                   @oninput="PreviewTimeline"
+                   @onchange="CommitTimelineAsync" />
+        </div>
+        <output class="time-readout" aria-live="off">@DisplayedCurrentTime / @State.FormatDuration()</output>
+    </div>
+
+    <div class="control-row">
+        <button class="control-button primary-control"
+                type="button"
+                aria-label="@(State.IsPlaying ? "Pause" : "Play")"
+                aria-pressed="@BooleanValue(State.IsPlaying)"
+                @onclick="HandleTogglePlaybackAsync">
+            <span aria-hidden="true">@(State.IsPlaying ? "❚❚" : "▶")</span>
+        </button>
+
+        <button class="control-button"
+                type="button"
+                aria-label="@(State.IsMuted ? "Unmute" : "Mute")"
+                aria-pressed="@BooleanValue(State.IsMuted)"
+                @onclick="HandleToggleMuteAsync">
+            <span aria-hidden="true">@(State.IsMuted ? "🔇" : "🔊")</span>
+        </button>
+
+        <label class="volume-control">
+            <span class="visually-hidden">Volume</span>
+            <input type="range"
+                   min="0"
+                   max="1"
+                   step="0.01"
+                   value="@Invariant(VolumeValue)"
+                   aria-label="Volume"
+                   @oninput="PreviewVolume"
+                   @onchange="CommitVolumeAsync" />
+        </label>
+
+        <label class="rate-control">
+            <span class="visually-hidden">Playback speed</span>
+            <select value="@Invariant(State.PlaybackRate)" aria-label="Playback speed" @onchange="ChangeRateAsync">
+                @foreach (var rate in MediaPlayerState.PlaybackRates)
+                {
+                    <option value="@Invariant(rate)">@Invariant(rate)x</option>
+                }
+            </select>
+        </label>
+
+        <button class="@ToggleCssClass(State.IsStandardLoop)"
+                type="button"
+                aria-label="Loop entire video"
+                aria-pressed="@BooleanValue(State.IsStandardLoop)"
+                @onclick="HandleToggleStandardLoopAsync">Loop</button>
+
+        <button @ref="_fillTabButton"
+                class="control-button fill-control"
+                type="button"
+                disabled="@IsFillTabActive"
+                aria-label="Fill browser tab"
+                @onclick="HandleEnterFillTabAsync">
+            <svg class="bi" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+            </svg>
+            <span>Fill</span>
+        </button>
+    </div>
+
+    <div class="ab-row">
+        <button class="control-button marker-button" type="button" disabled="@(!State.HasDuration)" @onclick="HandleSetMarkerAAsync">
+            A <span>@State.FormatMarker(State.MarkerA)</span>
+        </button>
+        <button class="control-button marker-button" type="button" disabled="@(!State.HasDuration)" @onclick="HandleSetMarkerBAsync">
+            B <span>@State.FormatMarker(State.MarkerB)</span>
+        </button>
+        <button class="@ToggleCssClass(State.IsAbLoop)"
+                type="button"
+                disabled="@(!State.HasValidAbRange)"
+                aria-label="Loop between A and B"
+                aria-pressed="@BooleanValue(State.IsAbLoop)"
+                @onclick="HandleToggleAbLoopAsync">A/B</button>
+        <button class="control-button" type="button" disabled="@(State.MarkerA is null && State.MarkerB is null)" @onclick="HandleClearAbLoopAsync">Clear</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(State.ValidationMessage))
+    {
+        <p class="control-message validation-message" role="status" aria-live="polite">@State.ValidationMessage</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(Error))
+    {
+        <p class="control-message error-message" role="alert" aria-live="assertive">@Error</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public MediaPlayerState State { get; set; } = default!;
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback TogglePlayback { get; set; }
+    [Parameter] public EventCallback<double> Seek { get; set; }
+    [Parameter] public EventCallback ToggleMute { get; set; }
+    [Parameter] public EventCallback<double> SetVolume { get; set; }
+    [Parameter] public EventCallback<double> SetPlaybackRate { get; set; }
+    [Parameter] public EventCallback ToggleStandardLoop { get; set; }
+    [Parameter] public EventCallback SetMarkerA { get; set; }
+    [Parameter] public EventCallback SetMarkerB { get; set; }
+    [Parameter] public EventCallback ToggleAbLoop { get; set; }
+    [Parameter] public EventCallback ClearAbLoop { get; set; }
+    [Parameter] public EventCallback InteractionStarted { get; set; }
+    [Parameter] public EventCallback InteractionEnded { get; set; }
+    [Parameter] public EventCallback HoverStarted { get; set; }
+    [Parameter] public EventCallback HoverEnded { get; set; }
+    [Parameter] public EventCallback EnterFillTab { get; set; }
+    [Parameter] public bool IsFillTabActive { get; set; }
+    [Parameter] public int FillTabFocusRequest { get; set; }
+
+    private ElementReference _fillTabButton;
+    private int _observedFillTabFocusRequest;
+    private bool _timelineActive;
+    private double _timelinePreview;
+    private bool _volumeActive;
+    private double _volumePreview;
+
+    private string RootCssClass => IsVisible ? "media-controls is-visible" : "media-controls";
+    private double TimelineValue => _timelineActive ? _timelinePreview : State.CurrentTime;
+    private double VolumeValue => _volumeActive ? _volumePreview : State.Volume;
+    private string DisplayedCurrentTime => MediaPlayerState.FormatTime(TimelineValue);
+    private string DurationValue => Invariant(State.Duration ?? 0);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!IsFillTabActive && FillTabFocusRequest != _observedFillTabFocusRequest)
+        {
+            _observedFillTabFocusRequest = FillTabFocusRequest;
+            await _fillTabButton.FocusAsync();
+        }
+    }
+
+    private async Task BeginInteractionAsync()
+    {
+        await InteractionStarted.InvokeAsync();
+    }
+
+    private async Task EndInteractionAsync()
+    {
+        await InteractionEnded.InvokeAsync();
+    }
+
+    private Task HandleMouseEnteredAsync() => HoverStarted.InvokeAsync();
+    private Task HandleMouseLeftAsync() => HoverEnded.InvokeAsync();
+
+    private async Task PreviewTimeline(ChangeEventArgs args)
+    {
+        if (TryReadDouble(args, out var value))
+        {
+            _timelineActive = true;
+            _timelinePreview = value;
+            await Seek.InvokeAsync(value);
+        }
+    }
+
+    private async Task CommitTimelineAsync(ChangeEventArgs args)
+    {
+        if (TryReadDouble(args, out var value))
+        {
+            _timelinePreview = value;
+            await Seek.InvokeAsync(value);
+            _timelineActive = false;
+        }
+    }
+
+    private void PreviewVolume(ChangeEventArgs args)
+    {
+        if (TryReadDouble(args, out var value))
+        {
+            _volumeActive = true;
+            _volumePreview = value;
+        }
+    }
+
+    private async Task CommitVolumeAsync(ChangeEventArgs args)
+    {
+        if (TryReadDouble(args, out var value))
+        {
+            _volumePreview = value;
+            await SetVolume.InvokeAsync(value);
+            _volumeActive = false;
+        }
+    }
+
+    private async Task ChangeRateAsync(ChangeEventArgs args)
+    {
+        if (TryReadDouble(args, out var value))
+        {
+            await SetPlaybackRate.InvokeAsync(value);
+        }
+    }
+
+    private Task HandleTogglePlaybackAsync() => TogglePlayback.InvokeAsync();
+    private Task HandleToggleMuteAsync() => ToggleMute.InvokeAsync();
+    private Task HandleToggleStandardLoopAsync() => ToggleStandardLoop.InvokeAsync();
+    private Task HandleEnterFillTabAsync() => EnterFillTab.InvokeAsync();
+    private Task HandleSetMarkerAAsync() => SetMarkerA.InvokeAsync();
+    private Task HandleSetMarkerBAsync() => SetMarkerB.InvokeAsync();
+    private Task HandleToggleAbLoopAsync() => ToggleAbLoop.InvokeAsync();
+    private Task HandleClearAbLoopAsync() => ClearAbLoop.InvokeAsync();
+
+    private string MarkerStyle(double marker)
+    {
+        var percentage = State.Duration is > 0 ? Math.Clamp(marker / State.Duration.Value * 100, 0, 100) : 0;
+        return $"--marker-position: {Invariant(percentage)}%";
+    }
+
+    private static string ToggleCssClass(bool active) => active
+        ? "control-button toggle-control is-active"
+        : "control-button toggle-control";
+
+    private static string BooleanValue(bool value) => value ? "true" : "false";
+    private static string Invariant(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static bool TryReadDouble(ChangeEventArgs args, out double value) =>
+        double.TryParse(Convert.ToString(args.Value, CultureInfo.InvariantCulture), NumberStyles.Float,
+            CultureInfo.InvariantCulture, out value);
+}

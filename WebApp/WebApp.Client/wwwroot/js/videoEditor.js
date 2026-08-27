@@ -20,9 +20,46 @@ export function releasePointer(video, pointerId) {
     }
 }
 
-export function setMuted(video) {
-    video.defaultMuted = true;
-    video.muted = true;
+export function setMuted(video, muted = true) {
+    video.defaultMuted = muted;
+    video.muted = muted;
+}
+
+export async function playVideo(video) {
+    await video.play();
+}
+
+export function pauseVideo(video) {
+    video.pause();
+}
+
+export function seekVideo(video, time) {
+    video.currentTime = time;
+}
+
+export function setVolume(video, volume) {
+    video.volume = volume;
+}
+
+export function setPlaybackRate(video, rate) {
+    video.playbackRate = rate;
+}
+
+export function setLoop(video, enabled) {
+    video.loop = enabled;
+}
+
+export function readMediaSnapshot(video) {
+    return {
+        currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+        duration: Number.isFinite(video.duration) ? video.duration : null,
+        volume: video.volume,
+        muted: video.muted,
+        playbackRate: video.playbackRate,
+        loop: video.loop,
+        paused: video.paused,
+        ended: video.ended
+    };
 }
 
 export function enterFillTab(dotNetReference) {
