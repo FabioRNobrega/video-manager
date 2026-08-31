@@ -1,6 +1,7 @@
 @page "/"
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inject HttpClient Http
+@implements IDisposable
 
 <PageTitle>Perene Tech Videos</PageTitle>
 
@@ -22,14 +23,18 @@
 </div>
 
 @code {
+    private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(2);
+
     private IReadOnlyList<VideoItemDto> _videos = Array.Empty<VideoItemDto>();
     private VideoItemDto? _selected;
     private bool _hasScanned;
     private bool _isScanning;
     private string? _scanError;
+    private CancellationTokenSource? _pollingCts;
 
     private async Task ScanAsync()
     {
+        CancelPolling();
         _selected = null;
         _videos = Array.Empty<VideoItemDto>();
         _scanError = null;
@@ -45,6 +50,7 @@
             }
 
             _videos = await response.Content.ReadFromJsonAsync<List<VideoItemDto>>() ?? [];
+            StartPollingIfPending();
         }
         catch (HttpRequestException)
         {
@@ -62,4 +68,67 @@
     }
 
     private void SelectVideo(VideoItemDto video) => _selected = video;
+
+    private void StartPollingIfPending()
+    {
+        if (!_videos.Any(video => video.ThumbnailState == ThumbnailState.Pending))
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _pollingCts = cts;
+        _ = PollAsync(cts.Token);
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(PollingInterval, cancellationToken);
+
+                List<VideoItemDto>? updated;
+                try
+                {
+                    updated = await Http.GetFromJsonAsync<List<VideoItemDto>>("api/videos", cancellationToken);
+                }
+                catch (HttpRequestException)
+                {
+                    return;
+                }
+
+                if (cancellationToken.IsCancellationRequested || updated is null)
+                {
+                    return;
+                }
+
+                _videos = updated;
+                if (_selected is not null)
+                {
+                    _selected = updated.FirstOrDefault(video => video.Id == _selected.Id) ?? _selected;
+                }
+
+                await InvokeAsync(StateHasChanged);
+
+                if (!updated.Any(video => video.ThumbnailState == ThumbnailState.Pending))
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void CancelPolling()
+    {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
+        _pollingCts = null;
+    }
+
+    public void Dispose() => CancelPolling();
 }

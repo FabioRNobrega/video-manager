@@ -77,12 +77,35 @@ public sealed class ThemeBootstrapTests
         Assert.Equal(HttpStatusCode.NotFound, endpointResponse.StatusCode);
     }
 
-    private sealed class VideoManagerFactory(string rootPath) : WebApplicationFactory<Program>
+    private sealed class VideoManagerFactory : WebApplicationFactory<Program>
     {
+        private readonly string _rootPath;
+        private readonly string _previewPath;
+
+        public VideoManagerFactory(string rootPath)
+        {
+            _rootPath = rootPath;
+            _previewPath = Path.Combine(Path.GetTempPath(), $"video-manager-theme-tests-preview-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(_previewPath);
+        }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["VideoLibrary:Path"] = rootPath }));
+                new Dictionary<string, string?>
+                {
+                    ["VideoLibrary:Path"] = _rootPath,
+                    ["ThumbnailCache:Path"] = _previewPath,
+                }));
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing && Directory.Exists(_previewPath))
+            {
+                Directory.Delete(_previewPath, recursive: true);
+            }
         }
     }
 

@@ -5,7 +5,10 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using WebApp.Client.Models;
+using WebApp.Configuration;
+using WebApp.Services;
 
 namespace WebApp.Tests.Endpoints;
 
@@ -28,12 +31,77 @@ public sealed class VideoEndpointsTests
         Assert.DoesNotContain("secret-directory-name", json);
         using var document = JsonDocument.Parse(json);
         var item = Assert.Single(document.RootElement.EnumerateArray());
-        Assert.Equal(["extension", "id", "name", "sizeBytes"],
+        Assert.Equal(["extension", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl"],
             item.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
         Assert.Equal("clip.MP4", item.GetProperty("name").GetString());
         Assert.Equal(".mp4", item.GetProperty("extension").GetString());
         Assert.Equal(4, item.GetProperty("sizeBytes").GetInt64());
         Assert.Matches("^[0-9a-f]{32}$", item.GetProperty("id").GetString()!);
+        Assert.Equal((int)ThumbnailState.Pending, item.GetProperty("thumbnailState").GetInt32());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("thumbnailUrl").ValueKind);
+    }
+
+    [Fact]
+    public async Task Status_endpoint_returns_empty_before_scan_and_stable_ids_after()
+    {
+        using var root = new TemporaryDirectory();
+        await File.WriteAllBytesAsync(Path.Combine(root.Path, "clip.mp4"), [1, 2, 3]);
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        var beforeScan = await client.GetFromJsonAsync<List<VideoItemDto>>("/api/videos");
+        Assert.Empty(beforeScan!);
+
+        var scanned = await ScanSingleAsync(client);
+        var afterScan = Assert.Single((await client.GetFromJsonAsync<List<VideoItemDto>>("/api/videos"))!);
+
+        Assert.Equal(scanned.Id, afterScan.Id);
+    }
+
+    [Fact]
+    public async Task Thumbnail_endpoint_serves_ready_jpeg_and_rejects_everything_else()
+    {
+        using var root = new TemporaryDirectory();
+        var file = Path.Combine(root.Path, "clip.mp4");
+        await File.WriteAllBytesAsync(file, [1, 2, 3]);
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var video = await ScanSingleAsync(client);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{video.Id}/thumbnail")).StatusCode);
+
+        var cache = new ThumbnailCache(Options.Create(new ThumbnailCacheOptions { Path = factory.PreviewPath }));
+        var key = cache.ComputeKey("clip.mp4", 3, File.GetLastWriteTimeUtc(file));
+        await File.WriteAllBytesAsync(cache.GetFinalPath(key), [9, 9, 9]);
+
+        var ready = Assert.Single((await client.GetFromJsonAsync<List<VideoItemDto>>("/api/videos"))!);
+        Assert.Equal(ThumbnailState.Ready, ready.ThumbnailState);
+        Assert.NotNull(ready.ThumbnailUrl);
+
+        using var thumbnailResponse = await client.GetAsync(ready.ThumbnailUrl);
+        Assert.Equal(HttpStatusCode.OK, thumbnailResponse.StatusCode);
+        Assert.Equal("image/jpeg", thumbnailResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(new byte[] { 9, 9, 9 }, await thumbnailResponse.Content.ReadAsByteArrayAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/videos/not-an-id/thumbnail")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{Guid.NewGuid():N}/thumbnail")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/videos/%2Fetc%2Fpasswd/thumbnail")).StatusCode);
+
+        var rescanned = await ScanSingleAsync(client);
+        Assert.NotEqual(video.Id, rescanned.Id);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{video.Id}/thumbnail")).StatusCode);
+
+        File.Delete(file);
+        using var deletedScan = await client.PostAsync("/api/videos/scan", null);
+        deletedScan.EnsureSuccessStatusCode();
+        Assert.Empty((await deletedScan.Content.ReadFromJsonAsync<List<VideoItemDto>>())!);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{rescanned.Id}/thumbnail")).StatusCode);
     }
 
     [Fact]
@@ -141,12 +209,36 @@ public sealed class VideoEndpointsTests
         return Assert.Single((await response.Content.ReadFromJsonAsync<List<VideoItemDto>>())!);
     }
 
-    private sealed class VideoManagerFactory(string rootPath) : WebApplicationFactory<Program>
+    private sealed class VideoManagerFactory : WebApplicationFactory<Program>
     {
+        private readonly string _rootPath;
+
+        public VideoManagerFactory(string rootPath)
+        {
+            _rootPath = rootPath;
+            PreviewPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-preview-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(PreviewPath);
+        }
+
+        public string PreviewPath { get; }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["VideoLibrary:Path"] = rootPath }));
+                new Dictionary<string, string?>
+                {
+                    ["VideoLibrary:Path"] = _rootPath,
+                    ["ThumbnailCache:Path"] = PreviewPath,
+                }));
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing && Directory.Exists(PreviewPath))
+            {
+                Directory.Delete(PreviewPath, recursive: true);
+            }
         }
     }
 

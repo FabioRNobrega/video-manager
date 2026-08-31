@@ -6,6 +6,7 @@ services:
     working_dir: /workspace
     environment:
       ASPNETCORE_ENVIRONMENT: Testing
+      ThumbnailCache__Path: /previews
     volumes:
       - ./:/workspace
       - /workspace/WebApp/WebApp/bin
@@ -15,6 +16,7 @@ services:
       - /workspace/WebApp.Tests/bin
       - /workspace/WebApp.Tests/obj
       - test_nuget_cache:/root/.nuget/packages
+      - test_thumbnail_cache:/previews
     command:
       - sh
       - -lc
@@ -24,3 +26,4 @@ services:
 
 volumes:
   test_nuget_cache:
+  test_thumbnail_cache:

@@ -4,37 +4,42 @@ using WebApp.Models;
 
 namespace WebApp.Services;
 
-internal sealed class VideoLibraryService(IOptions<VideoLibraryOptions> options) : IVideoLibraryService
+internal sealed class VideoLibraryService(
+    IOptions<VideoLibraryOptions> options,
+    ThumbnailCoordinator thumbnailCoordinator) : IVideoLibraryService
 {
     private static readonly HashSet<string> SupportedExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".webm", ".mov", ".m4v" };
 
+    private static readonly SnapshotState EmptySnapshot =
+        new(new Dictionary<string, VideoFileEntry>(StringComparer.Ordinal), []);
+
     private readonly string _rootPath = Path.GetFullPath(options.Value.Path);
-    private IReadOnlyDictionary<string, VideoFileEntry> _snapshot =
-        new Dictionary<string, VideoFileEntry>(StringComparer.Ordinal);
+    private SnapshotState _snapshot = EmptySnapshot;
 
     public async Task<IReadOnlyList<VideoFileEntry>> ScanAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             var entries = await Task.Run(() => Discover(cancellationToken), cancellationToken);
-            var snapshot = entries.ToDictionary(entry => entry.Id, StringComparer.Ordinal);
+            var snapshot = new SnapshotState(entries.ToDictionary(entry => entry.Id, StringComparer.Ordinal), entries);
             Interlocked.Exchange(ref _snapshot, snapshot);
+            thumbnailCoordinator.Reconcile(entries);
             return entries;
         }
         catch
         {
-            Interlocked.Exchange(
-                ref _snapshot,
-                new Dictionary<string, VideoFileEntry>(StringComparer.Ordinal));
+            Interlocked.Exchange(ref _snapshot, EmptySnapshot);
             throw;
         }
     }
 
+    public IReadOnlyList<VideoFileEntry> GetCurrentSnapshot() => Volatile.Read(ref _snapshot).Ordered;
+
     public bool TryResolve(string id, out VideoFileEntry? entry)
     {
         entry = null;
-        return IsOpaqueId(id) && Volatile.Read(ref _snapshot).TryGetValue(id, out entry);
+        return IsOpaqueId(id) && Volatile.Read(ref _snapshot).ById.TryGetValue(id, out entry);
     }
 
     internal static bool IsWithinRoot(string rootPath, string candidatePath)
@@ -114,12 +119,16 @@ internal sealed class VideoLibraryService(IOptions<VideoLibraryOptions> options)
                     {
                     }
 
+                    var relativePath = Path.GetRelativePath(_rootPath, canonicalPath).Replace('\\', '/');
+
                     discovered.Add(new VideoFileEntry(
                         Guid.NewGuid().ToString("N"),
                         canonicalPath,
+                        relativePath,
                         file.Name,
                         extension.ToLowerInvariant(),
-                        file.Length));
+                        file.Length,
+                        file.LastWriteTimeUtc));
                 }
                 catch (Exception exception) when (
                     exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
@@ -137,4 +146,8 @@ internal sealed class VideoLibraryService(IOptions<VideoLibraryOptions> options)
 
     private static bool IsOpaqueId(string id) =>
         id.Length == 32 && Guid.TryParseExact(id, "N", out _);
+
+    private sealed record SnapshotState(
+        IReadOnlyDictionary<string, VideoFileEntry> ById,
+        IReadOnlyList<VideoFileEntry> Ordered);
 }

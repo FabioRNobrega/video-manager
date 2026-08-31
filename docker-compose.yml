@@ -10,6 +10,7 @@ services:
         source: ${VIDEO_ROOT:?VIDEO_ROOT is required. Copy .env.example to .env and set an absolute video directory.}
         target: /videos
         read_only: true
+      - thumbnail_cache:/previews
       - ./:/workspace
       - /workspace/WebApp/WebApp/bin
       - /workspace/WebApp/WebApp/obj
@@ -22,6 +23,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER: "true"
       VideoLibrary__Path: /videos
+      ThumbnailCache__Path: /previews
 
 volumes:
   nuget_cache:
+  thumbnail_cache:

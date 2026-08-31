@@ -79,9 +79,16 @@
                             </span>
                         }
                         <span class="ratio ratio-16x9 bg-body-tertiary border-bottom" aria-hidden="true">
-                            <span class="d-flex align-items-center justify-content-center">
-                                <i class="bi bi-film display-1 lh-1 text-body-secondary"></i>
-                            </span>
+                            @if (item.ThumbnailState == ThumbnailState.Ready && !string.IsNullOrEmpty(item.ThumbnailUrl))
+                            {
+                                <img src="@item.ThumbnailUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                            }
+                            else
+                            {
+                                <span class="d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-film display-1 lh-1 text-body-secondary"></i>
+                                </span>
+                            }
                         </span>
                         <span class="card-body d-flex flex-column w-100">
                             <span class="card-title d-block fw-semibold text-break mb-2">

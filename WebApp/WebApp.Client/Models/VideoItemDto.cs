@@ -4,4 +4,6 @@ public sealed record VideoItemDto(
     string Id,
     string Name,
     string Extension,
-    long SizeBytes);
+    long SizeBytes,
+    ThumbnailState ThumbnailState,
+    string? ThumbnailUrl);

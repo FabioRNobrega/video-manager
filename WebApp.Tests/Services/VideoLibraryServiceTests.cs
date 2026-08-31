@@ -28,7 +28,21 @@ public sealed class VideoLibraryServiceTests
             Assert.DoesNotContain("private-subfolder", entry.Name);
             Assert.Equal(Path.GetFileName(entry.PhysicalPath), entry.Name);
             Assert.True(entry.SizeBytes > 0);
+            Assert.DoesNotContain('\\', entry.RelativePath);
+            Assert.Equal(File.GetLastWriteTimeUtc(entry.PhysicalPath), entry.LastWriteTimeUtc);
         });
+    }
+
+    [Fact]
+    public async Task Identity_metadata_reflects_normalized_relative_path()
+    {
+        using var root = new TemporaryDirectory();
+        var nested = Directory.CreateDirectory(Path.Combine(root.Path, "nested"));
+        await File.WriteAllBytesAsync(Path.Combine(nested.FullName, "clip.mp4"), [1, 2, 3]);
+
+        var entry = Assert.Single(await CreateService(root.Path).ScanAsync());
+
+        Assert.Equal("nested/clip.mp4", entry.RelativePath);
     }
 
     [Fact]
@@ -155,8 +169,38 @@ public sealed class VideoLibraryServiceTests
         Assert.False(VideoLibraryOptions.HasConfiguredPath(options) && VideoLibraryOptions.HasAbsolutePath(options));
     }
 
+    [Fact]
+    public async Task GetCurrentSnapshot_returns_scanned_entries_without_rescanning()
+    {
+        using var root = new TemporaryDirectory();
+        await File.WriteAllBytesAsync(Path.Combine(root.Path, "clip.mp4"), [1]);
+        var service = CreateService(root.Path);
+
+        Assert.Empty(service.GetCurrentSnapshot());
+
+        var scanned = await service.ScanAsync();
+        File.Delete(Path.Combine(root.Path, "clip.mp4"));
+
+        Assert.Equal(scanned, service.GetCurrentSnapshot());
+    }
+
+    private static readonly string SharedPreviewPath = CreateSharedPreviewDirectory();
+
+    private static string CreateSharedPreviewDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"video-manager-tests-preview-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
     private static VideoLibraryService CreateService(string path) =>
-        new(Options.Create(new VideoLibraryOptions { Path = path }));
+        new(Options.Create(new VideoLibraryOptions { Path = path }), CreateThumbnailCoordinator());
+
+    private static ThumbnailCoordinator CreateThumbnailCoordinator()
+    {
+        var options = Options.Create(new ThumbnailCacheOptions { Path = SharedPreviewPath, QueueCapacity = 64 });
+        return new ThumbnailCoordinator(new ThumbnailCache(options), new ThumbnailJobQueue(options));
+    }
 
     private sealed class TemporaryDirectory : IDisposable
     {

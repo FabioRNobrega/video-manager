@@ -16,7 +16,24 @@ builder.Services.AddOptions<VideoLibraryOptions>()
     .Validate(VideoLibraryOptions.DirectoryExists, "VideoLibrary:Path must identify an existing directory.")
     .Validate(VideoLibraryOptions.DirectoryIsReadable, "VideoLibrary:Path must identify a readable directory.")
     .ValidateOnStart();
+builder.Services.AddOptions<ThumbnailCacheOptions>()
+    .Bind(builder.Configuration.GetSection(ThumbnailCacheOptions.SectionName))
+    .Validate(ThumbnailCacheOptions.HasConfiguredPath, "ThumbnailCache:Path is required.")
+    .Validate(ThumbnailCacheOptions.HasAbsolutePath, "ThumbnailCache:Path must be absolute.")
+    .Validate(ThumbnailCacheOptions.DirectoryExists, "ThumbnailCache:Path must identify an existing directory.")
+    .Validate(ThumbnailCacheOptions.DirectoryIsWritable, "ThumbnailCache:Path must identify a writable directory.")
+    .Validate(
+        options => ThumbnailCacheOptions.IsDisjointFromVideoRoot(
+            options, builder.Configuration[$"{VideoLibraryOptions.SectionName}:Path"]),
+        "ThumbnailCache:Path must not overlap VideoLibrary:Path.")
+    .ValidateOnStart();
 builder.Services.AddSingleton<IVideoLibraryService, VideoLibraryService>();
+builder.Services.AddSingleton<ThumbnailCache>();
+builder.Services.AddSingleton<ThumbnailCoordinator>();
+builder.Services.AddSingleton<IThumbnailJobQueue, ThumbnailJobQueue>();
+builder.Services.AddSingleton<IVideoDurationProbe, FfprobeDurationProbe>();
+builder.Services.AddSingleton<IThumbnailGenerator, FfmpegThumbnailGenerator>();
+builder.Services.AddHostedService<ThumbnailBackgroundWorker>();
 
 var app = builder.Build();
 
