@@ -45,14 +45,19 @@ html[data-bs-theme="dark"] {
 
     --bs-body-font-family: var(--font-family-base);
     --bs-body-bg: var(--bg-app);
+    --bs-body-bg-rgb: 13, 21, 18;
     --bs-body-color: var(--text-body);
     --bs-body-color-rgb: 201, 210, 203;
     --bs-border-color: var(--border);
     --bs-border-color-translucent: var(--border);
     --bs-secondary-bg: var(--bg-elevated);
+    --bs-secondary-bg-rgb: 27, 42, 34;
     --bs-tertiary-bg: var(--bg-elevated);
+    --bs-tertiary-bg-rgb: 27, 42, 34;
     --bs-secondary-color: var(--text-muted);
+    --bs-secondary-color-rgb: 143, 163, 152;
     --bs-emphasis-color: var(--text-strong);
+    --bs-emphasis-color-rgb: 237, 234, 224;
     --bs-link-color: var(--brand-blue-onbg);
     --bs-link-hover-color: var(--brand-blue-onbg);
     --bs-link-color-rgb: 133, 184, 214;
@@ -113,14 +118,19 @@ html[data-bs-theme="light"] {
     --tint-blue-fg: #96c0d8;
 
     --bs-body-bg: var(--bg-app);
+    --bs-body-bg-rgb: 239, 227, 198;
     --bs-body-color: var(--text-body);
     --bs-body-color-rgb: 74, 64, 48;
     --bs-border-color: var(--border);
     --bs-border-color-translucent: var(--border);
     --bs-secondary-bg: var(--bg-elevated);
+    --bs-secondary-bg-rgb: 230, 214, 174;
     --bs-tertiary-bg: var(--bg-elevated);
+    --bs-tertiary-bg-rgb: 230, 214, 174;
     --bs-secondary-color: var(--text-muted);
+    --bs-secondary-color-rgb: 107, 96, 72;
     --bs-emphasis-color: var(--text-strong);
+    --bs-emphasis-color-rgb: 43, 36, 24;
     --bs-link-color: var(--brand-blue-onbg);
     --bs-link-hover-color: var(--brand-blue-onbg);
     --bs-link-color-rgb: 29, 62, 89;
