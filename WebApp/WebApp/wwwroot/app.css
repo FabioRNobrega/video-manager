@@ -63,6 +63,9 @@ html[data-bs-theme="dark"] {
     --bs-link-color-rgb: 133, 184, 214;
     --bs-primary: #b98a2e;
     --bs-primary-rgb: 185, 138, 46;
+    --bs-primary-text-emphasis: var(--brand-gold-onbg);
+    --bs-primary-bg-subtle: var(--tint-gold-bg);
+    --bs-primary-border-subtle: var(--tint-gold-fg);
     --bs-secondary: #2f7a4f;
     --bs-secondary-rgb: 47, 122, 79;
     --bs-success: #2f7a4f;
@@ -136,6 +139,9 @@ html[data-bs-theme="light"] {
     --bs-link-color-rgb: 29, 62, 89;
     --bs-primary: #b98a2e;
     --bs-primary-rgb: 185, 138, 46;
+    --bs-primary-text-emphasis: var(--brand-gold-onbg);
+    --bs-primary-bg-subtle: var(--tint-gold-bg);
+    --bs-primary-border-subtle: var(--tint-gold-fg);
     --bs-secondary: #2f7a4f;
     --bs-secondary-rgb: 47, 122, 79;
     --bs-success: #2f7a4f;
@@ -221,10 +227,6 @@ h1:focus { outline: none; }
     --bs-btn-disabled-border-color: var(--border);
 }
 
-.btn-icon { width: 2.5rem; height: 2.5rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-.btn-icon .bi { font-size: 1.05rem; line-height: 1; }
-.icon { width: 1em; height: 1em; display: inline-block; line-height: 1; vertical-align: -.125em; flex: none; }
-
 .card { --bs-card-bg: var(--bg-surface); --bs-card-color: var(--text-body); --bs-card-border-color: var(--border); box-shadow: var(--shadow); }
 .card-header { color: var(--text-body); background: var(--bg-elevated); border-bottom-color: var(--border); }
 .list-group {
@@ -250,6 +252,14 @@ h1:focus { outline: none; }
 .form-control:focus,
 .form-select:focus { color: var(--text-strong); background-color: var(--bg-elevated); border-color: var(--brand-blue-onbg); box-shadow: 0 0 0 .25rem rgba(47, 102, 144, .25); }
 .form-range { accent-color: #b98a2e; }
+.form-switch .form-check-input { cursor: pointer; background-color: var(--bg-elevated); border-color: var(--border-strong); }
+.form-check-input:checked { background-color: #b98a2e; border-color: #b98a2e; }
+.form-check-input:focus { border-color: var(--brand-gold-onbg); box-shadow: 0 0 0 .2rem var(--bs-focus-ring-color); }
+html[data-bs-theme="light"] .form-switch .form-check-input,
+html[data-bs-theme="light"] .form-switch .form-check-input:focus {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23B98A2E'/%3e%3c/svg%3e");
+    border-color: #b98a2e;
+}
 .progress { --bs-progress-bg: var(--bg-elevated); --bs-progress-bar-bg: #b98a2e; }
 .badge { font-family: var(--font-family-meta); font-weight: 500; }
 .tooltip { --bs-tooltip-bg: var(--bg-elevated); --bs-tooltip-color: var(--text-strong); --bs-tooltip-opacity: 1; }

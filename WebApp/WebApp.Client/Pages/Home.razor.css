@@ -1,6 +1,0 @@
-.workspace-heading { margin-bottom: clamp(1.25rem, 3vw, 2.25rem); }
-.eyebrow { margin: 0 0 .35rem; color: var(--brand-gold-onbg); font-family: var(--font-family-meta); font-size: .76rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
-h1 { margin: 0; color: var(--text-strong); font-size: clamp(2.2rem, 5vw, 3.75rem); font-weight: 600; line-height: 1.05; }
-.workspace-heading > p:last-child { max-width: 42rem; margin: .8rem 0 0; color: var(--text-muted); font-size: clamp(1rem, 2vw, 1.08rem); }
-.workspace { display: grid; grid-template-columns: minmax(17rem, 25rem) minmax(20rem, 1fr); gap: clamp(1rem, 2.5vw, 2rem); align-items: start; }
-@media (max-width: 52rem) { .workspace { grid-template-columns: 1fr; } }

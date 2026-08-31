@@ -1,13 +1,20 @@
 @inherits LayoutComponentBase
 
-<div class="page">
-    <a class="visually-hidden-focusable skip-link" href="#main-content">Skip to main content</a>
-    <header class="app-header"><NavMenu /></header>
-    <main id="main-content" class="app-main">@Body</main>
+<div class="min-vh-100 bg-body">
+    <a class="visually-hidden-focusable btn btn-primary position-fixed top-0 start-0 z-3 m-2"
+       href="#main-content">Skip to main content</a>
+    <header class="position-sticky top-0 z-2 bg-body border-bottom shadow-sm"><NavMenu /></header>
+    <main id="main-content" class="container-xxl px-3 px-md-4 py-4">@Body</main>
 </div>
 
-<div id="blazor-error-ui" class="alert alert-warning rounded-0 mb-0" role="alert" data-nosnippet>
+<div id="blazor-error-ui"
+     class="alert alert-warning position-fixed bottom-0 start-0 z-3 w-100 rounded-0 mb-0 py-2 px-3"
+     style="display: none"
+     role="alert"
+     data-nosnippet>
     <strong>Something went wrong.</strong>
-    <a href="." class="alert-link reload">Reload Perene Tech Videos</a>
-    <button type="button" class="btn-close dismiss" aria-label="Dismiss error"></button>
+    <a href="." class="alert-link ms-1">Reload Perene Tech Videos</a>
+    <button type="button"
+            class="btn-close position-absolute top-50 end-0 translate-middle-y me-2"
+            aria-label="Dismiss error"></button>
 </div>

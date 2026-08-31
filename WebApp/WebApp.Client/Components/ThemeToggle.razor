@@ -1,16 +1,18 @@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inject IJSRuntime JS
 
-<div class="theme-toggle form-check form-switch" data-theme-mode="@_theme">
-    <input class="form-check-input"
+<div class="form-check form-switch d-flex align-items-center gap-2 mb-0" data-theme-mode="@_theme">
+    <input class="form-check-input mt-0"
            id="theme-mode-switch"
            type="checkbox"
            role="switch"
            checked="@(_theme == DarkTheme)"
            aria-label="@ActionLabel"
            @onchange="ToggleAsync" />
-    <label class="form-check-label" for="theme-mode-switch" title="@ActionLabel">
-        <i class="bi @ThemeIconClass" aria-hidden="true"></i>
+    <label class="form-check-label d-flex align-items-center text-body-secondary"
+           for="theme-mode-switch"
+           title="@ActionLabel">
+        <i class="bi @ThemeIconClass text-primary" aria-hidden="true"></i>
     </label>
 </div>
 

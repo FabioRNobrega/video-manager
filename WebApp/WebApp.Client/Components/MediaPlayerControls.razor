@@ -16,21 +16,26 @@
      @onmouseenter="HandleMouseEnteredAsync"
      @onmouseleave="HandleMouseLeftAsync"
      @onclick:stopPropagation="true">
-    <div class="timeline-area" aria-label="Video progress">
-        <output class="time-readout" aria-label="Elapsed time" aria-live="off">@DisplayedCurrentTime</output>
-        <div class="timeline-track">
-            <div class="progress player-progress" aria-hidden="true">
+    <div class="d-flex align-items-center gap-2 w-100" aria-label="Video progress">
+        <output class="time-readout small text-white text-nowrap" aria-label="Elapsed time" aria-live="off">@DisplayedCurrentTime</output>
+        <div class="timeline-track position-relative d-flex align-items-center flex-grow-1">
+            <div class="player-progress progress position-absolute top-50 start-0 end-0 z-0 w-100 translate-middle-y"
+                 aria-hidden="true">
                 <div class="progress-bar" style="@ProgressStyle"></div>
             </div>
             @if (State.MarkerA is not null)
             {
-                <span class="timeline-marker marker-a" style="@MarkerStyle(State.MarkerA.Value)" aria-hidden="true"></span>
+                <span class="position-absolute top-0 bottom-0 z-3 translate-middle-x border-start border-2 border-success"
+                      style="@MarkerStyle(State.MarkerA.Value)"
+                      aria-hidden="true"></span>
             }
             @if (State.MarkerB is not null)
             {
-                <span class="timeline-marker marker-b" style="@MarkerStyle(State.MarkerB.Value)" aria-hidden="true"></span>
+                <span class="position-absolute top-0 bottom-0 z-3 translate-middle-x border-start border-2 border-warning"
+                      style="@MarkerStyle(State.MarkerB.Value)"
+                      aria-hidden="true"></span>
             }
-            <input class="timeline form-range"
+            <input class="timeline form-range position-relative z-2 w-100 m-0"
                    type="range"
                    min="0"
                    max="@DurationValue"
@@ -41,12 +46,14 @@
                    @oninput="PreviewTimeline"
                    @onchange="CommitTimelineAsync" />
         </div>
-        <span class="time-readout" aria-label="Total duration">@State.FormatDuration()</span>
+        <span class="time-readout small text-white text-nowrap" aria-label="Total duration">@State.FormatDuration()</span>
     </div>
 
-    <div class="control-row btn-toolbar d-flex flex-wrap align-items-center gap-2" role="toolbar" aria-label="Video player controls">
+    <div class="btn-toolbar d-flex flex-wrap align-items-center gap-2 border-top border-light border-opacity-25 pt-2"
+         role="toolbar"
+         aria-label="Video player controls">
         <div class="btn-group" role="group" aria-label="Playback">
-        <button class="btn control-button btn-player btn-icon"
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
                 type="button"
                 aria-label="@(State.IsPlaying ? "Pause" : "Play")"
                 title="@(State.IsPlaying ? "Pause" : "Play")"
@@ -71,7 +78,7 @@
 
         <div class="audio-controls d-flex align-items-center gap-2">
         <div class="btn-group" role="group" aria-label="Audio">
-        <button class="btn control-button btn-player btn-icon"
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
                 type="button"
                 aria-label="@(State.IsMuted ? "Unmute" : "Mute")"
                 title="@(State.IsMuted ? "Unmute" : "Mute")"
@@ -83,10 +90,10 @@
         </button>
         </div>
 
-        <label class="volume-control">
+        <label class="volume-control d-flex align-items-center gap-2">
             <span class="visually-hidden">Volume</span>
             <i class="bi bi-volume-down" aria-hidden="true"></i>
-            <input class="form-range" type="range"
+            <input class="form-range w-100 m-0" type="range"
                    min="0"
                    max="1"
                    step="0.01"
@@ -100,7 +107,10 @@
 
         <label class="rate-control">
             <span class="visually-hidden">Playback speed</span>
-            <select class="form-select form-select-sm" value="@Invariant(State.PlaybackRate)" aria-label="Playback speed" @onchange="ChangeRateAsync">
+            <select class="form-select form-select-sm w-auto bg-dark text-white border-light"
+                    value="@Invariant(State.PlaybackRate)"
+                    aria-label="Playback speed"
+                    @onchange="ChangeRateAsync">
                 @foreach (var rate in MediaPlayerState.PlaybackRates)
                 {
                     <option value="@Invariant(rate)">@Invariant(rate)x</option>
@@ -108,8 +118,8 @@
             </select>
         </label>
 
-        <div class="btn-group loop-point-controls" role="group" aria-label="Loop points">
-        <button class="btn control-button btn-player btn-icon" type="button"
+        <div class="btn-group ms-sm-auto" role="group" aria-label="Loop points">
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
                 disabled="@(!State.HasDuration)"
                 aria-label="Set point A"
                 title="Set point A"
@@ -118,7 +128,7 @@
                 @onclick="HandleSetMarkerAAsync">
             <i class="bi bi-chevron-bar-left" aria-hidden="true"></i>
         </button>
-        <button class="btn control-button btn-player btn-icon" type="button"
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
                 disabled="@(!State.HasDuration)"
                 aria-label="Set point B"
                 title="Set point B"
@@ -136,7 +146,7 @@
                 data-bs-title="Loop A–B"
                 aria-pressed="@BooleanValue(State.IsAbLoop)"
                 @onclick="HandleToggleAbLoopAsync"><i class="bi bi-infinity" aria-hidden="true"></i></button>
-        <button class="btn control-button btn-player btn-icon" type="button"
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
                 disabled="@(State.MarkerA is null && State.MarkerB is null)"
                 aria-label="Clear loop points"
                 title="Clear loop points"
@@ -149,7 +159,7 @@
 
         <div class="btn-group" role="group" aria-label="Video actions">
         <button @ref="_fillTabButton"
-                class="btn control-button btn-player btn-icon"
+                class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
                 type="button"
                 aria-label="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
                 title="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
@@ -164,11 +174,11 @@
 
     @if (!string.IsNullOrWhiteSpace(State.ValidationMessage))
     {
-        <p class="control-message alert alert-warning" role="status" aria-live="polite">@State.ValidationMessage</p>
+        <p class="alert alert-warning small py-2 px-3 mb-0" role="status" aria-live="polite">@State.ValidationMessage</p>
     }
     @if (!string.IsNullOrWhiteSpace(Error))
     {
-        <p class="control-message alert alert-danger" role="alert" aria-live="assertive">@Error</p>
+        <p class="alert alert-danger small py-2 px-3 mb-0" role="alert" aria-live="assertive">@Error</p>
     }
 </div>
 
@@ -204,7 +214,8 @@
     private double _volumePreview;
     private bool _disposed;
 
-    private string RootCssClass => $"media-controls{(IsVisible ? " is-visible" : string.Empty)}{(IsFillTabActive ? " fill-tab-controls" : string.Empty)}";
+    private string RootCssClass =>
+        $"media-controls position-absolute bottom-0 start-0 end-0 z-3 d-flex flex-column gap-2 text-white user-select-none {(IsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}{(IsFillTabActive ? " fill-tab-controls" : string.Empty)}";
     private double TimelineValue => _timelineActive ? _timelinePreview : State.CurrentTime;
     private double VolumeValue => _volumeActive ? _volumePreview : State.Volume;
     private string DisplayedCurrentTime => MediaPlayerState.FormatTime(TimelineValue);
@@ -317,12 +328,12 @@
     private string MarkerStyle(double marker)
     {
         var percentage = State.Duration is > 0 ? Math.Clamp(marker / State.Duration.Value * 100, 0, 100) : 0;
-        return $"--marker-position: {Invariant(percentage)}%";
+        return $"left: {Invariant(percentage)}%";
     }
 
     private static string ToggleCssClass(bool active) => active
-        ? "control-button btn-player btn-icon toggle-control is-active"
-        : "control-button btn-player btn-icon toggle-control";
+        ? "btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2 active"
+        : "btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2";
 
     private static string BooleanValue(bool value) => value ? "true" : "false";
     private static string Invariant(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
