@@ -27,6 +27,13 @@ builder.Services.AddOptions<ThumbnailCacheOptions>()
             options, builder.Configuration[$"{VideoLibraryOptions.SectionName}:Path"]),
         "ThumbnailCache:Path must not overlap VideoLibrary:Path.")
     .ValidateOnStart();
+builder.Services.AddOptions<HoverPreviewOptions>()
+    .Bind(builder.Configuration.GetSection(HoverPreviewOptions.SectionName))
+    .Validate(HoverPreviewOptions.HasPositiveWidth, "HoverPreview:Width must be greater than zero.")
+    .Validate(HoverPreviewOptions.HasPositiveFrameRate, "HoverPreview:FrameRate must be greater than zero.")
+    .Validate(HoverPreviewOptions.HasPositiveSegmentSeconds, "HoverPreview:SegmentSeconds must be greater than zero.")
+    .Validate(HoverPreviewOptions.HasPositiveQueueCapacity, "HoverPreview:QueueCapacity must be greater than zero.")
+    .ValidateOnStart();
 builder.Services.AddSingleton<IVideoLibraryService, VideoLibraryService>();
 builder.Services.AddSingleton<ThumbnailCache>();
 builder.Services.AddSingleton<ThumbnailCoordinator>();
@@ -34,6 +41,11 @@ builder.Services.AddSingleton<IThumbnailJobQueue, ThumbnailJobQueue>();
 builder.Services.AddSingleton<IVideoDurationProbe, FfprobeDurationProbe>();
 builder.Services.AddSingleton<IThumbnailGenerator, FfmpegThumbnailGenerator>();
 builder.Services.AddHostedService<ThumbnailBackgroundWorker>();
+builder.Services.AddSingleton<HoverPreviewCache>();
+builder.Services.AddSingleton<HoverPreviewCoordinator>();
+builder.Services.AddSingleton<IHoverPreviewJobQueue, HoverPreviewJobQueue>();
+builder.Services.AddSingleton<IHoverPreviewGenerator, FfmpegHoverPreviewGenerator>();
+builder.Services.AddHostedService<HoverPreviewBackgroundWorker>();
 
 var app = builder.Build();
 

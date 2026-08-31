@@ -24,6 +24,8 @@ services:
       DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER: "true"
       VideoLibrary__Path: /videos
       ThumbnailCache__Path: /previews
+      # Optional: set to "false" to disable hover-preview generation and serving entirely.
+      # HoverPreview__Enabled: "true"
 
 volumes:
   nuget_cache:

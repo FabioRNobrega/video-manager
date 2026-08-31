@@ -194,12 +194,24 @@ public sealed class VideoLibraryServiceTests
     }
 
     private static VideoLibraryService CreateService(string path) =>
-        new(Options.Create(new VideoLibraryOptions { Path = path }), CreateThumbnailCoordinator());
+        new(
+            Options.Create(new VideoLibraryOptions { Path = path }),
+            CreateThumbnailCoordinator(),
+            CreateHoverPreviewCoordinator());
 
     private static ThumbnailCoordinator CreateThumbnailCoordinator()
     {
         var options = Options.Create(new ThumbnailCacheOptions { Path = SharedPreviewPath, QueueCapacity = 64 });
         return new ThumbnailCoordinator(new ThumbnailCache(options), new ThumbnailJobQueue(options));
+    }
+
+    private static HoverPreviewCoordinator CreateHoverPreviewCoordinator()
+    {
+        var thumbnailOptions = Options.Create(new ThumbnailCacheOptions { Path = SharedPreviewPath, QueueCapacity = 64 });
+        var thumbnailCoordinator = new ThumbnailCoordinator(new ThumbnailCache(thumbnailOptions), new ThumbnailJobQueue(thumbnailOptions));
+        var hoverOptions = Options.Create(new HoverPreviewOptions { QueueCapacity = 64 });
+        return new HoverPreviewCoordinator(
+            new HoverPreviewCache(thumbnailOptions), new HoverPreviewJobQueue(hoverOptions), thumbnailCoordinator, hoverOptions);
     }
 
     private sealed class TemporaryDirectory : IDisposable

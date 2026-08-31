@@ -71,7 +71,9 @@
                     <button class="card position-relative w-100 h-100 overflow-hidden p-0 text-start text-body @(selected ? "border-primary border-2" : null)"
                             type="button"
                             aria-pressed="@selected"
-                            @onclick="() => OnSelect.InvokeAsync(item)">
+                            @onclick="() => OnSelect.InvokeAsync(item)"
+                            @onmouseenter="() => OnCardMouseEnter(item)"
+                            @onmouseleave="OnCardMouseLeave">
                         @if (selected)
                         {
                             <span class="badge text-bg-primary position-absolute top-0 end-0 z-1 m-2">
@@ -79,7 +81,18 @@
                             </span>
                         }
                         <span class="ratio ratio-16x9 bg-body-tertiary border-bottom" aria-hidden="true">
-                            @if (item.ThumbnailState == ThumbnailState.Ready && !string.IsNullOrEmpty(item.ThumbnailUrl))
+                            @if (item.Id == _previewingVideoId && item.HoverPreviewState == HoverPreviewState.Ready && !string.IsNullOrEmpty(item.HoverPreviewUrl))
+                            {
+                                <video src="@item.HoverPreviewUrl"
+                                       poster="@item.ThumbnailUrl"
+                                       class="w-100 h-100 object-fit-cover"
+                                       autoplay
+                                       muted
+                                       loop
+                                       playsinline>
+                                </video>
+                            }
+                            else if (item.ThumbnailState == ThumbnailState.Ready && !string.IsNullOrEmpty(item.ThumbnailUrl))
                             {
                                 <img src="@item.ThumbnailUrl" alt="" class="w-100 h-100 object-fit-cover" />
                             }
@@ -114,6 +127,59 @@
     [Parameter] public string? SelectedId { get; set; }
     [Parameter] public EventCallback OnScan { get; set; }
     [Parameter] public EventCallback<VideoItemDto> OnSelect { get; set; }
+
+    private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(300);
+
+    private string? _previewingVideoId;
+    private CancellationTokenSource? _hoverDelayCts;
+
+    private void OnCardMouseEnter(VideoItemDto item)
+    {
+        _hoverDelayCts?.Cancel();
+        _hoverDelayCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _hoverDelayCts = cts;
+
+        _ = ActivatePreviewAfterDelayAsync(item, cts);
+    }
+
+    private void OnCardMouseLeave()
+    {
+        _hoverDelayCts?.Cancel();
+        _hoverDelayCts?.Dispose();
+        _hoverDelayCts = null;
+
+        if (_previewingVideoId is not null)
+        {
+            _previewingVideoId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ActivatePreviewAfterDelayAsync(VideoItemDto item, CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(HoverDelay, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (cts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (item.HoverPreviewState != HoverPreviewState.Ready || string.IsNullOrEmpty(item.HoverPreviewUrl))
+        {
+            return;
+        }
+
+        _previewingVideoId = item.Id;
+        StateHasChanged();
+    }
 
     private static string FormatSize(long bytes)
     {

@@ -7,6 +7,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Testing
       ThumbnailCache__Path: /previews
+      # Optional: set to "false" to disable hover-preview generation and serving entirely.
+      # HoverPreview__Enabled: "true"
     volumes:
       - ./:/workspace
       - /workspace/WebApp/WebApp/bin

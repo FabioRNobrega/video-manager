@@ -21,18 +21,20 @@ internal static class VideoEndpoints
         endpoints.MapGet("/api/videos", GetCurrentSnapshot);
         endpoints.MapGet("/api/videos/{id}/stream", StreamAsync);
         endpoints.MapGet("/api/videos/{id}/thumbnail", GetThumbnail);
+        endpoints.MapGet("/api/videos/{id}/preview", GetPreview);
         return endpoints;
     }
 
     private static async Task<IResult> ScanAsync(
         IVideoLibraryService library,
-        ThumbnailCoordinator coordinator,
+        ThumbnailCoordinator thumbnailCoordinator,
+        HoverPreviewCoordinator hoverPreviewCoordinator,
         CancellationToken cancellationToken)
     {
         try
         {
             var entries = await library.ScanAsync(cancellationToken);
-            return Results.Ok(entries.Select(entry => BuildDto(entry, coordinator)));
+            return Results.Ok(entries.Select(entry => BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator)));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -47,11 +49,13 @@ internal static class VideoEndpoints
         }
     }
 
-    private static IResult GetCurrentSnapshot(IVideoLibraryService library, ThumbnailCoordinator coordinator)
+    private static IResult GetCurrentSnapshot(
+        IVideoLibraryService library, ThumbnailCoordinator thumbnailCoordinator, HoverPreviewCoordinator hoverPreviewCoordinator)
     {
         var entries = library.GetCurrentSnapshot();
-        coordinator.Reconcile(entries);
-        return Results.Ok(entries.Select(entry => BuildDto(entry, coordinator)));
+        thumbnailCoordinator.Reconcile(entries);
+        hoverPreviewCoordinator.Reconcile(entries);
+        return Results.Ok(entries.Select(entry => BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator)));
     }
 
     private static IResult StreamAsync(string id, IVideoLibraryService library)
@@ -116,10 +120,47 @@ internal static class VideoEndpoints
         }
     }
 
-    private static VideoItemDto BuildDto(VideoFileEntry entry, ThumbnailCoordinator coordinator)
+    private static IResult GetPreview(
+        string id, IVideoLibraryService library, HoverPreviewCoordinator coordinator)
     {
-        var state = coordinator.Resolve(entry);
-        var thumbnailUrl = state == ThumbnailState.Ready ? $"/api/videos/{entry.Id}/thumbnail" : null;
-        return new VideoItemDto(entry.Id, entry.Name, entry.Extension, entry.SizeBytes, state, thumbnailUrl);
+        if (!library.TryResolve(id, out var entry) || entry is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (coordinator.Resolve(entry) != HoverPreviewState.Ready)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var stream = new FileStream(
+                coordinator.GetFinalPath(entry),
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+            return Results.Stream(stream, "video/mp4", enableRangeProcessing: true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return Results.NotFound();
+        }
+    }
+
+    private static VideoItemDto BuildDto(
+        VideoFileEntry entry, ThumbnailCoordinator thumbnailCoordinator, HoverPreviewCoordinator hoverPreviewCoordinator)
+    {
+        var thumbnailState = thumbnailCoordinator.Resolve(entry);
+        var thumbnailUrl = thumbnailState == ThumbnailState.Ready ? $"/api/videos/{entry.Id}/thumbnail" : null;
+        var hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
+        var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready ? $"/api/videos/{entry.Id}/preview" : null;
+        return new VideoItemDto(
+            entry.Id, entry.Name, entry.Extension, entry.SizeBytes,
+            thumbnailState, thumbnailUrl, hoverPreviewState, hoverPreviewUrl);
     }
 }

@@ -6,7 +6,8 @@ namespace WebApp.Services;
 
 internal sealed class VideoLibraryService(
     IOptions<VideoLibraryOptions> options,
-    ThumbnailCoordinator thumbnailCoordinator) : IVideoLibraryService
+    ThumbnailCoordinator thumbnailCoordinator,
+    HoverPreviewCoordinator hoverPreviewCoordinator) : IVideoLibraryService
 {
     private static readonly HashSet<string> SupportedExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".webm", ".mov", ".m4v" };
@@ -25,6 +26,7 @@ internal sealed class VideoLibraryService(
             var snapshot = new SnapshotState(entries.ToDictionary(entry => entry.Id, StringComparer.Ordinal), entries);
             Interlocked.Exchange(ref _snapshot, snapshot);
             thumbnailCoordinator.Reconcile(entries);
+            hoverPreviewCoordinator.Reconcile(entries);
             return entries;
         }
         catch
