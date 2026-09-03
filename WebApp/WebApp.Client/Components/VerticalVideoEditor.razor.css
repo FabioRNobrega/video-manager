@@ -5,3 +5,70 @@ video {
 video:active {
     cursor: grabbing;
 }
+
+.saturation-rail {
+    top: 50%;
+    left: auto;
+    right: .75rem;
+    width: auto;
+    height: auto;
+    transform: translateY(-50%);
+    padding: .85rem .5rem;
+    background: rgba(8, 10, 9, .5);
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: .9rem;
+    box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .35);
+    transition: opacity .16s ease, visibility .16s;
+    touch-action: none;
+}
+
+.saturation-range {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 1.25rem;
+    height: 9rem;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.saturation-range::-webkit-slider-runnable-track {
+    width: .35rem;
+    background: rgba(255, 255, 255, .24);
+}
+
+.saturation-range::-moz-range-track {
+    width: .35rem;
+    background: rgba(255, 255, 255, .24);
+}
+
+.saturation-range::-moz-range-progress {
+    width: .35rem;
+    background: var(--bs-primary);
+}
+
+.saturation-range::-webkit-slider-thumb {
+    margin-left: -.32rem;
+    background-color: var(--bs-primary);
+    border: 2px solid rgba(255, 255, 255, .72);
+}
+
+.saturation-range::-moz-range-thumb {
+    background-color: var(--bs-primary);
+    border: 2px solid rgba(255, 255, 255, .72);
+}
+
+.saturation-output {
+    font-family: var(--font-family-meta);
+    font-variant-numeric: tabular-nums;
+}
+
+.saturation-reset:disabled {
+    opacity: .5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .saturation-rail {
+        transition: none;
+    }
+}

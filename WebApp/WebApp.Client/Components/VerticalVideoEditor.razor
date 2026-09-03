@@ -1,3 +1,4 @@
+@using System.Globalization
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
@@ -56,6 +57,30 @@
                        @onended="SynchronizeMediaStateAsync">
                     Your browser does not support HTML5 video.
                 </video>
+                <div class="@SaturationRailCssClass"
+                     aria-hidden="@(!_controlsVisible)"
+                     @onmouseenter="HandleControlHoverStarted"
+                     @onmouseleave="HandleControlHoverEnded">
+                    <div class="btn-group" role="group" aria-label="Saturation actions">
+                        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-1 saturation-reset"
+                                type="button"
+                                disabled="@(_saturation.Value == SaturationState.Default)"
+                                aria-label="Reset saturation"
+                                title="Reset saturation"
+                                @onclick="ResetSaturation">
+                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <input class="form-range saturation-range"
+                           type="range"
+                           min="0"
+                           max="@Invariant(SaturationState.Max)"
+                           step="1"
+                           value="@Invariant(_saturation.Value)"
+                           aria-label="Saturation"
+                           @oninput="HandleSaturationInput" />
+                    <output class="small text-white saturation-output" aria-hidden="true">@Math.Round(_saturation.Value)%</output>
+                </div>
                 <MediaPlayerControls State="_player"
                                      IsVisible="_controlsVisible"
                                      Error="@_playerError"
@@ -106,6 +131,7 @@
     private readonly VideoFrameState _frame = new();
     private readonly FillTabState _fillTab = new();
     private readonly MediaPlayerState _player = new();
+    private readonly SaturationState _saturation = new();
     private ElementReference _viewport;
     private ElementReference _video;
     private IJSObjectReference? _module;
@@ -145,7 +171,10 @@
         : "--bs-aspect-ratio: 177.777%; max-width: 24rem";
 
     private string VideoStyle => FormattableString.Invariant(
-        $"object-position: {_frame.PositionX:0.##}% {_frame.PositionY:0.##}%; touch-action: none");
+        $"object-position: {_frame.PositionX:0.##}% {_frame.PositionY:0.##}%; touch-action: none; filter: saturate({_saturation.Value:0}%)");
+
+    private string SaturationRailCssClass =>
+        $"saturation-rail position-absolute z-3 d-flex flex-column align-items-center gap-2 text-white user-select-none {(_controlsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}";
 
     protected override void OnParametersSet()
     {
@@ -156,6 +185,7 @@
 
         _frame.Select(Selected?.Id);
         _player.Select(Selected?.Id);
+        _saturation.Select(Selected?.Id);
         _pendingFillTabCleanup |= _fillTab.Select(Selected?.Id);
         _drag = null;
         _playbackError = false;
@@ -293,6 +323,19 @@
 
     private void Reset() => _frame.Reset();
     private void ShowPlaybackError() => _playbackError = true;
+
+    private void HandleSaturationInput(ChangeEventArgs args)
+    {
+        if (double.TryParse(Convert.ToString(args.Value, CultureInfo.InvariantCulture), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out var value))
+        {
+            _saturation.SetValue(value);
+        }
+    }
+
+    private void ResetSaturation() => _saturation.Reset();
+
+    private static string Invariant(double value) => value.ToString("0", CultureInfo.InvariantCulture);
 
     private async Task HandleLoadedMetadataAsync()
     {
