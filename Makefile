@@ -13,7 +13,7 @@ DOCKER_HOST := $(shell \
 	fi)
 export DOCKER_HOST
 
-.PHONY: help docker-env docker-build docker-run docker-run-bg docker-down docker-reset docker-logs docker-ps docker-shell docker-exec dotnet dotnet-new test docker-test docker-test-shell
+.PHONY: help docker-env docker-build docker-run docker-run-bg docker-down docker-reset docker-logs docker-ps docker-shell docker-exec dotnet dotnet-new test docker-test docker-test-shell get-url
 
 help:
 	@printf '%s\n' \
@@ -28,7 +28,8 @@ help:
 		'make docker-shell              Open a new .NET SDK container shell' \
 		'make docker-exec               Open the running web container shell' \
 		'make dotnet ARGS="build"       Run any dotnet command in Docker' \
-		'make test                      Run tests in an isolated stack'
+		'make test                      Run tests in an isolated stack' \
+		'make get-url                   Show the URL to access the app from other LAN devices'
 
 docker-env:
 	@echo "export DOCKER_HOST=$(DOCKER_HOST)"
@@ -80,3 +81,18 @@ docker-test:
 
 docker-test-shell:
 	$(COMPOSE) -p $(TEST_COMPOSE_PROJECT) -f docker-compose.test.yml run --rm --build tests bash
+
+get-url:
+	@iface=$$(ip -o link show | awk -F': ' '{print $$2}' | grep -m1 '^wl'); \
+	if [ -z "$$iface" ]; then \
+		echo "No Wi-Fi interface found (looked for one starting with 'wl')." >&2; \
+		exit 1; \
+	fi; \
+	ip=$$(ip -4 -o addr show "$$iface" | awk '{print $$4}' | cut -d/ -f1); \
+	if [ -z "$$ip" ]; then \
+		echo "Interface $$iface has no IPv4 address (not connected?)." >&2; \
+		exit 1; \
+	fi; \
+	port=$$(grep -m1 '^WEBAPP_PORT=' .env 2>/dev/null | cut -d= -f2); \
+	port=$${port:-8080}; \
+	echo "Access Video Manager on http://$$ip:$$port"
