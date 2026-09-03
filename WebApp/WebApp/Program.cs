@@ -27,6 +27,14 @@ builder.Services.AddOptions<ThumbnailCacheOptions>()
             options, builder.Configuration[$"{VideoLibraryOptions.SectionName}:Path"]),
         "ThumbnailCache:Path must not overlap VideoLibrary:Path.")
     .ValidateOnStart();
+builder.Services.AddOptions<VideoCutOptions>()
+    .Bind(builder.Configuration.GetSection(VideoCutOptions.SectionName))
+    .Validate(VideoCutOptions.HasConfiguredPath, "VideoCut:Path is required.")
+    .Validate(VideoCutOptions.HasAbsolutePath, "VideoCut:Path must be absolute.")
+    .Validate(VideoCutOptions.DirectoryExists, "VideoCut:Path must identify an existing directory.")
+    .Validate(VideoCutOptions.DirectoryIsWritable, "VideoCut:Path must identify a writable directory.")
+    .Validate(VideoCutOptions.HasPositiveQueueCapacity, "VideoCut:QueueCapacity must be greater than zero.")
+    .ValidateOnStart();
 builder.Services.AddOptions<HoverPreviewOptions>()
     .Bind(builder.Configuration.GetSection(HoverPreviewOptions.SectionName))
     .Validate(HoverPreviewOptions.HasPositiveWidth, "HoverPreview:Width must be greater than zero.")
@@ -46,6 +54,11 @@ builder.Services.AddSingleton<HoverPreviewCoordinator>();
 builder.Services.AddSingleton<IHoverPreviewJobQueue, HoverPreviewJobQueue>();
 builder.Services.AddSingleton<IHoverPreviewGenerator, FfmpegHoverPreviewGenerator>();
 builder.Services.AddHostedService<HoverPreviewBackgroundWorker>();
+builder.Services.AddSingleton<IVideoCutService, VideoCutService>();
+builder.Services.AddSingleton<CutNamingService>();
+builder.Services.AddSingleton<ICutJobQueue, CutJobQueue>();
+builder.Services.AddSingleton<ICutGenerator, FfmpegCutGenerator>();
+builder.Services.AddHostedService<CutBackgroundWorker>();
 
 var app = builder.Build();
 
@@ -60,13 +73,16 @@ else
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapVideoEndpoints();
+app.MapCutEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(WebApp.Client._Imports).Assembly);

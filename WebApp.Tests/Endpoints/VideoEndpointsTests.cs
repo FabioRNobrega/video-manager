@@ -300,13 +300,16 @@ public sealed class VideoEndpointsTests
     {
         private readonly string _rootPath;
         private readonly bool _hoverPreviewEnabled;
+        private readonly string _cutPath;
 
         public VideoManagerFactory(string rootPath, bool hoverPreviewEnabled = true)
         {
             _rootPath = rootPath;
             _hoverPreviewEnabled = hoverPreviewEnabled;
             PreviewPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-preview-{Guid.NewGuid():N}");
+            _cutPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-cuts-{Guid.NewGuid():N}");
             Directory.CreateDirectory(PreviewPath);
+            Directory.CreateDirectory(_cutPath);
         }
 
         public string PreviewPath { get; }
@@ -318,6 +321,7 @@ public sealed class VideoEndpointsTests
                 {
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = PreviewPath,
+                    ["VideoCut:Path"] = _cutPath,
                     ["HoverPreview:Enabled"] = _hoverPreviewEnabled.ToString(),
                 }));
         }
@@ -328,6 +332,10 @@ public sealed class VideoEndpointsTests
             if (disposing && Directory.Exists(PreviewPath))
             {
                 Directory.Delete(PreviewPath, recursive: true);
+            }
+            if (disposing && Directory.Exists(_cutPath))
+            {
+                Directory.Delete(_cutPath, recursive: true);
             }
         }
     }

@@ -81,12 +81,15 @@ public sealed class ThemeBootstrapTests
     {
         private readonly string _rootPath;
         private readonly string _previewPath;
+        private readonly string _cutPath;
 
         public VideoManagerFactory(string rootPath)
         {
             _rootPath = rootPath;
             _previewPath = Path.Combine(Path.GetTempPath(), $"video-manager-theme-tests-preview-{Guid.NewGuid():N}");
+            _cutPath = Path.Combine(Path.GetTempPath(), $"video-manager-theme-tests-cuts-{Guid.NewGuid():N}");
             Directory.CreateDirectory(_previewPath);
+            Directory.CreateDirectory(_cutPath);
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -96,6 +99,7 @@ public sealed class ThemeBootstrapTests
                 {
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = _previewPath,
+                    ["VideoCut:Path"] = _cutPath,
                 }));
         }
 
@@ -105,6 +109,10 @@ public sealed class ThemeBootstrapTests
             if (disposing && Directory.Exists(_previewPath))
             {
                 Directory.Delete(_previewPath, recursive: true);
+            }
+            if (disposing && Directory.Exists(_cutPath))
+            {
+                Directory.Delete(_cutPath, recursive: true);
             }
         }
     }

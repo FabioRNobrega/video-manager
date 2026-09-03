@@ -170,6 +170,22 @@
                 aria-pressed="@BooleanValue(State.IsAbLoop)"
                 @onclick="HandleToggleAbLoopAsync"><i class="bi bi-infinity" aria-hidden="true"></i></button>
         <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
+                disabled="@(!State.HasValidAbRange || IsSavingCut)"
+                aria-label="Save Cut"
+                title="Save Cut"
+                data-bs-toggle="tooltip"
+                data-bs-title="Save Cut"
+                @onclick="HandleSaveCutAsync">
+            @if (IsSavingCut)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            }
+            else
+            {
+                <i class="bi bi-download" aria-hidden="true"></i>
+            }
+        </button>
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
                 disabled="@(State.MarkerA is null && State.MarkerB is null)"
                 aria-label="Clear loop points"
                 title="Clear loop points"
@@ -220,6 +236,8 @@
     [Parameter] public EventCallback SetMarkerA { get; set; }
     [Parameter] public EventCallback SetMarkerB { get; set; }
     [Parameter] public EventCallback ToggleAbLoop { get; set; }
+    [Parameter] public EventCallback SaveCut { get; set; }
+    [Parameter] public bool IsSavingCut { get; set; }
     [Parameter] public EventCallback ClearAbLoop { get; set; }
     [Parameter] public EventCallback InteractionStarted { get; set; }
     [Parameter] public EventCallback InteractionEnded { get; set; }
@@ -350,6 +368,7 @@
     private Task HandleSetMarkerAAsync() => SetMarkerA.InvokeAsync();
     private Task HandleSetMarkerBAsync() => SetMarkerB.InvokeAsync();
     private Task HandleToggleAbLoopAsync() => ToggleAbLoop.InvokeAsync();
+    private Task HandleSaveCutAsync() => SaveCut.InvokeAsync();
     private Task HandleClearAbLoopAsync() => ClearAbLoop.InvokeAsync();
 
     private string MarkerStyle(double marker)

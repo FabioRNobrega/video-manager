@@ -1,5 +1,6 @@
 @using System.Globalization
 @implements IAsyncDisposable
+@inject HttpClient Http
 @inject IJSRuntime JS
 
 <section class="@EditorCssClass" aria-labelledby="editor-heading">
@@ -33,7 +34,7 @@
                 <video @key="Selected.Id"
                        @ref="_video"
                        class="position-absolute top-0 start-0 w-100 h-100 object-fit-cover user-select-none"
-                       src="@($"api/videos/{Selected.Id}/stream")"
+                       src="@($"{StreamBasePath}/{Selected.Id}/stream")"
                        muted
                        preload="metadata"
                        aria-label="Vertical preview of @Selected.Name"
@@ -95,6 +96,8 @@
                                      SetMarkerA="SetMarkerA"
                                      SetMarkerB="SetMarkerB"
                                      ToggleAbLoop="ToggleAbLoopAsync"
+                                     SaveCut="SaveCutAsync"
+                                     IsSavingCut="_isSavingCut"
                                      ClearAbLoop="ClearAbLoop"
                                      InteractionStarted="HandleControlInteractionStarted"
                                      InteractionEnded="HandleControlInteractionEnded"
@@ -124,6 +127,9 @@
 
 @code {
     [Parameter] public VideoItemDto? Selected { get; set; }
+    [Parameter] public string StreamBasePath { get; set; } = "api/videos";
+    [Parameter] public EventCallback CutQueued { get; set; }
+    [Parameter] public int CutCompletionSignal { get; set; }
 
     private const double DragThreshold = 6;
     private static readonly TimeSpan ControlHideDelay = TimeSpan.FromSeconds(1);
@@ -148,6 +154,8 @@
     private bool _controlInteractionActive;
     private bool _controlHoverActive;
     private bool _abSeekPending;
+    private bool _isSavingCut;
+    private int _observedCutCompletionSignal;
     private bool _disposed;
 
     private string EditorCssClass => _fillTab.IsActive
@@ -178,11 +186,20 @@
 
     protected override void OnParametersSet()
     {
-        if (string.Equals(_frame.SelectionId, Selected?.Id, StringComparison.Ordinal))
+        if (CutCompletionSignal != _observedCutCompletionSignal)
         {
-            return;
+            _observedCutCompletionSignal = CutCompletionSignal;
+            _isSavingCut = false;
         }
 
+        if (!string.Equals(_frame.SelectionId, Selected?.Id, StringComparison.Ordinal))
+        {
+            HandleSelectionChanged();
+        }
+    }
+
+    private void HandleSelectionChanged()
+    {
         _frame.Select(Selected?.Id);
         _player.Select(Selected?.Id);
         _saturation.Select(Selected?.Id);
@@ -190,6 +207,7 @@
         _drag = null;
         _playbackError = false;
         _playerError = null;
+        _isSavingCut = false;
         _abSeekPending = false;
         _pendingMediaInitialization = Selected is not null;
         _controlsVisible = Selected is not null;
@@ -441,6 +459,45 @@
         }
     }
 
+    private async Task SaveCutAsync()
+    {
+        if (Selected is null || !_player.HasValidAbRange || _player.MarkerA is null || _player.MarkerB is null || _isSavingCut)
+        {
+            return;
+        }
+
+        try
+        {
+            _isSavingCut = true;
+            _playerError = null;
+            using var response = await Http.PostAsJsonAsync(
+                $"api/videos/{Selected.Id}/cuts",
+                new CutRequest(_player.MarkerA.Value, _player.MarkerB.Value));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _isSavingCut = false;
+                _playerError = "The cut could not be queued. Check the A/B points and try again.";
+                RevealControls();
+                return;
+            }
+
+            await CutQueued.InvokeAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _isSavingCut = false;
+            _playerError = "The cut service could not be reached. Try again.";
+            RevealControls();
+        }
+        catch (TaskCanceledException)
+        {
+            _isSavingCut = false;
+            _playerError = "The cut request was interrupted. Try again.";
+            RevealControls();
+        }
+    }
+
     private void ClearAbLoop() => _player.ClearAbLoop();
 
     private async Task ExecuteMediaCommandAsync(string identifier, params object?[] values)
@@ -565,6 +622,8 @@
     }
 
     private sealed record VideoGeometry(double ViewportWidth, double ViewportHeight, double VideoWidth, double VideoHeight);
+
+    private sealed record CutRequest(double Start, double End);
 
     private sealed class DragSession(long pointerId, double startClientX, double startClientY,
         double startPositionX, double startPositionY, VideoGeometry geometry)

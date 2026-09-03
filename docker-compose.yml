@@ -10,6 +10,10 @@ services:
         source: ${VIDEO_ROOT:?VIDEO_ROOT is required. Copy .env.example to .env and set an absolute video directory.}
         target: /videos
         read_only: true
+      - type: bind
+        source: ${VIDEO_ROOT:?VIDEO_ROOT is required. Copy .env.example to .env and set an absolute video directory.}/Cuts
+        target: /videos-cuts
+        read_only: false
       - thumbnail_cache:/previews
       - ./:/workspace
       - /workspace/WebApp/WebApp/bin
@@ -24,6 +28,7 @@ services:
       DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER: "true"
       VideoLibrary__Path: /videos
       ThumbnailCache__Path: /previews
+      VideoCut__Path: /videos-cuts
       # Optional: set to "false" to disable hover-preview generation and serving entirely.
       # HoverPreview__Enabled: "true"
 

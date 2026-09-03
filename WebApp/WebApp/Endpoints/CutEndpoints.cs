@@ -4,7 +4,7 @@ using WebApp.Services;
 
 namespace WebApp.Endpoints;
 
-internal static class VideoEndpoints
+internal static class CutEndpoints
 {
     private static readonly IReadOnlyDictionary<string, string> ContentTypes =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -15,26 +15,26 @@ internal static class VideoEndpoints
             [".m4v"] = "video/x-m4v"
         };
 
-    public static IEndpointRouteBuilder MapVideoEndpoints(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapCutEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/videos/scan", ScanAsync);
-        endpoints.MapGet("/api/videos", GetCurrentSnapshot);
-        endpoints.MapGet("/api/videos/{id}/stream", StreamAsync);
-        endpoints.MapGet("/api/videos/{id}/thumbnail", GetThumbnail);
-        endpoints.MapGet("/api/videos/{id}/preview", GetPreview);
-        endpoints.MapPost("/api/videos/{id}/cuts", CreateCutAsync);
+        endpoints.MapGet("/api/cuts", GetCurrentSnapshot);
+        endpoints.MapGet("/api/cuts/{id}/stream", StreamAsync);
+        endpoints.MapGet("/api/cuts/{id}/thumbnail", GetThumbnail);
+        endpoints.MapGet("/api/cuts/{id}/preview", GetPreview);
         return endpoints;
     }
 
-    private static async Task<IResult> ScanAsync(
-        IVideoLibraryService library,
+    private static async Task<IResult> GetCurrentSnapshot(
+        IVideoCutService cuts,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
         CancellationToken cancellationToken)
     {
         try
         {
-            var entries = await library.ScanAsync(cancellationToken);
+            var entries = await cuts.ScanAsync(cancellationToken);
+            thumbnailCoordinator.Reconcile(entries);
+            hoverPreviewCoordinator.Reconcile(entries);
             return Results.Ok(entries.Select(entry => BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator)));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -44,24 +44,15 @@ internal static class VideoEndpoints
         catch
         {
             return Results.Problem(
-                title: "Video library scan failed.",
-                detail: "The configured library could not be scanned.",
+                title: "Video cuts scan failed.",
+                detail: "The configured cuts folder could not be scanned.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
-    private static IResult GetCurrentSnapshot(
-        IVideoLibraryService library, ThumbnailCoordinator thumbnailCoordinator, HoverPreviewCoordinator hoverPreviewCoordinator)
+    private static IResult StreamAsync(string id, IVideoCutService cuts)
     {
-        var entries = library.GetCurrentSnapshot();
-        thumbnailCoordinator.Reconcile(entries);
-        hoverPreviewCoordinator.Reconcile(entries);
-        return Results.Ok(entries.Select(entry => BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator)));
-    }
-
-    private static IResult StreamAsync(string id, IVideoLibraryService library)
-    {
-        if (!library.TryResolve(id, out var entry) || entry is null)
+        if (!cuts.TryResolve(id, out var entry) || entry is null)
         {
             return Results.NotFound();
         }
@@ -90,9 +81,9 @@ internal static class VideoEndpoints
         }
     }
 
-    private static IResult GetThumbnail(string id, IVideoLibraryService library, ThumbnailCoordinator coordinator)
+    private static IResult GetThumbnail(string id, IVideoCutService cuts, ThumbnailCoordinator coordinator)
     {
-        if (!library.TryResolve(id, out var entry) || entry is null)
+        if (!cuts.TryResolve(id, out var entry) || entry is null)
         {
             return Results.NotFound();
         }
@@ -121,10 +112,9 @@ internal static class VideoEndpoints
         }
     }
 
-    private static IResult GetPreview(
-        string id, IVideoLibraryService library, HoverPreviewCoordinator coordinator)
+    private static IResult GetPreview(string id, IVideoCutService cuts, HoverPreviewCoordinator coordinator)
     {
-        if (!library.TryResolve(id, out var entry) || entry is null)
+        if (!cuts.TryResolve(id, out var entry) || entry is null)
         {
             return Results.NotFound();
         }
@@ -153,67 +143,15 @@ internal static class VideoEndpoints
         }
     }
 
-    private static async Task<IResult> CreateCutAsync(
-        string id,
-        VideoCutRequest request,
-        IVideoLibraryService library,
-        IVideoDurationProbe durationProbe,
-        ICutJobQueue queue,
-        CancellationToken cancellationToken)
-    {
-        if (!library.TryResolve(id, out var entry) || entry is null)
-        {
-            return Results.NotFound();
-        }
-
-        if (!double.IsFinite(request.Start) || !double.IsFinite(request.End) ||
-            request.Start < 0 || request.Start >= request.End)
-        {
-            return Results.BadRequest();
-        }
-
-        TimeSpan? duration;
-        try
-        {
-            duration = await durationProbe.GetDurationAsync(entry.PhysicalPath, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
-        }
-        catch
-        {
-            return Results.BadRequest();
-        }
-
-        if (duration is null || TimeSpan.FromSeconds(request.End) > duration.Value)
-        {
-            return Results.BadRequest();
-        }
-
-        var jobId = Guid.NewGuid().ToString("N");
-        var job = new CutJob(jobId, entry, TimeSpan.FromSeconds(request.Start), TimeSpan.FromSeconds(request.End));
-        if (!queue.TryEnqueue(job))
-        {
-            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
-        }
-
-        return Results.Accepted($"/api/cuts", new VideoCutResponse(jobId));
-    }
-
     private static VideoItemDto BuildDto(
         VideoFileEntry entry, ThumbnailCoordinator thumbnailCoordinator, HoverPreviewCoordinator hoverPreviewCoordinator)
     {
         var thumbnailState = thumbnailCoordinator.Resolve(entry);
-        var thumbnailUrl = thumbnailState == ThumbnailState.Ready ? $"/api/videos/{entry.Id}/thumbnail" : null;
+        var thumbnailUrl = thumbnailState == ThumbnailState.Ready ? $"/api/cuts/{entry.Id}/thumbnail" : null;
         var hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
-        var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready ? $"/api/videos/{entry.Id}/preview" : null;
+        var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready ? $"/api/cuts/{entry.Id}/preview" : null;
         return new VideoItemDto(
             entry.Id, entry.Name, entry.Extension, entry.SizeBytes,
             thumbnailState, thumbnailUrl, hoverPreviewState, hoverPreviewUrl);
     }
-
-    internal sealed record VideoCutRequest(double Start, double End);
-
-    internal sealed record VideoCutResponse(string JobId);
 }

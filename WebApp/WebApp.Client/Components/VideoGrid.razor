@@ -1,0 +1,136 @@
+@if (IsLoading)
+{
+    <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary"
+         role="status"
+         aria-live="polite">
+        <i class="bi @LoadingIcon fs-2 text-primary" aria-hidden="true"></i>
+        <strong class="fs-5 text-body">@LoadingTitle</strong>
+        <span>@LoadingMessage</span>
+    </div>
+}
+else if (!string.IsNullOrEmpty(Error))
+{
+    <div class="alert alert-danger d-flex flex-column align-items-center gap-2 m-3 text-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-2" aria-hidden="true"></i>
+        <strong class="fs-5">@ErrorTitle</strong>
+        <span>@Error</span>
+    </div>
+}
+else if (!HasLoaded)
+{
+    <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary"
+         role="status">
+        <i class="bi @NotLoadedIcon fs-2 text-primary" aria-hidden="true"></i>
+        <strong class="fs-5 text-body">@NotLoadedTitle</strong>
+        <span>@NotLoadedMessage</span>
+    </div>
+}
+else if (Items.Count == 0)
+{
+    <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary"
+         role="status"
+         aria-live="polite">
+        <i class="bi @EmptyIcon fs-2 text-primary" aria-hidden="true"></i>
+        <strong class="fs-5 text-body">@EmptyTitle</strong>
+        <span>@EmptyMessage</span>
+    </div>
+}
+else
+{
+    <p class="small text-body-secondary border-bottom mb-0 px-3 py-2" role="status">
+        @Items.Count @(Items.Count == 1 ? SingularLabel : PluralLabel)
+    </p>
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3 p-3"
+         aria-label="@GridLabel">
+        @foreach (var item in Items)
+        {
+            var selected = item.Id == SelectedId;
+            <div class="col">
+                <button class="card position-relative w-100 h-100 overflow-hidden p-0 text-start text-body @(selected ? "border-primary border-2" : null)"
+                        type="button"
+                        aria-pressed="@selected"
+                        @onclick="() => OnSelect.InvokeAsync(item)"
+                        @onmouseenter="() => OnCardMouseEnter.InvokeAsync(item)"
+                        @onmouseleave="() => OnCardMouseLeave.InvokeAsync()">
+                    @if (selected)
+                    {
+                        <span class="badge text-bg-primary position-absolute top-0 end-0 z-1 m-2">
+                            <i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Selected
+                        </span>
+                    }
+                    <span class="ratio ratio-16x9 bg-body-tertiary border-bottom" aria-hidden="true">
+                        @if (item.Id == PreviewingVideoId && item.HoverPreviewState == HoverPreviewState.Ready && !string.IsNullOrEmpty(item.HoverPreviewUrl))
+                        {
+                            <video src="@item.HoverPreviewUrl"
+                                   poster="@item.ThumbnailUrl"
+                                   class="w-100 h-100 object-fit-cover"
+                                   autoplay
+                                   muted
+                                   loop
+                                   playsinline>
+                            </video>
+                        }
+                        else if (item.ThumbnailState == ThumbnailState.Ready && !string.IsNullOrEmpty(item.ThumbnailUrl))
+                        {
+                            <img src="@item.ThumbnailUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                        }
+                        else
+                        {
+                            <span class="d-flex align-items-center justify-content-center">
+                                <i class="bi bi-film display-1 lh-1 text-body-secondary"></i>
+                            </span>
+                        }
+                    </span>
+                    <span class="card-body d-flex flex-column w-100">
+                        <span class="card-title d-block fw-semibold text-break mb-2">
+                            @item.Name
+                        </span>
+                        <span class="card-text d-flex justify-content-between gap-2 small text-body-secondary mt-auto">
+                            <span>@item.Extension.TrimStart('.').ToUpperInvariant()</span>
+                            <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                        </span>
+                    </span>
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<VideoItemDto> Items { get; set; } = Array.Empty<VideoItemDto>();
+    [Parameter] public bool HasLoaded { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public string? SelectedId { get; set; }
+    [Parameter] public string? PreviewingVideoId { get; set; }
+    [Parameter] public EventCallback<VideoItemDto> OnSelect { get; set; }
+    [Parameter] public EventCallback<VideoItemDto> OnCardMouseEnter { get; set; }
+    [Parameter] public EventCallback OnCardMouseLeave { get; set; }
+    [Parameter] public string GridLabel { get; set; } = "Videos";
+    [Parameter] public string SingularLabel { get; set; } = "video";
+    [Parameter] public string PluralLabel { get; set; } = "videos";
+    [Parameter] public string LoadingIcon { get; set; } = "bi-search";
+    [Parameter] public string LoadingTitle { get; set; } = "Loading videos";
+    [Parameter] public string LoadingMessage { get; set; } = "Looking for supported video files.";
+    [Parameter] public string ErrorTitle { get; set; } = "Load failed";
+    [Parameter] public string NotLoadedIcon { get; set; } = "bi-collection-play";
+    [Parameter] public string NotLoadedTitle { get; set; } = "Ready when you are";
+    [Parameter] public string NotLoadedMessage { get; set; } = "Nothing has loaded yet.";
+    [Parameter] public string EmptyIcon { get; set; } = "bi-film";
+    [Parameter] public string EmptyTitle { get; set; } = "No supported videos found";
+    [Parameter] public string EmptyMessage { get; set; } = "Add MP4, WebM, MOV, or M4V files, then try again.";
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var size = (double)Math.Max(0, bytes);
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
+    }
+}
