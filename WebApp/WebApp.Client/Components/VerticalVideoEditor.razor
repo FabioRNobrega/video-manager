@@ -65,6 +65,8 @@
                                      SetVolume="SetVolumeAsync"
                                      SetPlaybackRate="SetPlaybackRateAsync"
                                      ToggleStandardLoop="ToggleStandardLoopAsync"
+                                     SkipBackward="SkipBackwardAsync"
+                                     SkipForward="SkipForwardAsync"
                                      SetMarkerA="SetMarkerA"
                                      SetMarkerB="SetMarkerB"
                                      ToggleAbLoop="ToggleAbLoopAsync"
@@ -356,6 +358,12 @@
         _player.PreviewTime(value);
         await ExecuteMediaCommandAsync("seekVideo", _player.CurrentTime);
     }
+
+    private const double SkipSeconds = 10;
+
+    private Task SkipBackwardAsync() => SeekAsync(_player.CurrentTime - SkipSeconds);
+
+    private Task SkipForwardAsync() => SeekAsync(_player.CurrentTime + SkipSeconds);
 
     private Task ToggleMuteAsync() => ExecuteMediaCommandAsync("setMuted", !_player.IsMuted);
 

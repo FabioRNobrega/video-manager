@@ -76,6 +76,29 @@
         </button>
         </div>
 
+        <div class="btn-group" role="group" aria-label="Skip">
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
+                type="button"
+                disabled="@(!State.HasDuration)"
+                aria-label="Back 10 seconds"
+                title="Back 10 seconds"
+                data-bs-toggle="tooltip"
+                data-bs-title="Back 10 seconds"
+                @onclick="HandleSkipBackwardAsync">
+            <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
+        </button>
+        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
+                type="button"
+                disabled="@(!State.HasDuration)"
+                aria-label="Forward 10 seconds"
+                title="Forward 10 seconds"
+                data-bs-toggle="tooltip"
+                data-bs-title="Forward 10 seconds"
+                @onclick="HandleSkipForwardAsync">
+            <i class="bi bi-chevron-double-right" aria-hidden="true"></i>
+        </button>
+        </div>
+
         <div class="audio-controls d-flex align-items-center gap-2">
         <div class="btn-group" role="group" aria-label="Audio">
         <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
@@ -192,6 +215,8 @@
     [Parameter] public EventCallback<double> SetVolume { get; set; }
     [Parameter] public EventCallback<double> SetPlaybackRate { get; set; }
     [Parameter] public EventCallback ToggleStandardLoop { get; set; }
+    [Parameter] public EventCallback SkipBackward { get; set; }
+    [Parameter] public EventCallback SkipForward { get; set; }
     [Parameter] public EventCallback SetMarkerA { get; set; }
     [Parameter] public EventCallback SetMarkerB { get; set; }
     [Parameter] public EventCallback ToggleAbLoop { get; set; }
@@ -319,6 +344,8 @@
     private Task HandleTogglePlaybackAsync() => TogglePlayback.InvokeAsync();
     private Task HandleToggleMuteAsync() => ToggleMute.InvokeAsync();
     private Task HandleToggleStandardLoopAsync() => ToggleStandardLoop.InvokeAsync();
+    private Task HandleSkipBackwardAsync() => SkipBackward.InvokeAsync();
+    private Task HandleSkipForwardAsync() => SkipForward.InvokeAsync();
     private Task HandleEnterFillTabAsync() => EnterFillTab.InvokeAsync();
     private Task HandleSetMarkerAAsync() => SetMarkerA.InvokeAsync();
     private Task HandleSetMarkerBAsync() => SetMarkerB.InvokeAsync();

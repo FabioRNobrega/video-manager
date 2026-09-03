@@ -4,7 +4,7 @@ namespace WebApp.Client.Models;
 
 public sealed class MediaPlayerState
 {
-    private static readonly IReadOnlyList<double> Rates = Array.AsReadOnly([0.25, 0.5, 1, 1.5, 2]);
+    private static readonly IReadOnlyList<double> Rates = Array.AsReadOnly([0.25, 0.5, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.5, 2]);
 
     public string? SelectionId { get; private set; }
     public bool IsPlaying { get; private set; }
