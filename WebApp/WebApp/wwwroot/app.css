@@ -70,6 +70,7 @@ html[data-bs-theme="dark"] {
     --bs-secondary-rgb: 47, 122, 79;
     --bs-success: #2f7a4f;
     --bs-success-rgb: 47, 122, 79;
+    --bs-success-bg-subtle: #1d4f33;
     --bs-warning: #c9762e;
     --bs-warning-rgb: 201, 118, 46;
     --bs-danger: #b5432e;
@@ -146,6 +147,7 @@ html[data-bs-theme="light"] {
     --bs-secondary-rgb: 47, 122, 79;
     --bs-success: #2f7a4f;
     --bs-success-rgb: 47, 122, 79;
+    --bs-success-bg-subtle: #e4eedd;
     --bs-warning: #c9762e;
     --bs-warning-rgb: 201, 118, 46;
     --bs-danger: #b5432e;
@@ -162,6 +164,24 @@ html[data-bs-theme="light"] {
 
 html,
 body { min-height: 100%; }
+
+/* Bootstrap ships vh-100/min-vh-100 but no min-height:0 utility, needed to let flex children shrink and scroll internally instead of growing the page past the viewport. */
+.min-h-0 { min-height: 0; }
+.text-brand-gold { color: var(--brand-gold-onbg) !important; }
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+@media (max-width: 767.98px) {
+    .scrollbar-none-mobile { scrollbar-width: none; }
+    .scrollbar-none-mobile::-webkit-scrollbar { display: none; }
+}
+
+* { scrollbar-color: var(--brand-gold-onbg) var(--bg-elevated); }
+
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--bg-elevated); }
+*::-webkit-scrollbar-thumb { background-color: #b98a2e; border-radius: 8px; border: 2px solid var(--bg-elevated); }
+*::-webkit-scrollbar-thumb:hover { background-color: #9d7527; }
 
 body {
     margin: 0;
@@ -225,6 +245,13 @@ h1:focus { outline: none; }
     --bs-btn-active-border-color: #26623f;
     --bs-btn-disabled-color: var(--text-muted);
     --bs-btn-disabled-border-color: var(--border);
+}
+
+.nav-pills {
+    --bs-nav-link-color: var(--text-muted);
+    --bs-nav-link-hover-color: var(--text-strong);
+    --bs-nav-pills-link-active-color: #16211b;
+    --bs-nav-pills-link-active-bg: #b98a2e;
 }
 
 .card { --bs-card-bg: var(--bg-surface); --bs-card-color: var(--text-body); --bs-card-border-color: var(--border); box-shadow: var(--shadow); }

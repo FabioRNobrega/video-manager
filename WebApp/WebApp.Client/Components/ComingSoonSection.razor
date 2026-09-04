@@ -1,0 +1,13 @@
+<div class="card">
+    <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary">
+        <i class="bi @Icon fs-2 text-primary" aria-hidden="true"></i>
+        <strong class="fs-5 text-body">@Title</strong>
+        <span>@Message</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Message { get; set; } = string.Empty;
+}

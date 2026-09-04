@@ -1,0 +1,78 @@
+@{
+    RenderFragment<NavItem> DesktopItemTemplate = item =>
+        @<NavLink class="nav-link d-flex align-items-center gap-2 rounded-2 px-3 py-2"
+                  href="@item.Href"
+                  Match="@item.Match">
+            <i class="bi @item.Icon" aria-hidden="true"></i>
+            <span>@item.Label</span>
+        </NavLink>;
+
+    RenderFragment<NavItem> MobileItemTemplate = item =>
+        @<NavLink class="nav-link d-inline-flex flex-column align-items-center gap-1 flex-shrink-0 text-center text-body-secondary px-3 py-2"
+                  ActiveClass="text-brand-gold fw-semibold"
+                  href="@item.Href"
+                  Match="@item.Match">
+            <i class="bi @item.Icon" aria-hidden="true"></i>
+            <span class="small">@item.Label</span>
+        </NavLink>;
+}
+
+<aside class="col-md-3 col-lg-2 d-none d-md-flex flex-column flex-shrink-0 min-h-0 bg-body-tertiary" aria-label="Primary">
+    <a class="d-flex align-items-center gap-2 px-3 py-3 text-decoration-none text-body-emphasis"
+       href="/"
+       aria-label="PereneArchive home">
+        <i class="bi bi-archive text-primary h3 mb-0" aria-hidden="true"></i>
+        <strong class="h3 card-title mb-0">PereneArchive</strong>
+    </a>
+    <ul class="nav nav-pills flex-column flex-fill min-h-0 overflow-y-auto px-2 gap-1">
+        @foreach (var item in NavItems)
+        {
+            <li class="nav-item">@DesktopItemTemplate(item)</li>
+        }
+    </ul>
+    <div class="border-top px-3 py-3 d-flex flex-column gap-3">
+        <div class="d-flex align-items-center justify-content-between gap-3">
+            <span class="small text-body-secondary">
+                <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Private · local only
+            </span>
+            <ThemeToggle />
+        </div>
+        <StorageMeter />
+    </div>
+</aside>
+
+<div class="d-flex d-md-none flex-column flex-shrink-0 bg-body-tertiary">
+    <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+        <a class="d-flex align-items-center gap-2 text-decoration-none text-body-emphasis"
+           href="/"
+           aria-label="PereneArchive home">
+            <i class="bi bi-archive text-primary fs-5" aria-hidden="true"></i>
+            <strong class="h6 card-title mb-0">PereneArchive</strong>
+        </a>
+        <ThemeToggle />
+    </div>
+    <nav class="nav flex-row flex-nowrap overflow-x-auto scrollbar-none" aria-label="Primary">
+        @foreach (var item in NavItems)
+        {
+            @MobileItemTemplate(item)
+        }
+    </nav>
+</div>
+
+@code {
+    private sealed record NavItem(string Href, string Label, string Icon, NavLinkMatch Match);
+
+    private static readonly IReadOnlyList<NavItem> NavItems = new List<NavItem>
+    {
+        new("/", "Videos", "bi-collection-play", NavLinkMatch.All),
+        new("/photos", "Photos", "bi-image", NavLinkMatch.Prefix),
+        new("/music", "Music", "bi-music-note-beamed", NavLinkMatch.Prefix),
+        new("/documents", "Documents", "bi-file-earmark-text", NavLinkMatch.Prefix),
+        new("/books", "Books", "bi-journal-bookmark-fill", NavLinkMatch.Prefix),
+        new("/downloads", "Downloads", "bi-download", NavLinkMatch.Prefix),
+        new("/shared", "Shared", "bi-people", NavLinkMatch.Prefix),
+        new("/family", "Family", "bi-house-heart", NavLinkMatch.Prefix),
+        new("/history", "History", "bi-clock-history", NavLinkMatch.Prefix),
+        new("/trash", "Trash", "bi-trash3", NavLinkMatch.Prefix),
+    };
+}

@@ -77,6 +77,7 @@ builder.Services.AddSingleton<ICompositionJobStatusStore, CompositionJobStatusSt
 builder.Services.AddSingleton<IVideoCompositionProbe, FfprobeCompositionProbe>();
 builder.Services.AddSingleton<ICompositionGenerator, FfmpegCompositionGenerator>();
 builder.Services.AddHostedService<CompositionBackgroundWorker>();
+builder.Services.AddSingleton<IStorageUsageService, StorageUsageService>();
 
 var app = builder.Build();
 
@@ -102,6 +103,7 @@ app.MapStaticAssets();
 app.MapVideoEndpoints();
 app.MapCutEndpoints();
 app.MapCompositionEndpoints();
+app.MapStorageEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(WebApp.Client._Imports).Assembly);

@@ -18,7 +18,7 @@ public sealed class ThemeBootstrapTests
 
         Assert.Contains("<html lang=\"en\" data-bs-theme=\"dark\">", html);
         Assert.Contains("<meta name=\"color-scheme\" content=\"dark light\"", html);
-        Assert.Contains("Perene Tech Videos", html);
+        Assert.Contains("PereneArchive", html);
     }
 
     [Fact]
