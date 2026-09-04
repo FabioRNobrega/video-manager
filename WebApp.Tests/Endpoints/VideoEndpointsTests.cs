@@ -32,7 +32,7 @@ public sealed class VideoEndpointsTests
         using var document = JsonDocument.Parse(json);
         var item = Assert.Single(document.RootElement.EnumerateArray());
         Assert.Equal(
-            ["extension", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl"],
+            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl", "width"],
             item.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
         Assert.Equal("clip.MP4", item.GetProperty("name").GetString());
         Assert.Equal(".mp4", item.GetProperty("extension").GetString());
@@ -301,6 +301,7 @@ public sealed class VideoEndpointsTests
         private readonly string _rootPath;
         private readonly bool _hoverPreviewEnabled;
         private readonly string _cutPath;
+        private readonly string _compositionPath;
 
         public VideoManagerFactory(string rootPath, bool hoverPreviewEnabled = true)
         {
@@ -308,8 +309,10 @@ public sealed class VideoEndpointsTests
             _hoverPreviewEnabled = hoverPreviewEnabled;
             PreviewPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-preview-{Guid.NewGuid():N}");
             _cutPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-cuts-{Guid.NewGuid():N}");
+            _compositionPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-composition-{Guid.NewGuid():N}");
             Directory.CreateDirectory(PreviewPath);
             Directory.CreateDirectory(_cutPath);
+            Directory.CreateDirectory(_compositionPath);
         }
 
         public string PreviewPath { get; }
@@ -322,6 +325,7 @@ public sealed class VideoEndpointsTests
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = PreviewPath,
                     ["VideoCut:Path"] = _cutPath,
+                    ["VideoComposition:Path"] = _compositionPath,
                     ["HoverPreview:Enabled"] = _hoverPreviewEnabled.ToString(),
                 }));
         }
@@ -336,6 +340,10 @@ public sealed class VideoEndpointsTests
             if (disposing && Directory.Exists(_cutPath))
             {
                 Directory.Delete(_cutPath, recursive: true);
+            }
+            if (disposing && Directory.Exists(_compositionPath))
+            {
+                Directory.Delete(_compositionPath, recursive: true);
             }
         }
     }

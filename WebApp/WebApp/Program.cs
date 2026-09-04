@@ -35,6 +35,15 @@ builder.Services.AddOptions<VideoCutOptions>()
     .Validate(VideoCutOptions.DirectoryIsWritable, "VideoCut:Path must identify a writable directory.")
     .Validate(VideoCutOptions.HasPositiveQueueCapacity, "VideoCut:QueueCapacity must be greater than zero.")
     .ValidateOnStart();
+builder.Services.AddOptions<VideoCompositionOptions>()
+    .Bind(builder.Configuration.GetSection(VideoCompositionOptions.SectionName))
+    .Validate(VideoCompositionOptions.HasConfiguredPath, "VideoComposition:Path is required.")
+    .Validate(VideoCompositionOptions.HasAbsolutePath, "VideoComposition:Path must be absolute.")
+    .Validate(VideoCompositionOptions.DirectoryExists, "VideoComposition:Path must identify an existing directory.")
+    .Validate(VideoCompositionOptions.DirectoryIsWritable, "VideoComposition:Path must identify a writable directory.")
+    .Validate(VideoCompositionOptions.HasPositiveQueueCapacity, "VideoComposition:QueueCapacity must be greater than zero.")
+    .Validate(VideoCompositionOptions.HasPositiveTransitionDuration, "VideoComposition:TransitionDurationSeconds must be greater than zero.")
+    .ValidateOnStart();
 builder.Services.AddOptions<HoverPreviewOptions>()
     .Bind(builder.Configuration.GetSection(HoverPreviewOptions.SectionName))
     .Validate(HoverPreviewOptions.HasPositiveWidth, "HoverPreview:Width must be greater than zero.")
@@ -61,6 +70,13 @@ builder.Services.AddSingleton<CutNamingService>();
 builder.Services.AddSingleton<ICutJobQueue, CutJobQueue>();
 builder.Services.AddSingleton<ICutGenerator, FfmpegCutGenerator>();
 builder.Services.AddHostedService<CutBackgroundWorker>();
+builder.Services.AddSingleton<IVideoCompositionService, VideoCompositionService>();
+builder.Services.AddSingleton<CompositionNamingService>();
+builder.Services.AddSingleton<ICompositionJobQueue, CompositionJobQueue>();
+builder.Services.AddSingleton<ICompositionJobStatusStore, CompositionJobStatusStore>();
+builder.Services.AddSingleton<IVideoCompositionProbe, FfprobeCompositionProbe>();
+builder.Services.AddSingleton<ICompositionGenerator, FfmpegCompositionGenerator>();
+builder.Services.AddHostedService<CompositionBackgroundWorker>();
 
 var app = builder.Build();
 
@@ -85,6 +101,7 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapVideoEndpoints();
 app.MapCutEndpoints();
+app.MapCompositionEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(WebApp.Client._Imports).Assembly);

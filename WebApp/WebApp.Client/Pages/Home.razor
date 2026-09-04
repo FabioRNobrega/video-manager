@@ -24,16 +24,39 @@
                          CutQueued="HandleCutQueued"
                          CutCompletionSignal="_cutCompletionSignal" />
     <section class="card mt-3 overflow-hidden" aria-labelledby="cuts-heading">
-        <div class="card-header d-flex align-items-center justify-content-between gap-3">
+        <div class="card-header d-flex align-items-center justify-content-between gap-3 flex-wrap">
             <div>
                 <p class="small fw-bold text-uppercase text-body-secondary mb-0">Cuts</p>
                 <h2 id="cuts-heading" class="h5 mb-0">Saved cuts</h2>
             </div>
-            @if (_isPollingCuts)
-            {
-                <span class="spinner-border spinner-border-sm text-primary" role="status" aria-label="Saving cut"></span>
-            }
+            <div class="d-flex align-items-center gap-3">
+                @if (_isPollingCuts)
+                {
+                    <span class="spinner-border spinner-border-sm text-primary" role="status" aria-label="Saving cut"></span>
+                }
+                <span class="small text-body-secondary" aria-live="polite">
+                    @_selectedCutIds.Count @(_selectedCutIds.Count == 1 ? "clip" : "clips") selected
+                </span>
+                <button class="btn btn-primary d-inline-flex align-items-center justify-content-center"
+                        type="button"
+                        disabled="@(_selectedCutIds.Count < 2 || _isCreatingComposition)"
+                        @onclick="CreateCompositionAsync">
+                    @if (_isCreatingComposition)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-collection-play me-2" aria-hidden="true"></i>
+                    }
+                    Create Composition
+                </button>
+            </div>
         </div>
+        @if (_compositionCreateError is not null)
+        {
+            <div class="alert alert-danger m-3 mb-0" role="alert">@_compositionCreateError</div>
+        }
         <VideoGrid Items="_cuts"
                    HasLoaded="_cutsLoaded"
                    IsLoading="_cutsLoading"
@@ -43,6 +66,9 @@
                    OnSelect="SelectCut"
                    OnCardMouseEnter="OnCutMouseEnter"
                    OnCardMouseLeave="OnCutMouseLeave"
+                   SelectionEnabled="true"
+                   SelectedIds="_selectedCutIds"
+                   OnToggleSelect="ToggleCutSelection"
                    GridLabel="Saved cuts"
                    SingularLabel="cut"
                    PluralLabel="cuts"
@@ -56,15 +82,67 @@
                    EmptyTitle="No cuts saved yet"
                    EmptyMessage="Set A and B points on a library video, then save a cut." />
     </section>
+
+    <section class="card mt-3 overflow-hidden" aria-labelledby="compositions-heading">
+        <div class="card-header d-flex align-items-center justify-content-between gap-3">
+            <div>
+                <p class="small fw-bold text-uppercase text-body-secondary mb-0">Video Compositions</p>
+                <h2 id="compositions-heading" class="h5 mb-0">Composed videos</h2>
+            </div>
+            @if (_isPollingCompositions)
+            {
+                <span class="spinner-border spinner-border-sm text-primary" role="status" aria-label="Composing video"></span>
+            }
+        </div>
+        @if (_compositionLoadError is not null)
+        {
+            <div class="alert alert-danger m-3 mb-0" role="alert">@_compositionLoadError</div>
+        }
+        @{
+            var pendingJobs = _compositionJobs.Where(job => job.State != CompositionJobState.Completed).ToList();
+        }
+        @if (pendingJobs.Count > 0)
+        {
+            <ul class="list-group list-group-flush border-bottom" aria-live="polite">
+                @foreach (var job in pendingJobs)
+                {
+                    <li class="list-group-item d-flex align-items-center justify-content-between gap-2">
+                        <span class="text-truncate">Composition job @job.JobId[..8]</span>
+                        <span class="badge @BadgeClassFor(job.State)">@job.State</span>
+                    </li>
+                }
+            </ul>
+        }
+        <VideoGrid Items="_compositions"
+                   HasLoaded="_compositionsLoaded"
+                   IsLoading="_compositionsLoading"
+                   SelectedId="@(_selectedStreamBasePath == CompositionStreamBasePath ? _selected?.Id : null)"
+                   OnSelect="SelectComposition"
+                   GridLabel="Video compositions"
+                   SingularLabel="composition"
+                   PluralLabel="compositions"
+                   LoadingTitle="Loading compositions..."
+                   LoadingMessage="Reading video compositions."
+                   ErrorTitle="Compositions failed"
+                   NotLoadedIcon="bi-collection-play"
+                   NotLoadedTitle="Loading video compositions"
+                   NotLoadedMessage="Composed videos will appear here."
+                   EmptyIcon="bi-collection-play"
+                   EmptyTitle="No compositions yet"
+                   EmptyMessage="Select 2 or more cuts above, then choose Create Composition." />
+    </section>
 </div>
 
 @code {
     private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(2);
     private const string VideoStreamBasePath = "api/videos";
     private const string CutStreamBasePath = "api/cuts";
+    private const string CompositionStreamBasePath = "api/compositions";
 
     private IReadOnlyList<VideoItemDto> _videos = Array.Empty<VideoItemDto>();
     private IReadOnlyList<VideoItemDto> _cuts = Array.Empty<VideoItemDto>();
+    private IReadOnlyList<VideoItemDto> _compositions = Array.Empty<VideoItemDto>();
+    private IReadOnlyList<CompositionJobDto> _compositionJobs = Array.Empty<CompositionJobDto>();
     private VideoItemDto? _selected;
     private string _selectedStreamBasePath = VideoStreamBasePath;
     private bool _hasScanned;
@@ -72,18 +150,27 @@
     private bool _cutsLoaded;
     private bool _cutsLoading = true;
     private bool _isPollingCuts;
+    private bool _compositionsLoaded;
+    private bool _compositionsLoading = true;
+    private bool _isPollingCompositions;
+    private bool _isCreatingComposition;
     private string? _scanError;
     private string? _cutError;
+    private string? _compositionLoadError;
+    private string? _compositionCreateError;
     private string? _previewingCutId;
     private CancellationTokenSource? _pollingCts;
     private CancellationTokenSource? _cutPollingCts;
     private CancellationTokenSource? _cutHoverDelayCts;
+    private CancellationTokenSource? _compositionPollingCts;
     private int _cutCompletionSignal;
+    private readonly HashSet<string> _selectedCutIds = new(StringComparer.Ordinal);
     private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(300);
 
     protected override async Task OnInitializedAsync()
     {
         await LoadCutsAsync();
+        await LoadCompositionsAsync();
     }
 
     private async Task ScanAsync()
@@ -134,6 +221,55 @@
         _selectedStreamBasePath = CutStreamBasePath;
     }
 
+    private void SelectComposition(VideoItemDto composition)
+    {
+        _selected = composition;
+        _selectedStreamBasePath = CompositionStreamBasePath;
+    }
+
+    private void ToggleCutSelection(string cutId)
+    {
+        if (!_selectedCutIds.Remove(cutId))
+        {
+            _selectedCutIds.Add(cutId);
+        }
+    }
+
+    private async Task CreateCompositionAsync()
+    {
+        if (_selectedCutIds.Count < 2 || _isCreatingComposition)
+        {
+            return;
+        }
+
+        _isCreatingComposition = true;
+        _compositionCreateError = null;
+
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                "api/compositions", new CreateCompositionRequest(_selectedCutIds.ToList()));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _compositionCreateError = "The composition could not be created. Try again.";
+                return;
+            }
+
+            _selectedCutIds.Clear();
+            await LoadCompositionJobsAsync();
+            StartCompositionPolling();
+        }
+        catch (HttpRequestException)
+        {
+            _compositionCreateError = "The composition could not be reached. Try again.";
+        }
+        finally
+        {
+            _isCreatingComposition = false;
+        }
+    }
+
     private async Task LoadCutsAsync()
     {
         _cutsLoading = true;
@@ -163,6 +299,42 @@
     {
         StartCutPolling(_cuts.Count);
         return Task.CompletedTask;
+    }
+
+    private async Task LoadCompositionsAsync()
+    {
+        _compositionsLoading = true;
+
+        try
+        {
+            _compositions = await Http.GetFromJsonAsync<List<VideoItemDto>>("api/compositions") ?? [];
+            await LoadCompositionJobsAsync();
+            StartCompositionPollingIfNeeded();
+        }
+        catch (HttpRequestException)
+        {
+            _compositionLoadError = "The saved compositions could not be loaded.";
+        }
+        catch (TaskCanceledException)
+        {
+            _compositionLoadError = "Loading video compositions was interrupted.";
+        }
+        finally
+        {
+            _compositionsLoaded = true;
+            _compositionsLoading = false;
+        }
+    }
+
+    private async Task LoadCompositionJobsAsync()
+    {
+        try
+        {
+            _compositionJobs = await Http.GetFromJsonAsync<List<CompositionJobDto>>("api/compositions/jobs") ?? [];
+        }
+        catch (HttpRequestException)
+        {
+        }
     }
 
     private void OnCutMouseEnter(VideoItemDto item)
@@ -218,6 +390,85 @@
 
         StartCutPolling(_cuts.Count);
     }
+
+    private void StartCompositionPolling()
+    {
+        CancelCompositionPolling();
+        _isPollingCompositions = true;
+        var cts = new CancellationTokenSource();
+        _compositionPollingCts = cts;
+        _ = PollCompositionsAsync(cts.Token);
+    }
+
+    private void StartCompositionPollingIfNeeded()
+    {
+        if (HasNonTerminalJobs(_compositionJobs))
+        {
+            StartCompositionPolling();
+        }
+    }
+
+    private async Task PollCompositionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(PollingInterval, cancellationToken);
+
+                List<CompositionJobDto>? jobs;
+                List<VideoItemDto>? items;
+                try
+                {
+                    jobs = await Http.GetFromJsonAsync<List<CompositionJobDto>>("api/compositions/jobs", cancellationToken);
+                    items = await Http.GetFromJsonAsync<List<VideoItemDto>>("api/compositions", cancellationToken);
+                }
+                catch (HttpRequestException)
+                {
+                    _isPollingCompositions = false;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                if (cancellationToken.IsCancellationRequested || jobs is null || items is null)
+                {
+                    return;
+                }
+
+                _compositionJobs = jobs;
+                _compositions = items;
+                _compositionsLoaded = true;
+
+                if (_selected is not null && _selectedStreamBasePath == CompositionStreamBasePath)
+                {
+                    _selected = items.FirstOrDefault(item => item.Id == _selected.Id) ?? _selected;
+                }
+
+                await InvokeAsync(StateHasChanged);
+
+                if (!HasNonTerminalJobs(jobs))
+                {
+                    _isPollingCompositions = false;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static bool HasNonTerminalJobs(IReadOnlyList<CompositionJobDto> jobs) =>
+        jobs.Any(job => job.State is CompositionJobState.Pending or CompositionJobState.Processing);
+
+    private static string BadgeClassFor(CompositionJobState state) => state switch
+    {
+        CompositionJobState.Pending => "text-bg-secondary",
+        CompositionJobState.Processing => "text-bg-primary",
+        CompositionJobState.Failed => "text-bg-danger",
+        _ => "text-bg-success"
+    };
 
     private async Task PollAsync(CancellationToken cancellationToken)
     {
@@ -357,6 +608,13 @@
         _cutPollingCts = null;
     }
 
+    private void CancelCompositionPolling()
+    {
+        _compositionPollingCts?.Cancel();
+        _compositionPollingCts?.Dispose();
+        _compositionPollingCts = null;
+    }
+
     private void CancelCutHover()
     {
         _cutHoverDelayCts?.Cancel();
@@ -369,5 +627,6 @@
         CancelPolling();
         CancelCutPolling();
         CancelCutHover();
+        CancelCompositionPolling();
     }
 }

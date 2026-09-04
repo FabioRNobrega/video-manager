@@ -52,6 +52,21 @@ else
                         @onclick="() => OnSelect.InvokeAsync(item)"
                         @onmouseenter="() => OnCardMouseEnter.InvokeAsync(item)"
                         @onmouseleave="() => OnCardMouseLeave.InvokeAsync()">
+                    @if (SelectionEnabled)
+                    {
+                        var isChecked = SelectedIds.Contains(item.Id);
+                        <span class="position-absolute top-0 start-0 z-1 m-2 rounded bg-body-tertiary bg-opacity-75 d-flex align-items-center justify-content-center"
+                              style="width:40px;height:40px;"
+                              @onclick:stopPropagation="true">
+                            <input type="checkbox"
+                                   class="form-check-input m-0"
+                                   style="width:1.5rem;height:1.5rem;"
+                                   checked="@isChecked"
+                                   aria-label="Select @item.Name for composition"
+                                   @onclick:stopPropagation="true"
+                                   @onchange="() => OnToggleSelect.InvokeAsync(item.Id)" />
+                        </span>
+                    }
                     @if (selected)
                     {
                         <span class="badge text-bg-primary position-absolute top-0 end-0 z-1 m-2">
@@ -106,6 +121,9 @@ else
     [Parameter] public string? Error { get; set; }
     [Parameter] public string? SelectedId { get; set; }
     [Parameter] public string? PreviewingVideoId { get; set; }
+    [Parameter] public bool SelectionEnabled { get; set; }
+    [Parameter] public IReadOnlySet<string> SelectedIds { get; set; } = new HashSet<string>();
+    [Parameter] public EventCallback<string> OnToggleSelect { get; set; }
     [Parameter] public EventCallback<VideoItemDto> OnSelect { get; set; }
     [Parameter] public EventCallback<VideoItemDto> OnCardMouseEnter { get; set; }
     [Parameter] public EventCallback OnCardMouseLeave { get; set; }

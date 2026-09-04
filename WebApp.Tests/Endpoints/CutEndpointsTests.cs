@@ -33,7 +33,7 @@ public sealed class CutEndpointsTests
         using var document = JsonDocument.Parse(json);
         var item = Assert.Single(document.RootElement.EnumerateArray());
         Assert.Equal(
-            ["extension", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl"],
+            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl", "width"],
             item.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
         Assert.Equal("Jennifer White 0001.mp4", item.GetProperty("name").GetString());
         Assert.Equal((int)ThumbnailState.Pending, item.GetProperty("thumbnailState").GetInt32());
@@ -128,6 +128,7 @@ public sealed class CutEndpointsTests
         private readonly string _rootPath;
         private readonly string _cutPath;
         private readonly string _previewPath;
+        private readonly string _compositionPath;
         private readonly TimeSpan? _duration;
         private readonly bool _hoverPreviewEnabled;
 
@@ -138,7 +139,9 @@ public sealed class CutEndpointsTests
             _duration = duration;
             _hoverPreviewEnabled = hoverPreviewEnabled;
             _previewPath = Path.Combine(Path.GetTempPath(), $"video-manager-cut-api-preview-{Guid.NewGuid():N}");
+            _compositionPath = Path.Combine(Path.GetTempPath(), $"video-manager-cut-api-composition-{Guid.NewGuid():N}");
             Directory.CreateDirectory(_previewPath);
+            Directory.CreateDirectory(_compositionPath);
         }
 
         public string PreviewPath => _previewPath;
@@ -151,6 +154,7 @@ public sealed class CutEndpointsTests
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = _previewPath,
                     ["VideoCut:Path"] = _cutPath,
+                    ["VideoComposition:Path"] = _compositionPath,
                     ["HoverPreview:Enabled"] = _hoverPreviewEnabled.ToString(),
                 }));
 
@@ -169,6 +173,10 @@ public sealed class CutEndpointsTests
             if (disposing && Directory.Exists(_previewPath))
             {
                 Directory.Delete(_previewPath, recursive: true);
+            }
+            if (disposing && Directory.Exists(_compositionPath))
+            {
+                Directory.Delete(_compositionPath, recursive: true);
             }
         }
     }
