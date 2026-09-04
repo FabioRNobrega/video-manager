@@ -28,6 +28,7 @@ internal static class CutEndpoints
         IVideoCutService cuts,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken)
     {
         try
@@ -35,7 +36,9 @@ internal static class CutEndpoints
             var entries = await cuts.ScanAsync(cancellationToken);
             thumbnailCoordinator.Reconcile(entries);
             hoverPreviewCoordinator.Reconcile(entries);
-            return Results.Ok(entries.Select(entry => BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator)));
+            var items = await Task.WhenAll(entries.Select(entry =>
+                BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator, metadataCoordinator, cancellationToken)));
+            return Results.Ok(items);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -143,15 +146,35 @@ internal static class CutEndpoints
         }
     }
 
-    private static VideoItemDto BuildDto(
-        VideoFileEntry entry, ThumbnailCoordinator thumbnailCoordinator, HoverPreviewCoordinator hoverPreviewCoordinator)
+    private static async Task<VideoItemDto> BuildDto(
+        VideoFileEntry entry,
+        ThumbnailCoordinator thumbnailCoordinator,
+        HoverPreviewCoordinator hoverPreviewCoordinator,
+        VideoMetadataCoordinator metadataCoordinator,
+        CancellationToken cancellationToken)
     {
         var thumbnailState = thumbnailCoordinator.Resolve(entry);
         var thumbnailUrl = thumbnailState == ThumbnailState.Ready ? $"/api/cuts/{entry.Id}/thumbnail" : null;
         var hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
         var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready ? $"/api/cuts/{entry.Id}/preview" : null;
+
+        VideoMetadata metadata;
+        try
+        {
+            metadata = await metadataCoordinator.GetOrComputeAsync(entry, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            metadata = new VideoMetadata(null, null, null);
+        }
+
         return new VideoItemDto(
             entry.Id, entry.Name, entry.Extension, entry.SizeBytes,
-            thumbnailState, thumbnailUrl, hoverPreviewState, hoverPreviewUrl);
+            thumbnailState, thumbnailUrl, hoverPreviewState, hoverPreviewUrl,
+            metadata.Duration?.TotalSeconds, metadata.Width, metadata.Height);
     }
 }

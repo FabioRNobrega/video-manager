@@ -47,6 +47,8 @@ builder.Services.AddSingleton<ThumbnailCache>();
 builder.Services.AddSingleton<ThumbnailCoordinator>();
 builder.Services.AddSingleton<IThumbnailJobQueue, ThumbnailJobQueue>();
 builder.Services.AddSingleton<IVideoDurationProbe, FfprobeDurationProbe>();
+builder.Services.AddSingleton<IVideoResolutionProbe, FfprobeResolutionProbe>();
+builder.Services.AddSingleton<VideoMetadataCoordinator>();
 builder.Services.AddSingleton<IThumbnailGenerator, FfmpegThumbnailGenerator>();
 builder.Services.AddHostedService<ThumbnailBackgroundWorker>();
 builder.Services.AddSingleton<HoverPreviewCache>();

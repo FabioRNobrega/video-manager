@@ -85,9 +85,12 @@ else
                         <span class="card-title d-block fw-semibold text-break mb-2">
                             @item.Name
                         </span>
-                        <span class="card-text d-flex justify-content-between gap-2 small text-body-secondary mt-auto">
-                            <span>@item.Extension.TrimStart('.').ToUpperInvariant()</span>
+                        <span class="card-text d-flex flex-nowrap justify-content-between gap-1 text-body-secondary mt-auto" style="font-size: 0.7rem;">
+                            <span class="text-nowrap">@FormatDuration(item.DurationSeconds)</span>
                             <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                            <span class="text-nowrap">@FormatResolution(item.Width, item.Height)</span>
+                            <span class="text-nowrap">@FormatDimensions(item.Width, item.Height)</span>
+                            <span>@item.Extension.TrimStart('.').ToUpperInvariant()</span>
                         </span>
                     </span>
                 </button>
@@ -132,5 +135,40 @@ else
         }
 
         return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
+    }
+
+    private static string FormatDuration(double? durationSeconds)
+    {
+        if (durationSeconds is not > 0)
+        {
+            return "--:--";
+        }
+
+        var duration = TimeSpan.FromSeconds(durationSeconds.Value);
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{duration.Minutes}:{duration.Seconds:00}";
+    }
+
+    private static string FormatDimensions(int? width, int? height) =>
+        width is > 0 && height is > 0 ? $"{width} x {height}" : string.Empty;
+
+    private static string FormatResolution(int? width, int? height)
+    {
+        if (height is not > 0)
+        {
+            return "—";
+        }
+
+        return height switch
+        {
+            >= 2160 => "4K",
+            >= 1440 => "1440p",
+            >= 1080 => "1080p",
+            >= 720 => "720p",
+            >= 480 => "480p",
+            >= 360 => "360p",
+            _ => $"{width}x{height}"
+        };
     }
 }
