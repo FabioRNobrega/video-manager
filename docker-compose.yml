@@ -7,16 +7,8 @@ services:
       - "${WEBAPP_PORT:-8080}:8080"
     volumes:
       - type: bind
-        source: ${VIDEO_ROOT:-/home/PereneArchive}/Videos
-        target: /videos
-        read_only: true
-      - type: bind
-        source: ${VIDEO_ROOT:-/home/PereneArchive}/Videos/Cuts
-        target: /videos-cuts
-        read_only: false
-      - type: bind
-        source: ${VIDEO_ROOT:-/home/PereneArchive}/Videos/VideoComposition
-        target: /videos-composition
+        source: ${VIDEO_ROOT:-/home/PereneArchive}
+        target: /archive
         read_only: false
       - thumbnail_cache:/previews
       - ./:/workspace
@@ -30,10 +22,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER: "true"
-      VideoLibrary__Path: /videos
+      ArchiveRoot__Path: /archive
+      VideoLibrary__Path: /archive/Videos
       ThumbnailCache__Path: /previews
-      VideoCut__Path: /videos-cuts
-      VideoComposition__Path: /videos-composition
+      VideoCut__Path: /archive/Videos/Cuts
+      VideoComposition__Path: /archive/Videos/VideoComposition
       # Optional: set to "false" to disable hover-preview generation and serving entirely.
       # HoverPreview__Enabled: "true"
 

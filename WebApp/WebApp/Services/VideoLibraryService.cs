@@ -124,7 +124,7 @@ internal sealed class VideoLibraryService(
                     var relativePath = Path.GetRelativePath(_rootPath, canonicalPath).Replace('\\', '/');
 
                     discovered.Add(new VideoFileEntry(
-                        Guid.NewGuid().ToString("N"),
+                        ComputeId(relativePath),
                         canonicalPath,
                         relativePath,
                         file.Name,
@@ -148,6 +148,10 @@ internal sealed class VideoLibraryService(
 
     private static bool IsOpaqueId(string id) =>
         id.Length == 32 && Guid.TryParseExact(id, "N", out _);
+
+    private static string ComputeId(string relativePath) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"videos:{relativePath}")))[..32].ToLowerInvariant();
 
     private sealed record SnapshotState(
         IReadOnlyDictionary<string, VideoFileEntry> ById,

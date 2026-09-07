@@ -95,9 +95,7 @@ public sealed class VideoEndpointsTests
             (await client.GetAsync("/api/videos/%2Fetc%2Fpasswd/thumbnail")).StatusCode);
 
         var rescanned = await ScanSingleAsync(client);
-        Assert.NotEqual(video.Id, rescanned.Id);
-        Assert.Equal(HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/videos/{video.Id}/thumbnail")).StatusCode);
+        Assert.Equal(video.Id, rescanned.Id);
 
         File.Delete(file);
         using var deletedScan = await client.PostAsync("/api/videos/scan", null);
@@ -148,9 +146,7 @@ public sealed class VideoEndpointsTests
             (await client.GetAsync("/api/videos/%2Fetc%2Fpasswd/preview")).StatusCode);
 
         var rescanned = await ScanSingleAsync(client);
-        Assert.NotEqual(video.Id, rescanned.Id);
-        Assert.Equal(HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/videos/{video.Id}/preview")).StatusCode);
+        Assert.Equal(video.Id, rescanned.Id);
 
         File.Delete(file);
         using var deletedScan = await client.PostAsync("/api/videos/scan", null);
@@ -235,9 +231,7 @@ public sealed class VideoEndpointsTests
             (await client.GetAsync("/api/videos/%2Fetc%2Fpasswd/stream")).StatusCode);
 
         var second = await ScanSingleAsync(client);
-        Assert.NotEqual(first.Id, second.Id);
-        Assert.Equal(HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/videos/{first.Id}/stream")).StatusCode);
+        Assert.Equal(first.Id, second.Id);
 
         File.Delete(file);
         Assert.Equal(HttpStatusCode.NotFound,
@@ -322,6 +316,7 @@ public sealed class VideoEndpointsTests
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
+                    ["ArchiveRoot:Path"] = Path.GetDirectoryName(_rootPath),
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = PreviewPath,
                     ["VideoCut:Path"] = _cutPath,

@@ -4,9 +4,9 @@ using WebApp.Configuration;
 
 namespace WebApp.Services;
 
-public sealed class StorageUsageService(IOptions<VideoLibraryOptions> videoLibraryOptions) : IStorageUsageService
+public sealed class StorageUsageService(IOptions<ArchiveRootOptions> archiveRootOptions) : IStorageUsageService
 {
-    private readonly string _path = videoLibraryOptions.Value.Path;
+    private readonly string _path = archiveRootOptions.Value.Path;
 
     public StorageUsageDto GetUsage()
     {

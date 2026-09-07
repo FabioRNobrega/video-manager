@@ -46,7 +46,7 @@ public sealed class VideoLibraryServiceTests
     }
 
     [Fact]
-    public async Task Rescan_replaces_all_opaque_ids_and_snapshot_authorization()
+    public async Task Rescan_preserves_deterministic_ids_for_archive_selection()
     {
         using var root = new TemporaryDirectory();
         await File.WriteAllBytesAsync(Path.Combine(root.Path, "clip.mp4"), [1]);
@@ -55,8 +55,7 @@ public sealed class VideoLibraryServiceTests
         var first = Assert.Single(await service.ScanAsync());
         var second = Assert.Single(await service.ScanAsync());
 
-        Assert.NotEqual(first.Id, second.Id);
-        Assert.False(service.TryResolve(first.Id, out _));
+        Assert.Equal(first.Id, second.Id);
         Assert.True(service.TryResolve(second.Id, out var resolved));
         Assert.Equal(second, resolved);
     }
@@ -156,7 +155,7 @@ public sealed class VideoLibraryServiceTests
         }
 
         await Task.WhenAll(scans);
-        Assert.False(service.TryResolve(first.Id, out _));
+        Assert.True(service.TryResolve(first.Id, out _));
     }
 
     [Theory]

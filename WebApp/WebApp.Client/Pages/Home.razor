@@ -9,13 +9,14 @@
 </header>
 
 <div class="d-flex flex-column mb-3 align-content-between">
-    <VideoLibrary Items="_videos"
-                  HasScanned="_hasScanned"
-                  IsScanning="_isScanning"
-                  Error="@_scanError"
-                  SelectedId="@(_selected?.Id)"
-                  OnScan="ScanAsync"
-                  OnSelect="SelectVideo" />
+    <ArchiveBrowser Category="videos"
+                    Title="Videos"
+                    Icon="bi-collection-play"
+                    OnVideoSelected="SelectArchiveVideoAsync" />
+    @if (_scanError is not null)
+    {
+        <div class="alert alert-danger mt-3" role="alert">@_scanError</div>
+    }
     <VerticalVideoEditor Selected="_selected"
                          StreamBasePath="@_selectedStreamBasePath"
                          CutQueued="HandleCutQueued"
@@ -142,8 +143,6 @@
     private IReadOnlyList<CompositionJobDto> _compositionJobs = Array.Empty<CompositionJobDto>();
     private VideoItemDto? _selected;
     private string _selectedStreamBasePath = VideoStreamBasePath;
-    private bool _hasScanned;
-    private bool _isScanning;
     private bool _cutsLoaded;
     private bool _cutsLoading = true;
     private bool _isPollingCuts;
@@ -170,46 +169,40 @@
         await LoadCompositionsAsync();
     }
 
-    private async Task ScanAsync()
+    private void SelectVideo(VideoItemDto video)
     {
-        CancelPolling();
-        _selected = null;
+        _selected = video;
         _selectedStreamBasePath = VideoStreamBasePath;
-        _videos = Array.Empty<VideoItemDto>();
+    }
+
+    private async Task SelectArchiveVideoAsync(ArchiveItemDto item)
+    {
         _scanError = null;
-        _isScanning = true;
 
         try
         {
             using var response = await Http.PostAsync("api/videos/scan", content: null);
             if (!response.IsSuccessStatusCode)
             {
-                _scanError = "The library could not be scanned. Check its local configuration and try again.";
+                _scanError = "The video could not be prepared for playback.";
                 return;
             }
 
             _videos = await response.Content.ReadFromJsonAsync<List<VideoItemDto>>() ?? [];
+            var video = _videos.FirstOrDefault(video => video.Id == item.Id);
+            if (video is null)
+            {
+                _scanError = "The selected file is not available to the video player yet.";
+                return;
+            }
+
+            SelectVideo(video);
             StartPollingIfPending();
         }
         catch (HttpRequestException)
         {
-            _scanError = "The library could not be reached. Try scanning again.";
+            _scanError = "The video could not be reached.";
         }
-        catch (TaskCanceledException)
-        {
-            _scanError = "The scan was interrupted. Try scanning again.";
-        }
-        finally
-        {
-            _hasScanned = true;
-            _isScanning = false;
-        }
-    }
-
-    private void SelectVideo(VideoItemDto video)
-    {
-        _selected = video;
-        _selectedStreamBasePath = VideoStreamBasePath;
     }
 
     private void SelectCut(VideoItemDto cut)

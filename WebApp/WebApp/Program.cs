@@ -16,6 +16,15 @@ builder.Services.AddOptions<VideoLibraryOptions>()
     .Validate(VideoLibraryOptions.DirectoryExists, "VideoLibrary:Path must identify an existing directory.")
     .Validate(VideoLibraryOptions.DirectoryIsReadable, "VideoLibrary:Path must identify a readable directory.")
     .ValidateOnStart();
+builder.Services.AddOptions<ArchiveRootOptions>()
+    .Bind(builder.Configuration.GetSection(ArchiveRootOptions.SectionName))
+    .Validate(ArchiveRootOptions.HasConfiguredPath, "ArchiveRoot:Path is required.")
+    .Validate(ArchiveRootOptions.HasAbsolutePath, "ArchiveRoot:Path must be absolute.")
+    .Validate(ArchiveRootOptions.DirectoryExists, "ArchiveRoot:Path must identify an existing directory.")
+    .Validate(ArchiveRootOptions.DirectoryIsReadable, "ArchiveRoot:Path must identify a readable directory.")
+    .Validate(ArchiveRootOptions.DirectoryIsWritable, "ArchiveRoot:Path must identify a writable directory.")
+    .Validate(ArchiveRootOptions.DefaultCategoriesExistOrCanBeCreated, "ArchiveRoot:Path must contain or allow creation of default category folders.")
+    .ValidateOnStart();
 builder.Services.AddOptions<ThumbnailCacheOptions>()
     .Bind(builder.Configuration.GetSection(ThumbnailCacheOptions.SectionName))
     .Validate(ThumbnailCacheOptions.HasConfiguredPath, "ThumbnailCache:Path is required.")
@@ -78,6 +87,7 @@ builder.Services.AddSingleton<IVideoCompositionProbe, FfprobeCompositionProbe>()
 builder.Services.AddSingleton<ICompositionGenerator, FfmpegCompositionGenerator>();
 builder.Services.AddHostedService<CompositionBackgroundWorker>();
 builder.Services.AddSingleton<IStorageUsageService, StorageUsageService>();
+builder.Services.AddSingleton<IArchiveService, ArchiveService>();
 
 var app = builder.Build();
 
@@ -97,6 +107,21 @@ app.UseWhen(
     branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
+app.Use(async (context, next) =>
+{
+    var host = context.Request.Host.Host;
+    if (!string.IsNullOrWhiteSpace(host) &&
+        !string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) &&
+        host != "127.0.0.1" &&
+        host != "[::1]")
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    await next();
+});
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
@@ -104,6 +129,7 @@ app.MapVideoEndpoints();
 app.MapCutEndpoints();
 app.MapCompositionEndpoints();
 app.MapStorageEndpoints();
+app.MapArchiveEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(WebApp.Client._Imports).Assembly);
