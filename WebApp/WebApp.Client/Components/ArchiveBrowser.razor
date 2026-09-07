@@ -1,41 +1,56 @@
 @inject HttpClient Http
+@inject IJSRuntime JS
 
 <section class="card overflow-hidden" aria-labelledby="@HeadingId">
     <div class="card-header d-flex align-items-center justify-content-between gap-3 flex-wrap">
-        <div>
-            <p class="small fw-bold text-uppercase text-body-secondary mb-0">Archive</p>
-            <h2 id="@HeadingId" class="h5 mb-0">@Title</h2>
-        </div>
+        <nav id="@HeadingId" aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                @if (_listing is null || _listing.Breadcrumbs.Count == 0)
+                {
+                    <li class="breadcrumb-item active" aria-current="page">@Title</li>
+                }
+                else
+                {
+                    <li class="breadcrumb-item">
+                        <button class="btn btn-link p-0 align-baseline" type="button" disabled="@_operationPending" @onclick="() => LoadAsync(null)">
+                            @_listing.DisplayName
+                        </button>
+                    </li>
+                    @foreach (var breadcrumb in _listing.Breadcrumbs)
+                    {
+                        var isCurrent = breadcrumb == _listing.Breadcrumbs[^1];
+                        if (isCurrent)
+                        {
+                            <li class="breadcrumb-item active text-break" aria-current="page">@breadcrumb.Name</li>
+                        }
+                        else
+                        {
+                            <li class="breadcrumb-item">
+                                <button class="btn btn-link p-0 align-baseline text-break"
+                                        type="button"
+                                        disabled="@_operationPending"
+                                        @onclick="() => LoadAsync(breadcrumb.FolderId)">
+                                    @breadcrumb.Name
+                                </button>
+                            </li>
+                        }
+                    }
+                }
+            </ol>
+        </nav>
         @if (_listing?.CanCreateFolder == true)
         {
-            <EditForm Model="_createFolder" OnValidSubmit="CreateFolderAsync" class="d-flex gap-2 flex-wrap">
-                <InputText class="form-control" style="max-width: 16rem;" @bind-Value="_createFolder.Name" aria-label="Folder name" placeholder="Folder name" />
-                <button class="btn btn-primary d-inline-flex align-items-center" type="submit" disabled="@_operationPending">
-                    <i class="bi bi-folder-plus me-2" aria-hidden="true"></i>
-                    New Folder
-                </button>
-            </EditForm>
+            <button class="btn btn-primary rounded-circle d-inline-flex align-items-center justify-content-center"
+                    style="width:44px;height:44px;"
+                    type="button"
+                    disabled="@_operationPending"
+                    data-bs-toggle="modal"
+                    data-bs-target="#@CreateModalId"
+                    aria-label="Create folder">
+                <i class="bi bi-plus fs-4 lh-1" aria-hidden="true"></i>
+            </button>
         }
     </div>
-
-    @if (_listing is not null)
-    {
-        <div class="border-bottom px-3 py-2 d-flex align-items-center gap-2 flex-wrap">
-            <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center"
-                    type="button"
-                    disabled="@(_listing.ParentFolderId is null || _operationPending)"
-                    @onclick="OpenParentAsync">
-                <i class="bi bi-arrow-up me-1" aria-hidden="true"></i>
-                Up
-            </button>
-            <span class="small text-body-secondary text-break">
-                @_listing.DisplayName@if (_listing.Breadcrumbs.Count > 0)
-                {
-                    <span> / @string.Join(" / ", _listing.Breadcrumbs)</span>
-                }
-            </span>
-        </div>
-    }
 
     @if (_error is not null)
     {
@@ -99,38 +114,83 @@
     }
 </section>
 
-@if (_renaming is not null)
+@if (_listing?.CanCreateFolder == true)
 {
-    <div class="card mt-3">
-        <div class="card-body d-flex gap-2 align-items-end flex-wrap">
-            <div>
-                <label class="form-label" for="@RenameInputId">Rename</label>
-                <InputText id="@RenameInputId" class="form-control" @bind-Value="_renameName" />
+    <div class="modal fade" id="@CreateModalId" tabindex="-1" aria-labelledby="@CreateModalLabelId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <EditForm Model="_createFolder" OnValidSubmit="CreateFolderAsync">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="@CreateModalLabelId">New folder</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" disabled="@_operationPending"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label" for="@CreateInputId">Folder name</label>
+                        <InputText id="@CreateInputId" class="form-control" @bind-Value="_createFolder.Name" />
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal" disabled="@_operationPending">Cancel</button>
+                        <button class="btn btn-primary d-inline-flex align-items-center" type="submit" disabled="@_operationPending">
+                            <i class="bi bi-folder-plus me-2" aria-hidden="true"></i>
+                            Create
+                        </button>
+                    </div>
+                </EditForm>
             </div>
-            <button class="btn btn-primary" type="button" disabled="@_operationPending" @onclick="RenameAsync">Save</button>
-            <button class="btn btn-outline-secondary" type="button" @onclick="CancelDialogs">Cancel</button>
         </div>
     </div>
 }
 
 @if (_moving is not null)
 {
-    <div class="card mt-3">
-        <div class="card-body d-flex gap-2 align-items-end flex-wrap">
-            <div>
-                <label class="form-label" for="@MoveInputId">Move to</label>
-                <select id="@MoveInputId" class="form-select" @bind="_moveDestinationId">
-                    <option value="">@Title root</option>
-                    @foreach (var folder in _folderChoices)
-                    {
-                        <option value="@folder.Id">@folder.Name</option>
-                    }
-                </select>
+    <div class="modal fade show d-block" tabindex="-1" aria-labelledby="@MoveModalLabelId" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="@MoveModalLabelId">Move @_moving.Name</h1>
+                    <button type="button" class="btn-close" aria-label="Close" disabled="@_operationPending" @onclick="CancelDialogs"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label" for="@MoveInputId">Move to</label>
+                    <select id="@MoveInputId" class="form-select" @bind="_moveDestinationId">
+                        <option value="">@Title root</option>
+                        @foreach (var folder in _folderChoices)
+                        {
+                            <option value="@folder.Id">@folder.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" disabled="@_operationPending" @onclick="CancelDialogs">Cancel</button>
+                    <button class="btn btn-primary" type="button" disabled="@_operationPending" @onclick="MoveAsync">Move</button>
+                </div>
             </div>
-            <button class="btn btn-primary" type="button" disabled="@_operationPending" @onclick="MoveAsync">Move</button>
-            <button class="btn btn-outline-secondary" type="button" @onclick="CancelDialogs">Cancel</button>
         </div>
     </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (_renaming is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" aria-labelledby="@RenameModalLabelId" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="@RenameModalLabelId">Rename @_renaming.Name</h1>
+                    <button type="button" class="btn-close" aria-label="Close" disabled="@_operationPending" @onclick="CancelDialogs"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label" for="@RenameInputId">Name</label>
+                    <InputText id="@RenameInputId" class="form-control" @bind-Value="_renameName" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" disabled="@_operationPending" @onclick="CancelDialogs">Cancel</button>
+                    <button class="btn btn-primary" type="button" disabled="@_operationPending" @onclick="RenameAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
 }
 
 @code {
@@ -147,15 +207,38 @@
     private string _renameName = string.Empty;
     private string? _moveDestinationId;
     private string? _error;
+    private IJSObjectReference? _bootstrapModule;
     private bool _isLoading = true;
     private bool _operationPending;
     private string HeadingId => $"archive-{Category}-heading";
+    private string CreateModalId => $"archive-{Category}-create-modal";
+    private string CreateModalLabelId => $"archive-{Category}-create-modal-label";
+    private string CreateInputId => $"archive-{Category}-create-folder";
+    private string MoveModalLabelId => $"archive-{Category}-move-modal-label";
+    private string RenameModalLabelId => $"archive-{Category}-rename-modal-label";
     private string RenameInputId => $"archive-{Category}-rename";
     private string MoveInputId => $"archive-{Category}-move";
 
     protected override async Task OnParametersSetAsync()
     {
         await LoadAsync(null);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            _bootstrapModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bootstrapInterop.js");
+        }
+        catch (JSException)
+        {
+            // The modal remains usable with Bootstrap's data attributes if JS interop import fails.
+        }
     }
 
     private async Task LoadAsync(string? folderId)
@@ -197,14 +280,24 @@
         }
     }
 
-    private Task OpenParentAsync() => LoadAsync(_listing?.ParentFolderId);
-
     private async Task CreateFolderAsync()
     {
-        await SendMutationAsync(() => Http.PostAsJsonAsync(
+        var folderName = _createFolder.Name.Trim();
+        var listing = await SendMutationAsync(() => Http.PostAsJsonAsync(
             $"api/archive/{Category}/folders",
             new CreateFolderRequest(_listing?.CurrentFolderId, _createFolder.Name)));
         _createFolder.Name = string.Empty;
+
+        var createdFolder = listing?.Items.FirstOrDefault(item =>
+            item.Kind == ArchiveItemKind.Folder &&
+            string.Equals(item.Name, folderName, StringComparison.OrdinalIgnoreCase));
+        if (createdFolder is null)
+        {
+            return;
+        }
+
+        await HideCreateModalAsync();
+        await LoadAsync(createdFolder.Id);
     }
 
     private void StartRename(ArchiveItemDto item)
@@ -229,7 +322,7 @@
         }
 
         var id = _renaming.Id;
-        await SendMutationAsync(() => Http.PatchAsJsonAsync(
+        _ = await SendMutationAsync(() => Http.PatchAsJsonAsync(
             $"api/archive/{Category}/items/{Uri.EscapeDataString(id)}/name",
             new RenameArchiveItemRequest(_renameName)));
         CancelDialogs();
@@ -243,16 +336,16 @@
         }
 
         var id = _moving.Id;
-        await SendMutationAsync(() => Http.PatchAsJsonAsync(
+        _ = await SendMutationAsync(() => Http.PatchAsJsonAsync(
             $"api/archive/{Category}/items/{Uri.EscapeDataString(id)}/location",
             new MoveArchiveItemRequest(string.IsNullOrWhiteSpace(_moveDestinationId) ? null : _moveDestinationId)));
         CancelDialogs();
     }
 
     private async Task DeleteAsync(ArchiveItemDto item) =>
-        await SendMutationAsync(() => Http.DeleteAsync($"api/archive/{Category}/items/{Uri.EscapeDataString(item.Id)}"));
+        _ = await SendMutationAsync(() => Http.DeleteAsync($"api/archive/{Category}/items/{Uri.EscapeDataString(item.Id)}"));
 
-    private async Task SendMutationAsync(Func<Task<HttpResponseMessage>> action)
+    private async Task<ArchiveListingDto?> SendMutationAsync(Func<Task<HttpResponseMessage>> action)
     {
         _operationPending = true;
         _error = null;
@@ -264,19 +357,37 @@
                 _error = response.StatusCode == System.Net.HttpStatusCode.Conflict
                     ? "That change conflicts with an existing item."
                     : "The archive change could not be saved.";
-                return;
+                return null;
             }
 
             _listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
             _folderChoices = _listing?.Items.Where(item => item.Kind == ArchiveItemKind.Folder).ToList() ?? [];
+            return _listing;
         }
         catch (HttpRequestException)
         {
             _error = "The archive change could not reach the server.";
+            return null;
         }
         finally
         {
             _operationPending = false;
+        }
+    }
+
+    private async Task HideCreateModalAsync()
+    {
+        if (_bootstrapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _bootstrapModule.InvokeVoidAsync("hideModal", CreateModalId);
+        }
+        catch (JSException)
+        {
         }
     }
 

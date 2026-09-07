@@ -31,3 +31,13 @@ export function disposeTooltips(root) {
         delete element.dataset.tooltipTitle;
     });
 }
+
+export function hideModal(id) {
+    const Modal = globalThis.bootstrap?.Modal;
+    const element = document.getElementById(id);
+    if (!Modal || !element) {
+        return;
+    }
+
+    Modal.getOrCreateInstance(element).hide();
+}

@@ -298,7 +298,7 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         return GetParentEntry(category, folder.PhysicalPath);
     }
 
-    private IReadOnlyList<string> BuildBreadcrumbs(ArchiveCategory category, ArchiveItemEntry folder)
+    private IReadOnlyList<ArchiveBreadcrumbDto> BuildBreadcrumbs(ArchiveCategory category, ArchiveItemEntry folder)
     {
         var root = GetCategoryRoot(category);
         var relative = Path.GetRelativePath(root, folder.PhysicalPath);
@@ -307,9 +307,17 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
             return [];
         }
 
-        return relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+        var breadcrumbs = new List<ArchiveBreadcrumbDto>();
+        var current = root;
+        foreach (var segment in relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .Where(segment => !string.IsNullOrWhiteSpace(segment))
-            .ToList();
+            .ToList())
+        {
+            current = Path.Combine(current, segment);
+            breadcrumbs.Add(new ArchiveBreadcrumbDto(ComputeId(category, current), segment));
+        }
+
+        return breadcrumbs;
     }
 
     private string GetCategoryRoot(ArchiveCategory category)

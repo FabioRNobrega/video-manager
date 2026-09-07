@@ -6,5 +6,5 @@ public sealed record ArchiveListingDto(
     string? CurrentFolderId,
     string? ParentFolderId,
     bool CanCreateFolder,
-    IReadOnlyList<string> Breadcrumbs,
+    IReadOnlyList<ArchiveBreadcrumbDto> Breadcrumbs,
     IReadOnlyList<ArchiveItemDto> Items);
