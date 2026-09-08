@@ -85,38 +85,122 @@
             {
                 var selected = IsSelected(item);
                 <div class="col">
-                    <div class="card h-100 position-relative @(selected ? "border-primary border-2" : null)">
+                    <div class="card h-100 position-relative overflow-hidden @(selected ? "border-primary border-2" : null)"
+                         @onmouseenter="() => StartPreview(item)"
+                         @onmouseleave="ClearPreview">
                         @if (selected)
                         {
-                            <span class="badge text-bg-primary position-absolute top-0 end-0 z-1 m-2">
+                            <span class="badge text-bg-primary position-absolute top-0 start-0 z-1 m-2">
                                 <i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Selected
                             </span>
                         }
-                        <button class="card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center gap-2"
+                        <div class="dropdown position-absolute top-0 end-0 z-2 m-2" @onclick:stopPropagation="true">
+                            <button class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center bg-body bg-opacity-75"
+                                    style="width:40px;height:40px;"
+                                    type="button"
+                                    disabled="@_operationPending"
+                                    data-bs-toggle="dropdown"
+                                    aria-expanded="false"
+                                    aria-label="Actions for @item.Name">
+                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <button class="dropdown-item d-flex align-items-center"
+                                            type="button"
+                                            disabled="@_operationPending"
+                                            @onclick="() => StartRename(item)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi bi-pencil me-2" aria-hidden="true"></i>
+                                        Rename
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item d-flex align-items-center"
+                                            type="button"
+                                            disabled="@(_operationPending || _folderChoices.Count == 0)"
+                                            @onclick="() => StartMove(item)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi bi-folder-symlink me-2" aria-hidden="true"></i>
+                                        Move
+                                    </button>
+                                </li>
+                                @if (Category != "trash")
+                                {
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <button class="dropdown-item text-danger d-flex align-items-center"
+                                                type="button"
+                                                disabled="@_operationPending"
+                                                @onclick="() => DeleteAsync(item)"
+                                                @onclick:stopPropagation="true">
+                                            <i class="bi bi-trash3 me-2" aria-hidden="true"></i>
+                                            Move to Trash
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                        <button class="card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center gap-2 p-0"
                                 type="button"
                                 aria-pressed="@(item.IsVideo ? selected : null)"
                                 @onclick="() => ActivateAsync(item)">
-                            <i class="bi @(item.Kind == ArchiveItemKind.Folder ? "bi-folder-fill text-primary" : FileIcon(item)) display-5" aria-hidden="true"></i>
-                            <span class="fw-semibold text-break text-center">@item.Name</span>
-                            @if (item.Kind == ArchiveItemKind.File)
+                            @if (item.IsVideo)
                             {
-                                <span class="small text-body-secondary">@FormatSize(item.SizeBytes)</span>
+                                <span class="ratio ratio-16x9 bg-body-tertiary border-bottom w-100" aria-hidden="true">
+                                    @if (item.Id == _previewingVideoId && item.HoverPreviewState == HoverPreviewState.Ready && !string.IsNullOrEmpty(item.HoverPreviewUrl))
+                                    {
+                                        <video src="@item.HoverPreviewUrl"
+                                               poster="@item.ThumbnailUrl"
+                                               class="w-100 h-100 object-fit-cover"
+                                               autoplay
+                                               muted
+                                               loop
+                                               playsinline>
+                                        </video>
+                                    }
+                                    else if (item.ThumbnailState == ThumbnailState.Ready && !string.IsNullOrEmpty(item.ThumbnailUrl))
+                                    {
+                                        <img src="@item.ThumbnailUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                    }
+                                    else
+                                    {
+                                        <span class="d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-film display-1 lh-1 text-body-secondary" aria-hidden="true"></i>
+                                        </span>
+                                    }
+                                </span>
                             }
+                            else
+                            {
+                                <span class="ratio ratio-16x9 bg-body-tertiary border-bottom w-100" aria-hidden="true">
+                                    <span class="d-flex align-items-center justify-content-center">
+                                    <i class="bi @(item.Kind == ArchiveItemKind.Folder ? "bi-folder-fill text-primary" : FileIcon(item)) display-5" aria-hidden="true"></i>
+                                    </span>
+                                </span>
+                            }
+                            <span class="card-body d-flex flex-column w-100 text-center">
+                                <span class="fw-semibold text-break">@item.Name</span>
+                                @if (item.Kind == ArchiveItemKind.File)
+                                {
+                                    <span class="card-text d-flex justify-content-center gap-2 text-body-secondary mt-2 flex-wrap" style="font-size: 0.7rem;">
+                                        @if (item.IsVideo)
+                                        {
+                                            <span class="text-nowrap">@FormatDuration(item.DurationSeconds)</span>
+                                            <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                                            <span class="text-nowrap">@FormatResolution(item.Width, item.Height)</span>
+                                            <span class="text-nowrap">@FormatDimensions(item.Width, item.Height)</span>
+                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                        }
+                                    </span>
+                                }
+                            </span>
                         </button>
-                        <div class="card-footer d-flex gap-2 justify-content-center">
-                            <button class="btn btn-outline-secondary btn-sm" type="button" disabled="@_operationPending" title="Rename" aria-label="Rename @item.Name" @onclick="() => StartRename(item)">
-                                <i class="bi bi-pencil" aria-hidden="true"></i>
-                            </button>
-                            <button class="btn btn-outline-secondary btn-sm" type="button" disabled="@(_operationPending || _folderChoices.Count == 0)" title="Move" aria-label="Move @item.Name" @onclick="() => StartMove(item)">
-                                <i class="bi bi-folder-symlink" aria-hidden="true"></i>
-                            </button>
-                            @if (Category != "trash")
-                            {
-                                <button class="btn btn-outline-danger btn-sm" type="button" disabled="@_operationPending" title="Move to Trash" aria-label="Move @item.Name to Trash" @onclick="() => DeleteAsync(item)">
-                                    <i class="bi bi-trash3" aria-hidden="true"></i>
-                                </button>
-                            }
-                        </div>
                     </div>
                 </div>
             }
@@ -218,6 +302,8 @@
     private string? _moveDestinationId;
     private string? _error;
     private IJSObjectReference? _bootstrapModule;
+    private string? _previewingVideoId;
+    private CancellationTokenSource? _mediaPollingCts;
     private bool _isLoading = true;
     private bool _operationPending;
     private string HeadingId => $"archive-{Category}-heading";
@@ -257,9 +343,9 @@
         }
     }
 
-    private async Task LoadAsync(string? folderId)
+    private async Task LoadAsync(string? folderId, bool restartPolling = true, bool showLoading = true)
     {
-        _isLoading = true;
+        _isLoading = showLoading;
         _error = null;
         try
         {
@@ -271,6 +357,10 @@
 
             _listing = await Http.GetFromJsonAsync<ArchiveListingDto>(url);
             _folderChoices = _listing?.Items.Where(item => item.Kind == ArchiveItemKind.Folder).ToList() ?? [];
+            if (restartPolling)
+            {
+                RestartMediaPollingIfNeeded();
+            }
         }
         catch (HttpRequestException)
         {
@@ -420,6 +510,17 @@
     private async Task DeleteAsync(ArchiveItemDto item) =>
         _ = await SendMutationAsync(() => Http.DeleteAsync($"api/archive/{Category}/items/{Uri.EscapeDataString(item.Id)}"));
 
+    private void StartPreview(ArchiveItemDto item)
+    {
+        _previewingVideoId = item.IsVideo &&
+            item.HoverPreviewState == HoverPreviewState.Ready &&
+            !string.IsNullOrEmpty(item.HoverPreviewUrl)
+                ? item.Id
+                : null;
+    }
+
+    private void ClearPreview() => _previewingVideoId = null;
+
     private async Task<ArchiveListingDto?> SendMutationAsync(Func<Task<HttpResponseMessage>> action)
     {
         _operationPending = true;
@@ -437,6 +538,7 @@
 
             _listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
             _folderChoices = _listing?.Items.Where(item => item.Kind == ArchiveItemKind.Folder).ToList() ?? [];
+            RestartMediaPollingIfNeeded();
             return _listing;
         }
         catch (HttpRequestException)
@@ -475,7 +577,102 @@
     }
 
     private static string FileIcon(ArchiveItemDto item) =>
-        item.IsVideo ? "bi-film text-primary" : "bi-file-earmark text-body-secondary";
+        FileTypeIcon(item.Extension) ?? "bi-file-earmark text-body-secondary";
+
+    private static string? FileTypeIcon(string? extension)
+    {
+        var type = extension?.TrimStart('.').ToLowerInvariant();
+        return type is
+            "aac" or
+            "ai" or
+            "bmp" or
+            "cs" or
+            "css" or
+            "csv" or
+            "doc" or
+            "docx" or
+            "exe" or
+            "gif" or
+            "heic" or
+            "html" or
+            "java" or
+            "jpg" or
+            "js" or
+            "json" or
+            "jsx" or
+            "key" or
+            "m4p" or
+            "md" or
+            "mdx" or
+            "mov" or
+            "mp3" or
+            "mp4" or
+            "otf" or
+            "pdf" or
+            "php" or
+            "png" or
+            "ppt" or
+            "pptx" or
+            "psd" or
+            "py" or
+            "raw" or
+            "rb" or
+            "sass" or
+            "scss" or
+            "sh" or
+            "sql" or
+            "svg" or
+            "tiff" or
+            "tsx" or
+            "ttf" or
+            "txt" or
+            "wav" or
+            "woff" or
+            "xls" or
+            "xlsx" or
+            "xml" or
+            "yml"
+                ? $"bi-filetype-{type} text-body-secondary"
+                : null;
+    }
+
+    private static string FormatExtension(string? extension) =>
+        string.IsNullOrWhiteSpace(extension) ? "FILE" : extension.TrimStart('.').ToUpperInvariant();
+
+    private static string FormatDuration(double? durationSeconds)
+    {
+        if (durationSeconds is not > 0)
+        {
+            return "--:--";
+        }
+
+        var duration = TimeSpan.FromSeconds(durationSeconds.Value);
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{duration.Minutes}:{duration.Seconds:00}";
+    }
+
+    private static string FormatDimensions(int? width, int? height) =>
+        width is > 0 && height is > 0 ? $"{width} x {height}" : string.Empty;
+
+    private static string FormatResolution(int? width, int? height)
+    {
+        if (height is not > 0)
+        {
+            return "--";
+        }
+
+        return height switch
+        {
+            >= 2160 => "4K",
+            >= 1440 => "1440p",
+            >= 1080 => "1080p",
+            >= 720 => "720p",
+            >= 480 => "480p",
+            >= 360 => "360p",
+            _ => $"{width}x{height}"
+        };
+    }
 
     private static string FormatSize(long? bytes)
     {
@@ -499,6 +696,47 @@
     public void Dispose()
     {
         PlayerState.StateChanged -= HandlePlayerStateChanged;
+        _mediaPollingCts?.Cancel();
+        _mediaPollingCts?.Dispose();
+    }
+
+    private void RestartMediaPollingIfNeeded()
+    {
+        _mediaPollingCts?.Cancel();
+        _mediaPollingCts?.Dispose();
+        _mediaPollingCts = null;
+
+        if (_listing?.Items.Any(item =>
+                item.IsVideo &&
+                (item.ThumbnailState == ThumbnailState.Pending || item.HoverPreviewState == HoverPreviewState.Pending)) != true)
+        {
+            return;
+        }
+
+        var currentFolderId = _listing.CurrentFolderId;
+        _mediaPollingCts = new CancellationTokenSource();
+        _ = PollMediaAsync(currentFolderId, _mediaPollingCts.Token);
+    }
+
+    private async Task PollMediaAsync(string? folderId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await LoadAsync(folderId, restartPolling: false, showLoading: false);
+                if (_listing?.Items.Any(item =>
+                        item.IsVideo &&
+                        (item.ThumbnailState == ThumbnailState.Pending || item.HoverPreviewState == HoverPreviewState.Pending)) != true)
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
     }
 
     private sealed class FolderForm

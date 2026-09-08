@@ -7,4 +7,11 @@ public sealed record ArchiveItemDto(
     string? Extension,
     long? SizeBytes,
     DateTime LastWriteTimeUtc,
-    bool IsVideo);
+    bool IsVideo,
+    ThumbnailState ThumbnailState = ThumbnailState.Unavailable,
+    string? ThumbnailUrl = null,
+    HoverPreviewState HoverPreviewState = HoverPreviewState.Unavailable,
+    string? HoverPreviewUrl = null,
+    double? DurationSeconds = null,
+    int? Width = null,
+    int? Height = null);

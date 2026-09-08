@@ -1,9 +1,15 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using WebApp.Client.Models;
+using WebApp.Configuration;
+using WebApp.Services;
 
 namespace WebApp.Tests.Endpoints;
 
@@ -27,6 +33,93 @@ public sealed class ArchiveEndpointsTests
         Assert.Equal("Photos", listing!.DisplayName);
         Assert.Contains(listing.Items, item => item.Name == "Trips" && item.Kind == ArchiveItemKind.Folder);
         Assert.Contains(listing.Items, item => item.Name == "photo.jpg" && item.Kind == ArchiveItemKind.File);
+    }
+
+    [Fact]
+    public async Task Listing_returns_archive_video_preview_contract_for_all_categories()
+    {
+        using var root = CreateArchive();
+        var videoPath = Path.Combine(root.Path, "Downloads", "clip.mp4");
+        var documentPath = Path.Combine(root.Path, "Downloads", "note.txt");
+        byte[] videoFixture = [10, 20, 30, 40, 50];
+        await File.WriteAllBytesAsync(videoPath, videoFixture);
+        await File.WriteAllTextAsync(documentPath, "content");
+        using var factory = new VideoManagerFactory(root.Path, hoverPreviewEnabled: true);
+        using var client = factory.CreateClient();
+
+        var pendingListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/downloads/items"))!;
+        var pendingVideo = pendingListing.Items.Single(item => item.Name == "clip.mp4");
+        var nonVideo = pendingListing.Items.Single(item => item.Name == "note.txt");
+
+        Assert.True(pendingVideo.IsVideo);
+        Assert.Equal(ThumbnailState.Pending, pendingVideo.ThumbnailState);
+        Assert.Null(pendingVideo.ThumbnailUrl);
+        Assert.Equal(HoverPreviewState.Pending, pendingVideo.HoverPreviewState);
+        Assert.Null(pendingVideo.HoverPreviewUrl);
+        Assert.Equal(305, pendingVideo.DurationSeconds);
+        Assert.Equal(1920, pendingVideo.Width);
+        Assert.Equal(1080, pendingVideo.Height);
+        Assert.False(nonVideo.IsVideo);
+        Assert.Equal(ThumbnailState.Unavailable, nonVideo.ThumbnailState);
+        Assert.Null(nonVideo.ThumbnailUrl);
+        Assert.Equal(HoverPreviewState.Unavailable, nonVideo.HoverPreviewState);
+        Assert.Null(nonVideo.HoverPreviewUrl);
+        Assert.Equal(".txt", nonVideo.Extension);
+
+        var thumbnailCache = new ThumbnailCache(Options.Create(new ThumbnailCacheOptions { Path = factory.PreviewPath }));
+        var hoverCache = new HoverPreviewCache(Options.Create(new ThumbnailCacheOptions { Path = factory.PreviewPath }));
+        var timestamp = File.GetLastWriteTimeUtc(videoPath);
+        var relativeIdentity = $"archive/downloads/{pendingVideo.Id}/clip.mp4";
+        await File.WriteAllBytesAsync(thumbnailCache.GetFinalPath(thumbnailCache.ComputeKey(relativeIdentity, videoFixture.Length, timestamp)), [1, 2, 3]);
+        await File.WriteAllBytesAsync(hoverCache.GetFinalPath(hoverCache.ComputeKey(relativeIdentity, videoFixture.Length, timestamp)), videoFixture);
+
+        using var readyResponse = await client.GetAsync("/api/archive/downloads/items");
+        var json = await readyResponse.Content.ReadAsStringAsync();
+        var readyListing = await readyResponse.Content.ReadFromJsonAsync<ArchiveListingDto>();
+        var readyVideo = readyListing!.Items.Single(item => item.Name == "clip.mp4");
+
+        Assert.Equal(HttpStatusCode.OK, readyResponse.StatusCode);
+        Assert.DoesNotContain(root.Path, json);
+        Assert.Equal(ThumbnailState.Ready, readyVideo.ThumbnailState);
+        Assert.Equal(HoverPreviewState.Ready, readyVideo.HoverPreviewState);
+        Assert.StartsWith("/api/archive/downloads/items/", readyVideo.ThumbnailUrl);
+        Assert.StartsWith("/api/archive/downloads/items/", readyVideo.HoverPreviewUrl);
+
+        using var thumbnailResponse = await client.GetAsync(readyVideo.ThumbnailUrl);
+        Assert.Equal(HttpStatusCode.OK, thumbnailResponse.StatusCode);
+        Assert.Equal("image/jpeg", thumbnailResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(new byte[] { 1, 2, 3 }, await thumbnailResponse.Content.ReadAsByteArrayAsync());
+
+        using var previewResponse = await client.GetAsync(readyVideo.HoverPreviewUrl);
+        Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
+        Assert.Equal("video/mp4", previewResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(videoFixture, await previewResponse.Content.ReadAsByteArrayAsync());
+
+        using var rangeRequest = new HttpRequestMessage(HttpMethod.Get, readyVideo.HoverPreviewUrl);
+        rangeRequest.Headers.Range = new RangeHeaderValue(1, 3);
+        using var rangeResponse = await client.SendAsync(rangeRequest);
+        Assert.Equal(HttpStatusCode.PartialContent, rangeResponse.StatusCode);
+        Assert.Equal(videoFixture[1..4], await rangeResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Archive_media_endpoints_reject_non_video_and_stale_ids()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "note.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path, hoverPreviewEnabled: true);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var item = Assert.Single(listing.Items);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{item.Id}/thumbnail")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{item.Id}/preview")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{Guid.NewGuid():N}/thumbnail")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/archive/documents/items/%2Fetc%2Fpasswd/preview")).StatusCode);
     }
 
     [Fact]
@@ -93,23 +186,87 @@ public sealed class ArchiveEndpointsTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private sealed class VideoManagerFactory(string archiveRoot) : WebApplicationFactory<Program>
+    [Fact]
+    public void Archive_browser_markup_uses_unified_dropdown_cards_and_keeps_video_grid_specialized()
     {
+        var archiveBrowser = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../WebApp/WebApp.Client/Components/ArchiveBrowser.razor"));
+        var home = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../WebApp/WebApp.Client/Pages/Home.razor"));
+
+        Assert.Contains("bi-three-dots-vertical", archiveBrowser);
+        Assert.Contains("data-bs-toggle=\"dropdown\"", archiveBrowser);
+        Assert.Contains("dropdown-menu dropdown-menu-end", archiveBrowser);
+        Assert.Contains("ratio ratio-16x9", archiveBrowser);
+        Assert.Contains("HoverPreviewUrl", archiveBrowser);
+        Assert.Contains("\"pdf\"", archiveBrowser);
+        Assert.Contains("\"mp4\"", archiveBrowser);
+        Assert.Contains("bi-filetype-{type}", archiveBrowser);
+        Assert.Contains("FormatDuration(item.DurationSeconds)", archiveBrowser);
+        Assert.Contains("FormatResolution(item.Width, item.Height)", archiveBrowser);
+        Assert.Contains("FormatDimensions(item.Width, item.Height)", archiveBrowser);
+        Assert.DoesNotContain("card-footer d-flex gap-2 justify-content-center", archiveBrowser);
+        Assert.Contains("<VideoGrid Items=\"_cuts\"", home);
+        Assert.Contains("<VideoGrid Items=\"_compositions\"", home);
+    }
+
+    private sealed class VideoManagerFactory : WebApplicationFactory<Program>
+    {
+        private readonly string _archiveRoot;
+        private readonly bool _hoverPreviewEnabled;
         private readonly string _previewPath = CreateDirectory();
+
+        public VideoManagerFactory(string archiveRoot, bool hoverPreviewEnabled = false)
+        {
+            _archiveRoot = archiveRoot;
+            _hoverPreviewEnabled = hoverPreviewEnabled;
+        }
+
+        public string PreviewPath => _previewPath;
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
-                    ["ArchiveRoot:Path"] = archiveRoot,
-                    ["VideoLibrary:Path"] = Path.Combine(archiveRoot, "Videos"),
+                    ["ArchiveRoot:Path"] = _archiveRoot,
+                    ["VideoLibrary:Path"] = Path.Combine(_archiveRoot, "Videos"),
                     ["ThumbnailCache:Path"] = _previewPath,
-                    ["VideoCut:Path"] = Path.Combine(archiveRoot, "Videos", "Cuts"),
-                    ["VideoComposition:Path"] = Path.Combine(archiveRoot, "Videos", "VideoComposition"),
-                    ["HoverPreview:Enabled"] = "false"
+                    ["VideoCut:Path"] = Path.Combine(_archiveRoot, "Videos", "Cuts"),
+                    ["VideoComposition:Path"] = Path.Combine(_archiveRoot, "Videos", "VideoComposition"),
+                    ["HoverPreview:Enabled"] = _hoverPreviewEnabled.ToString()
                 }));
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IVideoDurationProbe>();
+                services.RemoveAll<IVideoResolutionProbe>();
+                services.AddSingleton<IVideoDurationProbe>(new FixedDurationProbe(TimeSpan.FromSeconds(305)));
+                services.AddSingleton<IVideoResolutionProbe>(new FixedResolutionProbe(1920, 1080));
+            });
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing && Directory.Exists(_previewPath))
+            {
+                Directory.Delete(_previewPath, recursive: true);
+            }
+        }
+    }
+
+    private sealed class FixedDurationProbe(TimeSpan? duration) : IVideoDurationProbe
+    {
+        public Task<TimeSpan?> GetDurationAsync(string physicalPath, CancellationToken cancellationToken) =>
+            Task.FromResult(duration);
+    }
+
+    private sealed class FixedResolutionProbe(int? width, int? height) : IVideoResolutionProbe
+    {
+        public Task<(int? Width, int? Height)> GetResolutionAsync(string physicalPath, CancellationToken cancellationToken) =>
+            Task.FromResult((width, height));
     }
 
     private static TemporaryDirectory CreateArchive()
