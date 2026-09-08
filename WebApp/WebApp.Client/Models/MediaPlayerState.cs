@@ -11,7 +11,7 @@ public sealed class MediaPlayerState
     public double CurrentTime { get; private set; }
     public double? Duration { get; private set; }
     public double Volume { get; private set; } = 1;
-    public bool IsMuted { get; private set; } = true;
+    public bool IsMuted { get; private set; }
     public double PlaybackRate { get; private set; } = 1;
     public bool IsStandardLoop { get; private set; }
     public bool IsAbLoop { get; private set; }

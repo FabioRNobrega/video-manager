@@ -72,6 +72,65 @@ public sealed class PersistentPlayerStateTests
     }
 
     [Fact]
+    public void Select_music_uses_audio_mode_and_current_folder_playlist()
+    {
+        var state = new PersistentPlayerState();
+        var first = CreateMusic("song-one", "01.mp3");
+        var second = CreateMusic("song-two", "02.wav");
+
+        state.SelectMusic(second, [first, second]);
+
+        Assert.True(state.HasSelection);
+        Assert.True(state.IsMusic);
+        Assert.Equal(PersistentMediaKind.Music, state.MediaKind);
+        Assert.Equal("song-two", state.SelectedId);
+        Assert.Equal("api/archive/music/items/song-two", state.StreamBasePath);
+        Assert.False(state.CanSaveCut);
+        Assert.Equal("/api/archive/music/items/album/cover", state.AlbumCoverUrl);
+        Assert.Equal(["song-one", "song-two"], state.MusicPlaylist.Select(track => track.Id));
+        Assert.True(state.CanSelectPreviousTrack);
+        Assert.False(state.CanSelectNextTrack);
+    }
+
+    [Fact]
+    public void Select_music_uses_audio_url_category_for_stream_base_path()
+    {
+        var state = new PersistentPlayerState();
+        var first = CreateMusic("chapter-one", "01.mp3", "books");
+        var second = CreateMusic("chapter-two", "02.mp3", "books");
+
+        state.SelectMusic(first, [first, second]);
+
+        Assert.True(state.IsMusic);
+        Assert.Equal("api/archive/books/items/chapter-one", state.StreamBasePath);
+
+        Assert.True(state.SelectNextTrack());
+        Assert.Equal("chapter-two", state.SelectedId);
+        Assert.Equal("api/archive/books/items/chapter-two", state.StreamBasePath);
+    }
+
+    [Fact]
+    public void Music_previous_and_next_stop_at_playlist_boundaries()
+    {
+        var state = new PersistentPlayerState();
+        var first = CreateMusic("song-one", "01.mp3");
+        var second = CreateMusic("song-two", "02.wav");
+        state.SelectMusic(first, [first, second]);
+
+        Assert.False(state.SelectPreviousTrack());
+        Assert.Equal("song-one", state.SelectedId);
+
+        Assert.True(state.SelectNextTrack());
+        Assert.Equal("song-two", state.SelectedId);
+
+        Assert.False(state.SelectNextTrack());
+        Assert.Equal("song-two", state.SelectedId);
+
+        Assert.True(state.SelectPreviousTrack());
+        Assert.Equal("song-one", state.SelectedId);
+    }
+
+    [Fact]
     public void Update_selected_replaces_current_item_only_when_ids_match()
     {
         var state = new PersistentPlayerState();
@@ -137,4 +196,17 @@ public sealed class PersistentPlayerStateTests
             61,
             1920,
             1080);
+
+    private static ArchiveItemDto CreateMusic(string id, string name, string category = "music") =>
+        new(
+            id,
+            name,
+            ArchiveItemKind.File,
+            Path.GetExtension(name),
+            2048,
+            DateTime.UtcNow,
+            false,
+            IsMusic: true,
+            AudioUrl: $"/api/archive/{category}/items/{id}/audio",
+            AlbumCoverUrl: $"/api/archive/{category}/items/album/cover");
 }

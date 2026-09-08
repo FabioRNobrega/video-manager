@@ -99,6 +99,59 @@ public sealed class ArchiveServiceTests
         Assert.Equal(".mp4", item.Extension);
     }
 
+    [Fact]
+    public void Audio_files_are_marked_in_any_category()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Music", "song.mp3"));
+        awaitFile(Path.Combine(root.Path, "Music", "beat.wav"));
+        awaitFile(Path.Combine(root.Path, "Books", "voice.mp3"));
+        var service = CreateService(root.Path);
+
+        var music = service.List("music", null).Items;
+        var book = Assert.Single(service.List("books", null).Items);
+
+        Assert.All(music, item => Assert.True(item.IsMusic));
+        Assert.All(music, item => Assert.False(item.IsVideo));
+        Assert.True(book.IsMusic);
+        Assert.False(book.IsVideo);
+    }
+
+    [Fact]
+    public void Music_listing_uses_first_direct_image_as_album_cover()
+    {
+        using var root = CreateArchive();
+        var album = Path.Combine(root.Path, "Music", "Album");
+        Directory.CreateDirectory(album);
+        Directory.CreateDirectory(Path.Combine(album, "Nested"));
+        awaitFile(Path.Combine(album, "song.mp3"));
+        awaitFile(Path.Combine(album, "zeta.png"));
+        awaitFile(Path.Combine(album, "alpha.jpg"));
+        awaitFile(Path.Combine(album, "Nested", "aardvark.jpg"));
+        var service = CreateService(root.Path);
+        var folder = service.List("music", null).Items.Single(item => item.Name == "Album");
+
+        var listing = service.List("music", folder.Id);
+        var track = listing.Items.Single(item => item.Name == "song.mp3");
+
+        Assert.True(track.IsMusic);
+        Assert.Equal(folder.Id, track.AlbumCoverId);
+        Assert.True(service.TryResolveAlbumCover("music", folder.Id, out var cover));
+        Assert.Equal("alpha.jpg", cover!.Name);
+    }
+
+    [Fact]
+    public void Album_cover_resolver_works_for_any_category_folder()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Books", "cover.jpg"));
+        var service = CreateService(root.Path);
+        var folder = service.List("books", null).CurrentFolder;
+
+        Assert.True(service.TryResolveAlbumCover("books", folder.Id, out var cover));
+        Assert.Equal("cover.jpg", cover!.Name);
+    }
+
     private static ArchiveService CreateService(string path) =>
         new(Options.Create(new ArchiveRootOptions { Path = path }));
 

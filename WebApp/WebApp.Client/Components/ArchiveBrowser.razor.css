@@ -1,0 +1,29 @@
+.archive-music-cover {
+    overflow: hidden;
+}
+
+.archive-music-overlay {
+    top: 50%;
+    color: var(--text-strong);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--hover-border);
+    opacity: 0;
+    transform: translateY(100%);
+    transition: opacity .18s ease, transform .18s ease;
+}
+
+.archive-music-overlay .small {
+    color: var(--text-muted);
+}
+
+.archive-music-card:hover .archive-music-overlay,
+.archive-music-card:focus-visible .archive-music-overlay {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .archive-music-overlay {
+        transition: none;
+    }
+}

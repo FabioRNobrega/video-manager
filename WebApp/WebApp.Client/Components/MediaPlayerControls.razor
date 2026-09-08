@@ -53,6 +53,19 @@
          role="toolbar"
          aria-label="Video player controls">
         <div class="btn-group" role="group" aria-label="Playback">
+        @if (IsMusicMode)
+        {
+        <button class="btn @ActionCssClass"
+                type="button"
+                disabled="@(!CanSelectPreviousTrack)"
+                aria-label="Previous track"
+                title="Previous track"
+                data-bs-toggle="tooltip"
+                data-bs-title="Previous track"
+                @onclick="HandleSelectPreviousTrackAsync">
+            <i class="bi bi-chevron-compact-left" aria-hidden="true"></i>
+        </button>
+        }
         <button class="btn @ToggleCssClass(State.IsPlaying)"
                 type="button"
                 aria-label="@(State.IsPlaying ? "Pause" : "Play")"
@@ -74,6 +87,19 @@
                 @onclick="HandleToggleStandardLoopAsync">
             <i class="bi bi-repeat-1" aria-hidden="true"></i>
         </button>
+        @if (IsMusicMode)
+        {
+        <button class="btn @ActionCssClass"
+                type="button"
+                disabled="@(!CanSelectNextTrack)"
+                aria-label="Next track"
+                title="Next track"
+                data-bs-toggle="tooltip"
+                data-bs-title="Next track"
+                @onclick="HandleSelectNextTrackAsync">
+            <i class="bi bi-chevron-compact-right" aria-hidden="true"></i>
+        </button>
+        }
         </div>
 
         <div class="btn-group" role="group" aria-label="Skip">
@@ -141,7 +167,9 @@
             </select>
         </label>
 
-        <div class="btn-group ms-sm-auto" role="group" aria-label="Loop points">
+        @if (!IsMusicMode)
+        {
+        <div class="btn-group" role="group" aria-label="Loop points">
         <button class="btn @ActionCssClass" type="button"
                 disabled="@(!State.HasDuration)"
                 aria-label="Set point A"
@@ -195,8 +223,11 @@
             <i class="bi bi-x-circle" aria-hidden="true"></i>
         </button>
         </div>
+        }
 
-        <div class="btn-group" role="group" aria-label="Video actions">
+        <div class="btn-group ms-auto" role="group" aria-label="Player view">
+        @if (!IsMusicMode)
+        {
         <button class="btn @ToggleCssClass(State.IsSubtitlesEnabled)"
                 type="button"
                 disabled="@(!HasSubtitles)"
@@ -208,6 +239,7 @@
                 @onclick="HandleToggleSubtitlesAsync">
             <i class="bi bi-card-text" aria-hidden="true"></i>
         </button>
+        }
         <button @ref="_fillTabButton"
                 class="btn @ToggleCssClass(IsFillTabActive)"
                 type="button"
@@ -260,6 +292,11 @@
     [Parameter] public bool HasSubtitles { get; set; }
     [Parameter] public EventCallback ToggleSubtitles { get; set; }
     [Parameter] public bool CanSaveCut { get; set; } = true;
+    [Parameter] public bool IsMusicMode { get; set; }
+    [Parameter] public EventCallback SelectPreviousTrack { get; set; }
+    [Parameter] public EventCallback SelectNextTrack { get; set; }
+    [Parameter] public bool CanSelectPreviousTrack { get; set; }
+    [Parameter] public bool CanSelectNextTrack { get; set; }
     [Parameter] public bool IsFooterMode { get; set; }
 
     private ElementReference _controlsRoot;
@@ -383,6 +420,8 @@
     private Task HandleToggleSubtitlesAsync() => ToggleSubtitles.InvokeAsync();
     private Task HandleSkipBackwardAsync() => SkipBackward.InvokeAsync();
     private Task HandleSkipForwardAsync() => SkipForward.InvokeAsync();
+    private Task HandleSelectPreviousTrackAsync() => SelectPreviousTrack.InvokeAsync();
+    private Task HandleSelectNextTrackAsync() => SelectNextTrack.InvokeAsync();
     private Task HandleEnterFillTabAsync() => EnterFillTab.InvokeAsync();
     private Task HandleSetMarkerAAsync() => SetMarkerA.InvokeAsync();
     private Task HandleSetMarkerBAsync() => SetMarkerB.InvokeAsync();

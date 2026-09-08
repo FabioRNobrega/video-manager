@@ -240,6 +240,123 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task Music_listing_returns_audio_and_cover_contract_without_paths()
+    {
+        using var root = CreateArchive();
+        var album = Path.Combine(root.Path, "Music", "Album");
+        Directory.CreateDirectory(album);
+        await File.WriteAllBytesAsync(Path.Combine(album, "02.wav"), [1, 2, 3, 4, 5]);
+        await File.WriteAllBytesAsync(Path.Combine(album, "01.mp3"), [6, 7, 8, 9, 10]);
+        await File.WriteAllBytesAsync(Path.Combine(album, "cover.jpg"), [11, 12, 13]);
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var rootListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/music/items"))!;
+        var folder = rootListing.Items.Single(item => item.Name == "Album");
+
+        using var response = await client.GetAsync($"/api/archive/music/items?folderId={folder.Id}");
+        var json = await response.Content.ReadAsStringAsync();
+        var listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
+        var tracks = listing!.Items.Where(item => item.IsMusic).ToList();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(root.Path, json);
+        Assert.Equal(["01.mp3", "02.wav"], tracks.Select(track => track.Name));
+        Assert.All(tracks, track =>
+        {
+            Assert.False(track.IsVideo);
+            Assert.StartsWith("/api/archive/music/items/", track.AudioUrl);
+            Assert.EndsWith("/audio", track.AudioUrl);
+            Assert.Equal($"/api/archive/music/items/{folder.Id}/cover", track.AlbumCoverUrl);
+            Assert.Equal(305, track.DurationSeconds);
+        });
+    }
+
+    [Fact]
+    public async Task Audio_endpoint_streams_music_with_range_processing()
+    {
+        using var root = CreateArchive();
+        byte[] fixture = [10, 20, 30, 40, 50];
+        await File.WriteAllBytesAsync(Path.Combine(root.Path, "Music", "song.mp3"), fixture);
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/music/items"))!;
+        var item = Assert.Single(listing.Items);
+
+        using var response = await client.GetAsync(item.AudioUrl);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("audio/mpeg", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(fixture, await response.Content.ReadAsByteArrayAsync());
+
+        using var rangeRequest = new HttpRequestMessage(HttpMethod.Get, item.AudioUrl);
+        rangeRequest.Headers.Range = new RangeHeaderValue(1, 3);
+        using var rangeResponse = await client.SendAsync(rangeRequest);
+        Assert.Equal(HttpStatusCode.PartialContent, rangeResponse.StatusCode);
+        Assert.Equal(fixture[1..4], await rangeResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Audio_listing_and_endpoint_work_outside_music_category()
+    {
+        using var root = CreateArchive();
+        var album = Path.Combine(root.Path, "Books", "Audiobook");
+        Directory.CreateDirectory(album);
+        byte[] fixture = [42, 43, 44, 45, 46];
+        await File.WriteAllBytesAsync(Path.Combine(album, "chapter-01.mp3"), fixture);
+        await File.WriteAllBytesAsync(Path.Combine(album, "cover.png"), [1, 2, 3]);
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var rootListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
+        var folder = rootListing.Items.Single(item => item.Name == "Audiobook");
+
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>($"/api/archive/books/items?folderId={folder.Id}"))!;
+        var track = Assert.Single(listing.Items, item => item.IsMusic);
+
+        Assert.True(track.IsMusic);
+        Assert.False(track.IsVideo);
+        Assert.Equal($"/api/archive/books/items/{track.Id}/audio", track.AudioUrl);
+        Assert.Equal($"/api/archive/books/items/{folder.Id}/cover", track.AlbumCoverUrl);
+
+        using var audioResponse = await client.GetAsync(track.AudioUrl);
+        Assert.Equal(HttpStatusCode.OK, audioResponse.StatusCode);
+        Assert.Equal("audio/mpeg", audioResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(fixture, await audioResponse.Content.ReadAsByteArrayAsync());
+
+        using var coverResponse = await client.GetAsync(track.AlbumCoverUrl);
+        Assert.Equal(HttpStatusCode.OK, coverResponse.StatusCode);
+        Assert.Equal("image/png", coverResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Cover_endpoint_serves_first_image_and_rejects_invalid_ids()
+    {
+        using var root = CreateArchive();
+        var album = Path.Combine(root.Path, "Music", "Album");
+        Directory.CreateDirectory(album);
+        await File.WriteAllBytesAsync(Path.Combine(album, "song.wav"), [1, 2, 3]);
+        await File.WriteAllBytesAsync(Path.Combine(album, "zeta.png"), [4, 5, 6]);
+        await File.WriteAllBytesAsync(Path.Combine(album, "alpha.jpeg"), [7, 8, 9]);
+        await File.WriteAllBytesAsync(Path.Combine(root.Path, "Documents", "cover.jpg"), [10]);
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var rootListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/music/items"))!;
+        var folder = rootListing.Items.Single(item => item.Name == "Album");
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>($"/api/archive/music/items?folderId={folder.Id}"))!;
+        var track = listing.Items.Single(item => item.IsMusic);
+
+        using var response = await client.GetAsync(track.AlbumCoverUrl);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(new byte[] { 7, 8, 9 }, await response.Content.ReadAsByteArrayAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/music/items/{track.Id}/cover")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{folder.Id}/cover")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/archive/music/items/%2Fetc%2Fpasswd/cover")).StatusCode);
+    }
+
+    [Fact]
     public void Archive_browser_markup_uses_unified_dropdown_cards_and_keeps_video_grid_specialized()
     {
         var archiveBrowser = File.ReadAllText(Path.Combine(
@@ -254,6 +371,12 @@ public sealed class ArchiveEndpointsTests
         Assert.Contains("dropdown-menu dropdown-menu-end", archiveBrowser);
         Assert.Contains("ratio ratio-16x9", archiveBrowser);
         Assert.Contains("HoverPreviewUrl", archiveBrowser);
+        Assert.Contains("AlbumCoverUrl", archiveBrowser);
+        Assert.Contains("archive-music-cover ratio ratio-1x1", archiveBrowser);
+        Assert.Contains("archive-music-overlay", archiveBrowser);
+        Assert.Contains("FormatDisplayName(item)", archiveBrowser);
+        Assert.Contains("FormatDuration(item.DurationSeconds)", archiveBrowser);
+        Assert.Contains("SelectMusic", archiveBrowser);
         Assert.Contains("\"pdf\"", archiveBrowser);
         Assert.Contains("\"mp4\"", archiveBrowser);
         Assert.Contains("bi-filetype-{type}", archiveBrowser);
@@ -263,6 +386,20 @@ public sealed class ArchiveEndpointsTests
         Assert.DoesNotContain("card-footer d-flex gap-2 justify-content-center", archiveBrowser);
         Assert.Contains("<VideoGrid Items=\"_cuts\"", home);
         Assert.Contains("<VideoGrid Items=\"_compositions\"", home);
+
+        var player = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../WebApp/WebApp.Client/Components/Player.razor"));
+        var controls = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../WebApp/WebApp.Client/Components/MediaPlayerControls.razor"));
+
+        Assert.Contains("<audio @key=\"Selected.Id\"", player);
+        Assert.Contains("music-cover-stage", player);
+        Assert.Contains("IsMusicMode=\"PlayerState.IsMusic\"", player);
+        Assert.Contains("bi-chevron-compact-left", controls);
+        Assert.Contains("bi-chevron-compact-right", controls);
+        Assert.Contains("@if (!IsMusicMode)", controls);
     }
 
     private sealed class VideoManagerFactory : WebApplicationFactory<Program>

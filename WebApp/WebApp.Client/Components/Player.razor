@@ -18,42 +18,78 @@
         <div class="@PreviewStageCssClass">
             <div class="@MediaRowCssClass">
             <div class="@VideoViewportCssClass" style="@VideoViewportStyle" @ref="_viewport">
-                <video @key="Selected.Id"
-                       @ref="_video"
-                       class="position-absolute top-0 start-0 w-100 h-100 object-fit-cover user-select-none"
-                       src="@($"{StreamBasePath}/{Selected.Id}/stream")"
-                       muted
-                       preload="metadata"
-                       aria-label="Vertical preview of @Selected.Name"
-                       style="@VideoStyle"
-                       @onpointerdown="StartDragAsync"
-                       @onpointermove="MoveDrag"
-                       @onpointerup="args => EndDragAsync(args, revealControls: true)"
-                       @onpointercancel="args => EndDragAsync(args, revealControls: false)"
-                       @onpointerleave="args => EndDragAsync(args, revealControls: false)"
-                       @onlostpointercapture="args => EndDragAsync(args, revealControls: false)"
-                       @onerror="ShowPlaybackError"
-                       @onloadedmetadata="HandleLoadedMetadataAsync"
-                       @ondurationchange="SynchronizeMediaStateAsync"
-                       @onplay="SynchronizeMediaStateAsync"
-                       @onpause="SynchronizeMediaStateAsync"
-                       @ontimeupdate="HandleTimeUpdateAsync"
-                       @onvolumechange="SynchronizeMediaStateAsync"
-                       @onratechange="SynchronizeMediaStateAsync"
-                       @onseeking="SynchronizeMediaStateAsync"
-                       @onseeked="HandleSeekedAsync"
-                       @onended="SynchronizeMediaStateAsync">
-                    @if (HasSubtitles)
-                    {
-                        <track kind="subtitles"
-                               src="@SubtitleSource"
-                               srclang="en"
-                               label="English"
-                               default />
-                    }
-                    Your browser does not support HTML5 video.
-                </video>
-                @if (_fillTab.IsActive)
+                @if (PlayerState.IsMusic)
+                {
+                    <div class="music-cover-stage position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark"
+                         @onpointerdown="RevealControls"
+                         @onmouseenter="HandleControlHoverStarted"
+                         @onmouseleave="HandleControlHoverEnded">
+                        @if (!string.IsNullOrWhiteSpace(PlayerState.AlbumCoverUrl))
+                        {
+                            <img src="@PlayerState.AlbumCoverUrl" alt="" class="@MusicCoverCssClass" />
+                        }
+                        else
+                        {
+                            <i class="bi bi-music-note-beamed display-1 lh-1 text-primary" aria-hidden="true"></i>
+                        }
+                    </div>
+                    <audio @key="Selected.Id"
+                           @ref="_video"
+                           src="@MusicSource"
+                           preload="metadata"
+                           aria-label="Audio playback of @Selected.Name"
+                           @onerror="ShowPlaybackError"
+                           @onloadedmetadata="HandleLoadedMetadataAsync"
+                           @ondurationchange="SynchronizeMediaStateAsync"
+                           @onplay="SynchronizeMediaStateAsync"
+                           @onpause="SynchronizeMediaStateAsync"
+                           @ontimeupdate="HandleTimeUpdateAsync"
+                           @onvolumechange="SynchronizeMediaStateAsync"
+                           @onratechange="SynchronizeMediaStateAsync"
+                           @onseeking="SynchronizeMediaStateAsync"
+                           @onseeked="HandleSeekedAsync"
+                           @onended="HandleEndedAsync">
+                        Your browser does not support HTML5 audio.
+                    </audio>
+                }
+                else
+                {
+                    <video @key="Selected.Id"
+                           @ref="_video"
+                           class="position-absolute top-0 start-0 w-100 h-100 object-fit-cover user-select-none"
+                           src="@($"{StreamBasePath}/{Selected.Id}/stream")"
+                           preload="metadata"
+                           aria-label="Vertical preview of @Selected.Name"
+                           style="@VideoStyle"
+                           @onpointerdown="StartDragAsync"
+                           @onpointermove="MoveDrag"
+                           @onpointerup="args => EndDragAsync(args, revealControls: true)"
+                           @onpointercancel="args => EndDragAsync(args, revealControls: false)"
+                           @onpointerleave="args => EndDragAsync(args, revealControls: false)"
+                           @onlostpointercapture="args => EndDragAsync(args, revealControls: false)"
+                           @onerror="ShowPlaybackError"
+                           @onloadedmetadata="HandleLoadedMetadataAsync"
+                           @ondurationchange="SynchronizeMediaStateAsync"
+                           @onplay="SynchronizeMediaStateAsync"
+                           @onpause="SynchronizeMediaStateAsync"
+                           @ontimeupdate="HandleTimeUpdateAsync"
+                           @onvolumechange="SynchronizeMediaStateAsync"
+                           @onratechange="SynchronizeMediaStateAsync"
+                           @onseeking="SynchronizeMediaStateAsync"
+                           @onseeked="HandleSeekedAsync"
+                           @onended="SynchronizeMediaStateAsync">
+                        @if (HasSubtitles)
+                        {
+                            <track kind="subtitles"
+                                   src="@SubtitleSource"
+                                   srclang="en"
+                                   label="English"
+                                   default />
+                        }
+                        Your browser does not support HTML5 video.
+                    </video>
+                }
+                @if (_fillTab.IsActive && !PlayerState.IsMusic)
                 {
                 <div class="@SaturationRailCssClass"
                      aria-hidden="@(!_controlsVisible)"
@@ -87,9 +123,9 @@
             </div>
             @if (!_fillTab.IsActive)
             {
-                <div class="player-footer-copy flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0">
+                <div class="@FooterCopyCssClass">
                     <p class="small fw-bold text-uppercase text-body-secondary mb-1">Now playing</p>
-                    <p class="fw-semibold text-break mb-1">@Selected.Name</p>
+                    <p class="@NowPlayingNameCssClass">@FormatDisplayName(Selected)</p>
                     <p class="small text-body-secondary mb-0">@FormatMetadata(Selected)</p>
                 </div>
             }
@@ -98,7 +134,7 @@
             {
                 <div class="alert alert-danger w-100 mt-3 mb-0 text-center" role="alert" aria-live="assertive">
                     <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-                    This browser can’t play the video’s encoding. You can still select another clip or reset the crop.
+                    This browser can’t play the selected media. You can still select another item.
                 </div>
             }
             @if (!_fillTab.IsActive)
@@ -138,6 +174,7 @@
     private bool _controlHoverActive;
     private bool _abSeekPending;
     private bool _isSavingCut;
+    private bool _playAfterSelectionChange;
     private bool _disposed;
 
     private VideoItemDto? Selected => PlayerState.Selected;
@@ -169,10 +206,17 @@
                                                                    HasSubtitles="HasSubtitles"
                                                                    ToggleSubtitles="ToggleSubtitlesAsync"
                                                                    CanSaveCut="PlayerState.CanSaveCut"
+                                                                   IsMusicMode="PlayerState.IsMusic"
+                                                                   SelectPreviousTrack="SelectPreviousTrackAsync"
+                                                                   SelectNextTrack="SelectNextTrackAsync"
+                                                                   CanSelectPreviousTrack="PlayerState.CanSelectPreviousTrack"
+                                                                   CanSelectNextTrack="PlayerState.CanSelectNextTrack"
                                                                    IsFooterMode="@(!_fillTab.IsActive)" />;
 
     private bool HasSubtitles => Selected?.SubtitleState == SubtitleState.Ready;
     private string SubtitleSource => Selected?.SubtitleUrl ?? $"{StreamBasePath}/{Selected?.Id}/subtitle";
+    private string MusicSource => PlayerState.MusicPlaylist.FirstOrDefault(track => track.Id == Selected?.Id)?.AudioUrl
+        ?? $"{StreamBasePath}/{Selected?.Id}/audio";
 
     private string EditorCssClass => _fillTab.IsActive
         ? "card position-fixed top-0 start-0 z-3 w-100 h-100 overflow-hidden border-0 rounded-0"
@@ -197,6 +241,18 @@
     private string VideoStyle => FormattableString.Invariant(
         $"object-position: {_frame.PositionX:0.##}% {_frame.PositionY:0.##}%; touch-action: none; filter: saturate({_saturation.Value:0}%)");
 
+    private string MusicCoverCssClass => _fillTab.IsActive
+        ? "music-cover-image music-cover-fill object-fit-contain"
+        : "music-cover-image w-100 h-100 object-fit-cover";
+
+    private string FooterCopyCssClass => PlayerState.IsMusic
+        ? "player-footer-copy player-footer-copy-music flex-grow-1 flex-shrink-0 min-w-0"
+        : "player-footer-copy flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0";
+
+    private string NowPlayingNameCssClass => PlayerState.IsMusic
+        ? "fw-semibold text-nowrap mb-1"
+        : "fw-semibold text-break mb-1";
+
     private string SaturationRailCssClass =>
         $"saturation-rail position-absolute top-50 translate-middle-y z-3 d-flex flex-column align-items-center gap-2 text-white user-select-none {(_controlsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}";
 
@@ -220,6 +276,7 @@
         _isSavingCut = false;
         _abSeekPending = false;
         _pendingMediaInitialization = Selected is not null;
+        _playAfterSelectionChange = Selected is not null;
         _controlsVisible = Selected is not null;
         _pendingControlsTimer = Selected is not null;
         _controlInteractionActive = false;
@@ -244,6 +301,11 @@
         {
             _pendingMediaInitialization = false;
             await ApplyPlayerPreferencesAsync();
+            if (_playAfterSelectionChange)
+            {
+                _playAfterSelectionChange = false;
+                await ExecuteMediaCommandAsync("playVideo");
+            }
         }
 
         if (_pendingControlsTimer && Selected is not null)
@@ -297,7 +359,7 @@
 
     private async Task StartDragAsync(PointerEventArgs args)
     {
-        if (_module is null || Selected is null || !_fillTab.IsActive || !args.IsPrimary)
+        if (PlayerState.IsMusic || _module is null || Selected is null || !_fillTab.IsActive || !args.IsPrimary)
         {
             return;
         }
@@ -384,7 +446,10 @@
             await _module.InvokeVoidAsync("setMuted", _video, _player.IsMuted);
             await _module.InvokeVoidAsync("setPlaybackRate", _video, _player.PlaybackRate);
             await _module.InvokeVoidAsync("setLoop", _video, false);
-            await _module.InvokeVoidAsync("setSubtitlesEnabled", _video, HasSubtitles && _player.IsSubtitlesEnabled);
+            if (!PlayerState.IsMusic)
+            {
+                await _module.InvokeVoidAsync("setSubtitlesEnabled", _video, HasSubtitles && _player.IsSubtitlesEnabled);
+            }
             await SynchronizeMediaStateAsync();
         }
         catch (JSException)
@@ -407,7 +472,7 @@
     private async Task HandleTimeUpdateAsync()
     {
         await SynchronizeMediaStateAsync();
-        if (_module is null || _abSeekPending || !_player.TryMoveToAbStart(out var target))
+        if (PlayerState.IsMusic || _module is null || _abSeekPending || !_player.TryMoveToAbStart(out var target))
         {
             return;
         }
@@ -420,6 +485,15 @@
     {
         _abSeekPending = false;
         await SynchronizeMediaStateAsync();
+    }
+
+    private async Task HandleEndedAsync()
+    {
+        await SynchronizeMediaStateAsync();
+        if (PlayerState.IsMusic && PlayerState.CanSelectNextTrack)
+        {
+            await SelectNextTrackAsync();
+        }
     }
 
     private Task TogglePlaybackAsync() => ExecuteMediaCommandAsync(
@@ -454,7 +528,7 @@
 
     private async Task ToggleSubtitlesAsync()
     {
-        if (!HasSubtitles)
+        if (PlayerState.IsMusic || !HasSubtitles)
         {
             return;
         }
@@ -522,6 +596,31 @@
     }
 
     private void ClearAbLoop() => _player.ClearAbLoop();
+
+    private async Task SelectPreviousTrackAsync()
+    {
+        if (PlayerState.SelectPreviousTrack())
+        {
+            _playAfterSelectionChange = true;
+            _pendingMediaInitialization = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SelectNextTrackAsync()
+    {
+        if (PlayerState.SelectNextTrack())
+        {
+            _playAfterSelectionChange = true;
+            _pendingMediaInitialization = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static string FormatDisplayName(VideoItemDto item) =>
+        item.Extension.Length > 0 && item.Name.EndsWith(item.Extension, StringComparison.OrdinalIgnoreCase)
+            ? item.Name[..^item.Extension.Length]
+            : item.Name;
 
     private static string FormatMetadata(VideoItemDto item)
     {

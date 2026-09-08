@@ -10,6 +10,12 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
     private static readonly HashSet<string> VideoExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".webm", ".mov", ".m4v" };
 
+    private static readonly HashSet<string> MusicExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".mp3", ".wav", ".m4a" };
+
+    private static readonly HashSet<string> AlbumCoverExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+
     private static readonly HashSet<string> ReservedNames =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -132,6 +138,53 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         }
     }
 
+    public bool TryResolveMusic(string categoryKey, string itemId, out ArchiveItemEntry? item)
+    {
+        item = null;
+        try
+        {
+            var category = ResolveCategory(categoryKey);
+            var resolved = ResolveItem(category, itemId);
+            if (resolved.Kind != ArchiveItemKind.File || !resolved.IsMusic)
+            {
+                return false;
+            }
+
+            item = resolved;
+            return true;
+        }
+        catch (ArchiveException)
+        {
+            return false;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    public bool TryResolveAlbumCover(string categoryKey, string folderId, out ArchiveAlbumCoverInfo? cover)
+    {
+        cover = null;
+        try
+        {
+            var category = ResolveCategory(categoryKey);
+            var folder = ResolveFolder(category, folderId);
+            cover = FindAlbumCover(category, folder);
+            return cover is not null;
+        }
+        catch (ArchiveException)
+        {
+            return false;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
+
     internal static bool IsSafeName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -196,12 +249,26 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
                     extension,
                     info?.Length,
                     isDirectory ? directory!.LastWriteTimeUtc : info!.LastWriteTimeUtc,
-                    extension is not null && VideoExtensions.Contains(extension)));
+                    extension is not null && VideoExtensions.Contains(extension),
+                    extension is not null && MusicExtensions.Contains(extension)));
             }
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
             {
             }
+        }
+
+        var orderedChildren = children
+            .OrderBy(item => item.Kind == ArchiveItemKind.File)
+            .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .ToList();
+        var albumCover = FindAlbumCover(category, folder);
+        if (albumCover is not null)
+        {
+            orderedChildren = orderedChildren
+                .Select(item => item.IsMusic ? item with { AlbumCoverId = albumCover.FolderId } : item)
+                .ToList();
         }
 
         var parent = TryGetParent(category, folder);
@@ -210,11 +277,7 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
             folder,
             parent,
             BuildBreadcrumbs(category, folder),
-            children
-                .OrderBy(item => item.Kind == ArchiveItemKind.File)
-                .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(item => item.Id, StringComparer.Ordinal)
-                .ToList());
+            orderedChildren);
     }
 
     private ArchiveCategory ResolveCategory(string key)
@@ -233,6 +296,12 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         {
             var root = GetCategoryRoot(category);
             return CreateEntry(category, root);
+        }
+
+        var rootEntry = CreateEntry(category, GetCategoryRoot(category));
+        if (string.Equals(rootEntry.Id, folderId, StringComparison.Ordinal))
+        {
+            return rootEntry;
         }
 
         var item = ResolveItem(category, folderId);
@@ -299,7 +368,60 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
             extension,
             file?.Length,
             isDirectory ? directory!.LastWriteTimeUtc : file!.LastWriteTimeUtc,
-            extension is not null && VideoExtensions.Contains(extension));
+            extension is not null && VideoExtensions.Contains(extension),
+            extension is not null && MusicExtensions.Contains(extension));
+    }
+
+    private ArchiveAlbumCoverInfo? FindAlbumCover(ArchiveCategory category, ArchiveItemEntry folder)
+    {
+        if (folder.Kind != ArchiveItemKind.Folder)
+        {
+            return null;
+        }
+
+        try
+        {
+            return Directory.EnumerateFiles(folder.PhysicalPath)
+                .Select(path =>
+                {
+                    try
+                    {
+                        var attributes = File.GetAttributes(path);
+                        if ((attributes & FileAttributes.ReparsePoint) != 0)
+                        {
+                            return null;
+                        }
+
+                        var canonicalPath = ContainedPath(category, path);
+                        var extension = Path.GetExtension(canonicalPath).ToLowerInvariant();
+                        if (!AlbumCoverExtensions.Contains(extension))
+                        {
+                            return null;
+                        }
+
+                        return new ArchiveAlbumCoverInfo(
+                            folder.Id,
+                            canonicalPath,
+                            Path.GetFileName(canonicalPath),
+                            extension,
+                            File.GetLastWriteTimeUtc(canonicalPath));
+                    }
+                    catch (Exception exception) when (
+                        exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+                    {
+                        return null;
+                    }
+                })
+                .OfType<ArchiveAlbumCoverInfo>()
+                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.PhysicalPath, StringComparer.Ordinal)
+                .FirstOrDefault();
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            return null;
+        }
     }
 
     private ArchiveItemEntry GetParentEntry(ArchiveCategory category, string path)
@@ -441,6 +563,7 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         return string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), comparison);
     }
+
 }
 
 internal class ArchiveException(string message) : Exception(message);

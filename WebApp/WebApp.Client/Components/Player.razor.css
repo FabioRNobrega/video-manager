@@ -19,6 +19,31 @@ video:active {
         0 0 3px #000;
 }
 
+audio {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.music-cover-stage {
+    padding: .5rem;
+}
+
+.music-cover-image {
+    display: block;
+    border-radius: .5rem;
+}
+
+.music-cover-fill {
+    width: min(72vh, 72vw);
+    height: min(72vh, 72vw);
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 8rem);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, .4);
+}
+
 .player-footer {
     min-height: 7.5rem;
 }
@@ -30,6 +55,11 @@ video:active {
 
 .player-footer-copy {
     width: min(16rem, 100%);
+}
+
+.player-footer-copy-music {
+    width: auto;
+    max-width: min(34rem, 34vw);
 }
 
 .saturation-rail {

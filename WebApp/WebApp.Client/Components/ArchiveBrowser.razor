@@ -141,11 +141,33 @@
                                 }
                             </ul>
                         </div>
-                        <button class="card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center gap-2 p-0"
+                        <button class="@CardButtonCssClass(item)"
                                 type="button"
-                                aria-pressed="@(item.IsVideo ? selected : null)"
+                                aria-pressed="@((item.IsVideo || item.IsMusic) ? selected : null)"
                                 @onclick="() => ActivateAsync(item)">
-                            @if (item.IsVideo)
+                            @if (item.IsMusic)
+                            {
+                                <span class="archive-music-cover ratio ratio-1x1 bg-body-tertiary w-100" aria-hidden="true">
+                                    @if (!string.IsNullOrWhiteSpace(item.AlbumCoverUrl))
+                                    {
+                                        <img src="@item.AlbumCoverUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                    }
+                                    else
+                                    {
+                                        <span class="d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-music-note-beamed display-1 lh-1 text-primary" aria-hidden="true"></i>
+                                        </span>
+                                    }
+                                    <span class="archive-music-overlay position-absolute start-0 end-0 bottom-0 d-flex flex-column gap-1 text-start p-3">
+                                        <span class="fw-semibold text-truncate">@FormatDisplayName(item)</span>
+                                        <span class="small d-flex gap-2 flex-wrap">
+                                            <span class="text-nowrap">@FormatDuration(item.DurationSeconds)</span>
+                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                        </span>
+                                    </span>
+                                </span>
+                            }
+                            else if (item.IsVideo)
                             {
                                 <span class="ratio ratio-16x9 bg-body-tertiary border-bottom w-100" aria-hidden="true">
                                     @if (item.Id == _previewingVideoId && item.HoverPreviewState == HoverPreviewState.Ready && !string.IsNullOrEmpty(item.HoverPreviewUrl))
@@ -179,27 +201,30 @@
                                     </span>
                                 </span>
                             }
-                            <span class="card-body d-flex flex-column w-100 text-center">
-                                <span class="fw-semibold text-break">@item.Name</span>
-                                @if (item.Kind == ArchiveItemKind.File)
-                                {
-                                    <span class="card-text d-flex justify-content-center gap-2 text-body-secondary mt-2 flex-wrap" style="font-size: 0.7rem;">
-                                        @if (item.IsVideo)
-                                        {
-                                            <span class="text-nowrap">@FormatDuration(item.DurationSeconds)</span>
-                                            <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
-                                            <span class="text-nowrap">@FormatResolution(item.Width, item.Height)</span>
-                                            <span class="text-nowrap">@FormatDimensions(item.Width, item.Height)</span>
-                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
-                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
-                                        }
-                                    </span>
-                                }
-                            </span>
+                            @if (!item.IsMusic)
+                            {
+                                <span class="card-body d-flex flex-column w-100 text-center">
+                                    <span class="fw-semibold text-break">@item.Name</span>
+                                    @if (item.Kind == ArchiveItemKind.File)
+                                    {
+                                        <span class="card-text d-flex justify-content-center gap-2 text-body-secondary mt-2 flex-wrap" style="font-size: 0.7rem;">
+                                            @if (item.IsVideo)
+                                            {
+                                                <span class="text-nowrap">@FormatDuration(item.DurationSeconds)</span>
+                                                <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                                                <span class="text-nowrap">@FormatResolution(item.Width, item.Height)</span>
+                                                <span class="text-nowrap">@FormatDimensions(item.Width, item.Height)</span>
+                                                <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                                                <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                            }
+                                        </span>
+                                    }
+                                </span>
+                            }
                         </button>
                     </div>
                 </div>
@@ -390,6 +415,10 @@
         {
             await SelectVideoAsync(item);
         }
+        else if (item.IsMusic)
+        {
+            PlayerState.SelectMusic(item, _listing?.Items ?? []);
+        }
     }
 
     private async Task SelectVideoAsync(ArchiveItemDto item)
@@ -429,13 +458,15 @@
 
     private bool IsSelected(ArchiveItemDto item)
     {
-        if (!item.IsVideo || !string.Equals(PlayerState.SelectedId, item.Id, StringComparison.Ordinal))
+        if (!(item.IsVideo || item.IsMusic) || !string.Equals(PlayerState.SelectedId, item.Id, StringComparison.Ordinal))
         {
             return false;
         }
 
         var expectedStreamBasePath = string.Equals(Category, "videos", StringComparison.OrdinalIgnoreCase)
             ? PersistentPlayerState.VideoStreamBasePath
+            : item.IsMusic
+                ? GetStreamBasePath(item.AudioUrl)
             : ArchiveStreamBasePath;
         return string.Equals(PlayerState.StreamBasePath, expectedStreamBasePath, StringComparison.Ordinal);
     }
@@ -520,6 +551,11 @@
     }
 
     private void ClearPreview() => _previewingVideoId = null;
+
+    private static string CardButtonCssClass(ArchiveItemDto item) =>
+        item.IsMusic
+            ? "archive-music-card card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center p-0 overflow-hidden"
+            : "card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center gap-2 p-0";
 
     private async Task<ArchiveListingDto?> SendMutationAsync(Func<Task<HttpResponseMessage>> action)
     {
@@ -639,6 +675,11 @@
     private static string FormatExtension(string? extension) =>
         string.IsNullOrWhiteSpace(extension) ? "FILE" : extension.TrimStart('.').ToUpperInvariant();
 
+    private static string FormatDisplayName(ArchiveItemDto item) =>
+        !string.IsNullOrWhiteSpace(item.Extension) && item.Name.EndsWith(item.Extension, StringComparison.OrdinalIgnoreCase)
+            ? item.Name[..^item.Extension.Length]
+            : item.Name;
+
     private static string FormatDuration(double? durationSeconds)
     {
         if (durationSeconds is not > 0)
@@ -691,6 +732,20 @@
         }
 
         return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
+    }
+
+    private string GetStreamBasePath(string? audioUrl)
+    {
+        const string audioSuffix = "/audio";
+        if (string.IsNullOrWhiteSpace(audioUrl))
+        {
+            return ArchiveStreamBasePath;
+        }
+
+        var path = audioUrl.StartsWith("/", StringComparison.Ordinal) ? audioUrl[1..] : audioUrl;
+        return path.EndsWith(audioSuffix, StringComparison.OrdinalIgnoreCase)
+            ? path[..^audioSuffix.Length]
+            : path;
     }
 
     public void Dispose()

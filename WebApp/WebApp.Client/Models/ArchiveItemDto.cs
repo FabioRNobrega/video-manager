@@ -16,4 +16,7 @@ public sealed record ArchiveItemDto(
     string? SubtitleUrl = null,
     double? DurationSeconds = null,
     int? Width = null,
-    int? Height = null);
+    int? Height = null,
+    bool IsMusic = false,
+    string? AudioUrl = null,
+    string? AlbumCoverUrl = null);

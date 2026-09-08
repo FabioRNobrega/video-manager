@@ -10,6 +10,8 @@ internal static class ArchiveEndpoints
     {
         endpoints.MapGet("/api/archive/{category}/items", List);
         endpoints.MapGet("/api/archive/{category}/items/{id}/stream", StreamVideo);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/audio", StreamAudio);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/cover", GetAlbumCover);
         endpoints.MapGet("/api/archive/{category}/items/{id}/thumbnail", GetThumbnail);
         endpoints.MapGet("/api/archive/{category}/items/{id}/preview", GetPreview);
         endpoints.MapGet("/api/archive/{category}/items/{id}/subtitle", GetSubtitle);
@@ -114,7 +116,7 @@ internal static class ArchiveEndpoints
             return Results.NotFound();
         }
 
-        if (!ContentTypes.TryGetValue(item.Extension, out var contentType))
+        if (!VideoContentTypes.TryGetValue(item.Extension, out var contentType))
         {
             return Results.NotFound();
         }
@@ -136,6 +138,52 @@ internal static class ArchiveEndpoints
         {
             return Results.NotFound();
         }
+    }
+
+    private static IResult StreamAudio(string category, string id, IArchiveService archive)
+    {
+        if (!archive.TryResolveMusic(category, id, out var item) || item is null || item.Extension is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!AudioContentTypes.TryGetValue(item.Extension, out var contentType))
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var stream = new FileStream(
+                item.PhysicalPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+            return Results.Stream(stream, contentType, enableRangeProcessing: true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return Results.NotFound();
+        }
+    }
+
+    private static IResult GetAlbumCover(string category, string id, IArchiveService archive)
+    {
+        if (!archive.TryResolveAlbumCover(category, id, out var cover) || cover is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!ImageContentTypes.TryGetValue(cover.Extension, out var contentType))
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(cover.PhysicalPath, contentType, lastModified: cover.LastWriteTimeUtc);
     }
 
     private static IResult GetThumbnail(
@@ -246,13 +294,29 @@ internal static class ArchiveEndpoints
         }
     }
 
-    private static readonly IReadOnlyDictionary<string, string> ContentTypes =
+    private static readonly IReadOnlyDictionary<string, string> VideoContentTypes =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             [".mp4"] = "video/mp4",
             [".webm"] = "video/webm",
             [".mov"] = "video/quicktime",
             [".m4v"] = "video/x-m4v"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> AudioContentTypes =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".mp3"] = "audio/mpeg",
+            [".wav"] = "audio/wav",
+            [".m4a"] = "audio/mp4"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> ImageContentTypes =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".png"] = "image/png",
+            [".jpg"] = "image/jpeg",
+            [".jpeg"] = "image/jpeg"
         };
 
     private static ArchiveListingDto ToDto(ArchiveListing listing) =>
@@ -326,7 +390,10 @@ internal static class ArchiveEndpoints
             item.Extension,
             item.SizeBytes,
             item.LastWriteTimeUtc,
-            item.IsVideo);
+            item.IsVideo,
+            IsMusic: item.IsMusic,
+            AudioUrl: AudioUrl(item),
+            AlbumCoverUrl: AlbumCoverUrl(item));
 
     private static ArchiveItemDto ToDto(
         ArchiveItemEntry item,
@@ -334,24 +401,33 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator)
     {
-        if (!item.IsVideo)
+        if (!item.IsVideo && !item.IsMusic)
         {
             return ToDto(item);
         }
 
         var entry = ToMediaEntry(item);
-        var thumbnailState = thumbnailCoordinator.Resolve(entry);
-        var thumbnailUrl = thumbnailState == ThumbnailState.Ready
-            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/thumbnail"
-            : null;
-        var hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
-        var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready
-            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/preview"
-            : null;
-        var subtitleState = subtitleCoordinator.Resolve(entry);
-        var subtitleUrl = subtitleState == SubtitleState.Ready
-            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/subtitle"
-            : null;
+        var thumbnailState = ThumbnailState.Unavailable;
+        string? thumbnailUrl = null;
+        var hoverPreviewState = HoverPreviewState.Unavailable;
+        string? hoverPreviewUrl = null;
+        var subtitleState = SubtitleState.Unavailable;
+        string? subtitleUrl = null;
+        if (item.IsVideo)
+        {
+            thumbnailState = thumbnailCoordinator.Resolve(entry);
+            thumbnailUrl = thumbnailState == ThumbnailState.Ready
+                ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/thumbnail"
+                : null;
+            hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
+            hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready
+                ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/preview"
+                : null;
+            subtitleState = subtitleCoordinator.Resolve(entry);
+            subtitleUrl = subtitleState == SubtitleState.Ready
+                ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/subtitle"
+                : null;
+        }
 
         return new ArchiveItemDto(
             item.Id,
@@ -366,7 +442,10 @@ internal static class ArchiveEndpoints
             hoverPreviewState,
             hoverPreviewUrl,
             subtitleState,
-            subtitleUrl);
+            subtitleUrl,
+            IsMusic: item.IsMusic,
+            AudioUrl: AudioUrl(item),
+            AlbumCoverUrl: AlbumCoverUrl(item));
     }
 
     private static async Task<ArchiveItemDto> ToDtoAsync(
@@ -377,24 +456,33 @@ internal static class ArchiveEndpoints
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken)
     {
-        if (!item.IsVideo)
+        if (!item.IsVideo && !item.IsMusic)
         {
             return ToDto(item);
         }
 
         var entry = ToMediaEntry(item);
-        var thumbnailState = thumbnailCoordinator.Resolve(entry);
-        var thumbnailUrl = thumbnailState == ThumbnailState.Ready
-            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/thumbnail"
-            : null;
-        var hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
-        var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready
-            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/preview"
-            : null;
-        var subtitleState = subtitleCoordinator.Resolve(entry);
-        var subtitleUrl = subtitleState == SubtitleState.Ready
-            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/subtitle"
-            : null;
+        var thumbnailState = ThumbnailState.Unavailable;
+        string? thumbnailUrl = null;
+        var hoverPreviewState = HoverPreviewState.Unavailable;
+        string? hoverPreviewUrl = null;
+        var subtitleState = SubtitleState.Unavailable;
+        string? subtitleUrl = null;
+        if (item.IsVideo)
+        {
+            thumbnailState = thumbnailCoordinator.Resolve(entry);
+            thumbnailUrl = thumbnailState == ThumbnailState.Ready
+                ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/thumbnail"
+                : null;
+            hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
+            hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready
+                ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/preview"
+                : null;
+            subtitleState = subtitleCoordinator.Resolve(entry);
+            subtitleUrl = subtitleState == SubtitleState.Ready
+                ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/subtitle"
+                : null;
+        }
 
         VideoMetadata metadata;
         try
@@ -425,9 +513,22 @@ internal static class ArchiveEndpoints
             subtitleState,
             subtitleUrl,
             metadata.Duration?.TotalSeconds,
-            metadata.Width,
-            metadata.Height);
+            item.IsVideo ? metadata.Width : null,
+            item.IsVideo ? metadata.Height : null,
+            item.IsMusic,
+            AudioUrl(item),
+            AlbumCoverUrl(item));
     }
+
+    private static string? AudioUrl(ArchiveItemEntry item) =>
+        item.IsMusic
+            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/audio"
+            : null;
+
+    private static string? AlbumCoverUrl(ArchiveItemEntry item) =>
+        item.IsMusic && !string.IsNullOrWhiteSpace(item.AlbumCoverId)
+            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.AlbumCoverId)}/cover"
+            : null;
 
     private static bool TryResolveMediaEntry(
         string category,
