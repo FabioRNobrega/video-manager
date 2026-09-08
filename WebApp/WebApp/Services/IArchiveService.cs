@@ -21,4 +21,8 @@ internal interface IArchiveService
     bool TryResolveImage(string categoryKey, string itemId, out ArchiveItemEntry? item);
 
     bool TryResolveAlbumCover(string categoryKey, string folderId, out ArchiveAlbumCoverInfo? cover);
+
+    string GetCategoryRootPath(string categoryKey);
+
+    string ComputeItemId(string categoryKey, string physicalPath);
 }

@@ -200,6 +200,28 @@ public sealed class ArchiveServiceTests
         Assert.Equal("cover.jpg", cover!.Name);
     }
 
+    [Fact]
+    public void GetCategoryRootPath_returns_the_category_physical_folder()
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+
+        Assert.Equal(Path.Combine(root.Path, "Pictures"), service.GetCategoryRootPath("photos"));
+    }
+
+    [Fact]
+    public void ComputeItemId_matches_the_id_produced_by_listing()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Pictures", "photo.jpg"));
+        var service = CreateService(root.Path);
+        var item = Assert.Single(service.List("photos", null).Items);
+
+        var computed = service.ComputeItemId("photos", Path.Combine(root.Path, "Pictures", "photo.jpg"));
+
+        Assert.Equal(item.Id, computed);
+    }
+
     private static ArchiveService CreateService(string path) =>
         new(Options.Create(new ArchiveRootOptions { Path = path }));
 

@@ -1,6 +1,8 @@
 @using System.Globalization
+@using System.Net
 @implements IAsyncDisposable
 @inject IJSRuntime JS
+@inject HttpClient Http
 
 <section class="image-carousel-viewer card position-fixed top-0 start-0 w-100 h-100 overflow-hidden border-0 rounded-0 bg-dark"
          aria-label="Image viewer">
@@ -29,6 +31,48 @@
                 </div>
             }
         </div>
+        @if (_cropMode && _cropRect is not null && _cropImageBounds is not null)
+        {
+            var bounds = _cropImageBounds;
+            var rect = _cropRect;
+            <div class="crop-overlay position-absolute" style="@CropOverlayContainerStyle(bounds)">
+                <div class="crop-rect position-absolute"
+                     style="@CropRectStyle(rect)"
+                     @onpointerdown="args => StartCropDragAsync(CropHandle.Body, args)"
+                     @onpointerdown:stopPropagation="true">
+                    <div class="crop-handle crop-handle-nw" @onpointerdown="args => StartCropDragAsync(CropHandle.NW, args)" @onpointerdown:stopPropagation="true"></div>
+                    <div class="crop-handle crop-handle-n" @onpointerdown="args => StartCropDragAsync(CropHandle.N, args)" @onpointerdown:stopPropagation="true"></div>
+                    <div class="crop-handle crop-handle-ne" @onpointerdown="args => StartCropDragAsync(CropHandle.NE, args)" @onpointerdown:stopPropagation="true"></div>
+                    <div class="crop-handle crop-handle-e" @onpointerdown="args => StartCropDragAsync(CropHandle.E, args)" @onpointerdown:stopPropagation="true"></div>
+                    <div class="crop-handle crop-handle-se" @onpointerdown="args => StartCropDragAsync(CropHandle.SE, args)" @onpointerdown:stopPropagation="true"></div>
+                    <div class="crop-handle crop-handle-s" @onpointerdown="args => StartCropDragAsync(CropHandle.S, args)" @onpointerdown:stopPropagation="true"></div>
+                    <div class="crop-handle crop-handle-sw" @onpointerdown="args => StartCropDragAsync(CropHandle.SW, args)" @onpointerdown:stopPropagation="true"></div>
+                    <div class="crop-handle crop-handle-w" @onpointerdown="args => StartCropDragAsync(CropHandle.W, args)" @onpointerdown:stopPropagation="true"></div>
+                </div>
+                <div class="crop-actions d-flex gap-2 position-absolute" style="@CropActionsStyle(rect)" @onpointerdown:stopPropagation="true">
+                    <button class="btn btn-success btn-sm d-inline-flex align-items-center justify-content-center p-2"
+                            type="button"
+                            disabled="@_cropSaving"
+                            aria-label="Confirm crop"
+                            title="Confirm crop"
+                            @onclick="ConfirmCropAsync">
+                        <i class="bi bi-check-square-fill" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn btn-outline-light btn-sm d-inline-flex align-items-center justify-content-center p-2"
+                            type="button"
+                            disabled="@_cropSaving"
+                            aria-label="Cancel crop"
+                            title="Cancel crop"
+                            @onclick="CancelCrop">
+                        <i class="bi bi-x-circle-fill" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        }
+        @if (_cropMode && _cropError is not null)
+        {
+            <div class="crop-error alert alert-danger position-absolute m-2 py-1 px-2 small" role="alert">@_cropError</div>
+        }
         <div class="image-carousel-controls d-flex flex-column gap-2 text-white user-select-none @(_controlsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")"
              aria-hidden="@(!_controlsVisible)"
              @onmouseenter="HandleControlHoverStarted"
@@ -38,7 +82,7 @@
                 <div class="btn-group" role="group" aria-label="Navigate">
                     <button class="btn @ActionCssClass"
                             type="button"
-                            disabled="@(!CanSelectPrevious)"
+                            disabled="@(!CanSelectPrevious || _cropMode)"
                             aria-label="Previous image"
                             title="Previous image"
                             @onclick="SelectPrevious">
@@ -46,7 +90,7 @@
                     </button>
                     <button class="btn @ActionCssClass"
                             type="button"
-                            disabled="@(!CanSelectNext)"
+                            disabled="@(!CanSelectNext || _cropMode)"
                             aria-label="Next image"
                             title="Next image"
                             @onclick="SelectNext">
@@ -57,7 +101,7 @@
                 <div class="btn-group" role="group" aria-label="Zoom">
                     <button class="btn @ActionCssClass"
                             type="button"
-                            disabled="@(_zoom <= ZoomMin)"
+                            disabled="@(_zoom <= ZoomMin || _cropMode)"
                             aria-label="Zoom out"
                             title="Zoom out"
                             @onclick="ZoomOut">
@@ -65,7 +109,7 @@
                     </button>
                     <button class="btn @ActionCssClass"
                             type="button"
-                            disabled="@(_zoom == ZoomDefault)"
+                            disabled="@(_zoom == ZoomDefault || _cropMode)"
                             aria-label="Reset zoom"
                             title="Reset zoom"
                             @onclick="ResetZoom">
@@ -73,7 +117,7 @@
                     </button>
                     <button class="btn @ActionCssClass"
                             type="button"
-                            disabled="@(_zoom >= ZoomMax)"
+                            disabled="@(_zoom >= ZoomMax || _cropMode)"
                             aria-label="Zoom in"
                             title="Zoom in"
                             @onclick="ZoomIn">
@@ -84,7 +128,7 @@
                 <div class="btn-group" role="group" aria-label="Saturation actions">
                     <button class="btn @ActionCssClass"
                             type="button"
-                            disabled="@(_saturation.Value == SaturationState.Default)"
+                            disabled="@(_saturation.Value == SaturationState.Default || _cropMode)"
                             aria-label="Reset saturation"
                             title="Reset saturation"
                             @onclick="ResetSaturation">
@@ -100,10 +144,22 @@
                            step="1"
                            value="@Invariant(_saturation.Value)"
                            style="@SaturationProgressStyle"
+                           disabled="@_cropMode"
                            aria-label="Saturation"
                            @oninput="HandleSaturationInput" />
                     <output class="small text-nowrap" aria-hidden="true">@Math.Round(_saturation.Value)%</output>
                 </label>
+
+                <div class="btn-group" role="group" aria-label="Crop">
+                    <button class="btn @ToggleCssClass(_cropMode)"
+                            type="button"
+                            aria-label="Crop image"
+                            title="Crop image"
+                            aria-pressed="@_cropMode"
+                            @onclick="ToggleCropModeAsync">
+                        <i class="bi bi-scissors" aria-hidden="true"></i>
+                    </button>
+                </div>
 
                 <div class="btn-group ms-auto" role="group" aria-label="Exit">
                     <button class="btn @ToggleCssClass(true)"
@@ -125,9 +181,12 @@
     private const double ZoomMin = 1;
     private const double ZoomMax = 3;
     private const double ZoomStep = 0.25;
+    private const double CropMinSizePercent = 5;
     private const string ActionCssClass = "btn-outline-primary d-inline-flex align-items-center justify-content-center p-2";
+    private static readonly CropRect DefaultCropRect = new(20, 20, 60, 60);
 
     [Parameter, EditorRequired] public IReadOnlyList<ArchiveItemDto> Images { get; set; } = [];
+    [Parameter, EditorRequired] public string Category { get; set; } = string.Empty;
     [Parameter] public string? StartId { get; set; }
     [Parameter] public EventCallback OnExit { get; set; }
 
@@ -145,6 +204,12 @@
     private bool _controlsVisible = true;
     private bool _controlHoverActive;
     private bool _disposed;
+    private bool _cropMode;
+    private bool _cropSaving;
+    private string? _cropError;
+    private CropRect? _cropRect;
+    private ImageRenderBounds? _cropImageBounds;
+    private CropDragSession? _cropDrag;
 
     private bool CanSelectPrevious => _currentIndex > 0;
     private bool CanSelectNext => _currentIndex < Images.Count - 1;
@@ -213,6 +278,7 @@
         _panX = 0;
         _panY = 0;
         _saturation.Select(Images.Count > 0 ? Images[_currentIndex].Id : null);
+        ExitCropModeState();
     }
 
     private void SelectPrevious()
@@ -239,6 +305,11 @@
 
     private void ZoomIn()
     {
+        if (_cropMode)
+        {
+            return;
+        }
+
         _zoom = Math.Min(ZoomMax, _zoom + ZoomStep);
         _panX = 0;
         _panY = 0;
@@ -247,6 +318,11 @@
 
     private void ZoomOut()
     {
+        if (_cropMode)
+        {
+            return;
+        }
+
         _zoom = Math.Max(ZoomMin, _zoom - ZoomStep);
         _panX = 0;
         _panY = 0;
@@ -255,6 +331,11 @@
 
     private void ResetZoom()
     {
+        if (_cropMode)
+        {
+            return;
+        }
+
         _zoom = ZoomDefault;
         _panX = 0;
         _panY = 0;
@@ -264,7 +345,7 @@
     private async Task StartPanAsync(PointerEventArgs args)
     {
         RevealControls();
-        if (_module is null || _zoom <= ZoomDefault || !args.IsPrimary)
+        if (_cropMode || _module is null || _zoom <= ZoomDefault || !args.IsPrimary)
         {
             return;
         }
@@ -275,6 +356,12 @@
 
     private void MovePan(PointerEventArgs args)
     {
+        if (_cropMode)
+        {
+            MoveCropDrag(args);
+            return;
+        }
+
         if (_pan is null || _pan.PointerId != args.PointerId)
         {
             return;
@@ -288,6 +375,12 @@
 
     private async Task EndPanAsync(PointerEventArgs args)
     {
+        if (_cropMode)
+        {
+            await EndCropDragAsync(args);
+            return;
+        }
+
         if (_pan is null || _pan.PointerId != args.PointerId)
         {
             return;
@@ -300,8 +393,237 @@
         }
     }
 
+    private async Task ToggleCropModeAsync()
+    {
+        if (_cropMode)
+        {
+            CancelCrop();
+        }
+        else
+        {
+            await EnterCropModeAsync();
+        }
+    }
+
+    private async Task EnterCropModeAsync()
+    {
+        if (Images.Count == 0)
+        {
+            return;
+        }
+
+        CancelControlsHideTimer();
+        var wasTransformed = _zoom > ZoomDefault || _panX != 0 || _panY != 0;
+        _zoom = ZoomDefault;
+        _panX = 0;
+        _panY = 0;
+        _cropRect = DefaultCropRect;
+        _cropError = null;
+        _cropSaving = false;
+        _cropDrag = null;
+        _cropImageBounds = null;
+        _cropMode = true;
+        _controlsVisible = true;
+        await InvokeAsync(StateHasChanged);
+
+        if (wasTransformed)
+        {
+            await Task.Delay(220);
+        }
+
+        await MeasureCropBoundsAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void CancelCrop()
+    {
+        ExitCropModeState();
+        RevealControls();
+    }
+
+    private void ExitCropModeState()
+    {
+        _cropMode = false;
+        _cropDrag = null;
+        _cropRect = null;
+        _cropImageBounds = null;
+        _cropError = null;
+        _cropSaving = false;
+    }
+
+    private async Task MeasureCropBoundsAsync()
+    {
+        if (_module is null)
+        {
+            return;
+        }
+
+        _cropImageBounds = await _module.InvokeAsync<ImageRenderBounds?>("measureRenderedImage", _viewport);
+    }
+
+    private async Task StartCropDragAsync(CropHandle handle, PointerEventArgs args)
+    {
+        if (!_cropMode || _cropRect is null || _cropImageBounds is null || !args.IsPrimary || _module is null)
+        {
+            return;
+        }
+
+        RevealControls();
+        await _module.InvokeVoidAsync("measureAndCaptureElement", _viewport, args.PointerId);
+        _cropDrag = new CropDragSession(args.PointerId, handle, args.ClientX, args.ClientY, _cropRect, _cropImageBounds);
+    }
+
+    private void MoveCropDrag(PointerEventArgs args)
+    {
+        if (_cropDrag is null || _cropDrag.PointerId != args.PointerId)
+        {
+            return;
+        }
+
+        var bounds = _cropDrag.Bounds;
+        if (bounds.RenderedWidth <= 0 || bounds.RenderedHeight <= 0)
+        {
+            return;
+        }
+
+        var dxPercent = (args.ClientX - _cropDrag.StartClientX) / bounds.RenderedWidth * 100;
+        var dyPercent = (args.ClientY - _cropDrag.StartClientY) / bounds.RenderedHeight * 100;
+        _cropRect = ApplyCropDrag(_cropDrag.Handle, _cropDrag.StartRect, dxPercent, dyPercent);
+    }
+
+    private async Task EndCropDragAsync(PointerEventArgs args)
+    {
+        if (_cropDrag is null || _cropDrag.PointerId != args.PointerId)
+        {
+            return;
+        }
+
+        _cropDrag = null;
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("releasePointer", _viewport, args.PointerId);
+        }
+    }
+
+    private static CropRect ApplyCropDrag(CropHandle handle, CropRect start, double dxPercent, double dyPercent)
+    {
+        var (x, width) = AdjustHorizontal(handle, start, dxPercent);
+        var (y, height) = AdjustVertical(handle, start, dyPercent);
+        return new CropRect(x, y, width, height);
+    }
+
+    private static (double X, double Width) AdjustHorizontal(CropHandle handle, CropRect start, double dxPercent) => handle switch
+    {
+        CropHandle.E or CropHandle.NE or CropHandle.SE =>
+            (start.XPercent, Math.Clamp(start.WidthPercent + dxPercent, CropMinSizePercent, 100 - start.XPercent)),
+        CropHandle.W or CropHandle.NW or CropHandle.SW => AdjustLeftEdge(start, dxPercent),
+        CropHandle.Body => (Math.Clamp(start.XPercent + dxPercent, 0, 100 - start.WidthPercent), start.WidthPercent),
+        _ => (start.XPercent, start.WidthPercent)
+    };
+
+    private static (double X, double Width) AdjustLeftEdge(CropRect start, double dxPercent)
+    {
+        var newX = Math.Clamp(start.XPercent + dxPercent, 0, start.XPercent + start.WidthPercent - CropMinSizePercent);
+        return (newX, start.XPercent + start.WidthPercent - newX);
+    }
+
+    private static (double Y, double Height) AdjustVertical(CropHandle handle, CropRect start, double dyPercent) => handle switch
+    {
+        CropHandle.S or CropHandle.SE or CropHandle.SW =>
+            (start.YPercent, Math.Clamp(start.HeightPercent + dyPercent, CropMinSizePercent, 100 - start.YPercent)),
+        CropHandle.N or CropHandle.NE or CropHandle.NW => AdjustTopEdge(start, dyPercent),
+        CropHandle.Body => (Math.Clamp(start.YPercent + dyPercent, 0, 100 - start.HeightPercent), start.HeightPercent),
+        _ => (start.YPercent, start.HeightPercent)
+    };
+
+    private static (double Y, double Height) AdjustTopEdge(CropRect start, double dyPercent)
+    {
+        var newY = Math.Clamp(start.YPercent + dyPercent, 0, start.YPercent + start.HeightPercent - CropMinSizePercent);
+        return (newY, start.YPercent + start.HeightPercent - newY);
+    }
+
+    private async Task ConfirmCropAsync()
+    {
+        if (_cropRect is null || _cropImageBounds is null || _cropSaving || Images.Count == 0)
+        {
+            return;
+        }
+
+        var bounds = _cropImageBounds;
+        if (bounds.NaturalWidth <= 0 || bounds.NaturalHeight <= 0)
+        {
+            _cropError = "The image could not be measured. Try again.";
+            return;
+        }
+
+        var rect = _cropRect;
+        var x = (int)Math.Round(rect.XPercent / 100 * bounds.NaturalWidth);
+        var y = (int)Math.Round(rect.YPercent / 100 * bounds.NaturalHeight);
+        var width = (int)Math.Round(rect.WidthPercent / 100 * bounds.NaturalWidth);
+        var height = (int)Math.Round(rect.HeightPercent / 100 * bounds.NaturalHeight);
+        x = Math.Clamp(x, 0, (int)bounds.NaturalWidth - 1);
+        y = Math.Clamp(y, 0, (int)bounds.NaturalHeight - 1);
+        width = Math.Clamp(width, 1, (int)bounds.NaturalWidth - x);
+        height = Math.Clamp(height, 1, (int)bounds.NaturalHeight - y);
+
+        _cropSaving = true;
+        _cropError = null;
+        StateHasChanged();
+
+        var image = Images[_currentIndex];
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                $"api/archive/{Uri.EscapeDataString(Category)}/items/{Uri.EscapeDataString(image.Id)}/crop",
+                new { X = x, Y = y, Width = width, Height = height });
+
+            if (response.IsSuccessStatusCode)
+            {
+                ExitCropModeState();
+                RevealControls();
+            }
+            else
+            {
+                _cropError = response.StatusCode switch
+                {
+                    HttpStatusCode.NotFound => "The image could not be found. It may have been moved or removed.",
+                    HttpStatusCode.BadRequest => "The selected region is invalid. Adjust it and try again.",
+                    _ => "The crop could not be saved. Try again."
+                };
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _cropError = "The crop could not be saved. Check your connection and try again.";
+        }
+        finally
+        {
+            _cropSaving = false;
+        }
+    }
+
+    private static string CropOverlayContainerStyle(ImageRenderBounds bounds) => FormattableString.Invariant(
+        $"left: {bounds.OffsetX:0.##}px; top: {bounds.OffsetY:0.##}px; width: {bounds.RenderedWidth:0.##}px; height: {bounds.RenderedHeight:0.##}px;");
+
+    private static string CropRectStyle(CropRect rect) => FormattableString.Invariant(
+        $"left: {rect.XPercent:0.##}%; top: {rect.YPercent:0.##}%; width: {rect.WidthPercent:0.##}%; height: {rect.HeightPercent:0.##}%;");
+
+    private static string CropActionsStyle(CropRect rect)
+    {
+        var showBelow = rect.YPercent < 15;
+        var top = showBelow
+            ? FormattableString.Invariant($"calc({rect.YPercent + rect.HeightPercent:0.##}% + 0.5rem)")
+            : FormattableString.Invariant($"calc({rect.YPercent:0.##}% - 2.75rem)");
+        return FormattableString.Invariant($"left: {rect.XPercent:0.##}%; top: {top};");
+    }
+
     private void HandleSaturationInput(ChangeEventArgs args)
     {
+        if (_cropMode)
+        {
+            return;
+        }
+
         if (double.TryParse(Convert.ToString(args.Value, CultureInfo.InvariantCulture), NumberStyles.Float,
                 CultureInfo.InvariantCulture, out var value))
         {
@@ -309,7 +631,15 @@
         }
     }
 
-    private void ResetSaturation() => _saturation.Reset();
+    private void ResetSaturation()
+    {
+        if (_cropMode)
+        {
+            return;
+        }
+
+        _saturation.Reset();
+    }
 
     private static string Invariant(double value) => value.ToString("0", CultureInfo.InvariantCulture);
 
@@ -397,6 +727,16 @@
             }
         }
     }
+
+    private enum CropHandle { Body, N, S, E, W, NE, NW, SE, SW }
+
+    private sealed record CropRect(double XPercent, double YPercent, double WidthPercent, double HeightPercent);
+
+    private sealed record ImageRenderBounds(
+        double OffsetX, double OffsetY, double RenderedWidth, double RenderedHeight, double NaturalWidth, double NaturalHeight);
+
+    private sealed record CropDragSession(
+        long PointerId, CropHandle Handle, double StartClientX, double StartClientY, CropRect StartRect, ImageRenderBounds Bounds);
 
     private sealed record ElementSize(double Width, double Height);
 

@@ -94,6 +94,9 @@ builder.Services.AddSingleton<ICompositionGenerator, FfmpegCompositionGenerator>
 builder.Services.AddHostedService<CompositionBackgroundWorker>();
 builder.Services.AddSingleton<IStorageUsageService, StorageUsageService>();
 builder.Services.AddSingleton<IArchiveService, ArchiveService>();
+builder.Services.AddSingleton<ImageCropNamingService>();
+builder.Services.AddSingleton<IImageCropGenerator, ImageSharpCropGenerator>();
+builder.Services.AddSingleton<IImageCropService, ImageCropService>();
 
 var app = builder.Build();
 var configuredAllowedHosts = builder.Configuration["AllowedNetworkHosts:Hosts"]?

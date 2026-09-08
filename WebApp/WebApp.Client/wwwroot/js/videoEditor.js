@@ -24,6 +24,32 @@ export function measureAndCaptureElement(element, pointerId) {
     return { width: bounds.width, height: bounds.height };
 }
 
+export function measureRenderedImage(viewportElement) {
+    const img = viewportElement.querySelector(".carousel-item.active img");
+    if (!img) {
+        return null;
+    }
+
+    const bounds = img.getBoundingClientRect();
+    const naturalWidth = img.naturalWidth;
+    const naturalHeight = img.naturalHeight;
+    if (!naturalWidth || !naturalHeight) {
+        return { offsetX: 0, offsetY: 0, renderedWidth: bounds.width, renderedHeight: bounds.height, naturalWidth, naturalHeight };
+    }
+
+    const scale = Math.min(bounds.width / naturalWidth, bounds.height / naturalHeight);
+    const renderedWidth = naturalWidth * scale;
+    const renderedHeight = naturalHeight * scale;
+    return {
+        offsetX: (bounds.width - renderedWidth) / 2,
+        offsetY: (bounds.height - renderedHeight) / 2,
+        renderedWidth,
+        renderedHeight,
+        naturalWidth,
+        naturalHeight
+    };
+}
+
 export function releasePointer(video, pointerId) {
     if (video.hasPointerCapture?.(pointerId)) {
         video.releasePointerCapture(pointerId);

@@ -19,6 +19,54 @@
     cursor: grabbing;
 }
 
+.crop-overlay {
+    z-index: 2;
+    pointer-events: none;
+}
+
+.crop-rect {
+    box-sizing: border-box;
+    border: 2px dashed #fff;
+    background: rgba(255, 255, 255, .12);
+    box-shadow: 0 0 0 999rem rgba(0, 0, 0, .45);
+    cursor: move;
+    touch-action: none;
+    pointer-events: auto;
+}
+
+.crop-handle {
+    position: absolute;
+    width: .85rem;
+    height: .85rem;
+    margin: -.45rem;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, .45);
+    border-radius: 50%;
+    touch-action: none;
+    pointer-events: auto;
+}
+
+.crop-handle-nw { left: 0; top: 0; cursor: nwse-resize; }
+.crop-handle-n { left: 50%; top: 0; cursor: ns-resize; }
+.crop-handle-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.crop-handle-e { left: 100%; top: 50%; cursor: ew-resize; }
+.crop-handle-se { left: 100%; top: 100%; cursor: nwse-resize; }
+.crop-handle-s { left: 50%; top: 100%; cursor: ns-resize; }
+.crop-handle-sw { left: 0; top: 100%; cursor: nesw-resize; }
+.crop-handle-w { left: 0; top: 50%; cursor: ew-resize; }
+
+.crop-actions {
+    z-index: 3;
+    pointer-events: auto;
+}
+
+.crop-error {
+    z-index: 3;
+    left: 0;
+    top: 0;
+    max-width: min(90%, 28rem);
+}
+
 .image-carousel-controls {
     position: absolute;
     left: 0;

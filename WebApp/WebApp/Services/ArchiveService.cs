@@ -214,6 +214,11 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         }
     }
 
+    public string GetCategoryRootPath(string categoryKey) => GetCategoryRoot(ResolveCategory(categoryKey));
+
+    public string ComputeItemId(string categoryKey, string physicalPath) =>
+        ComputeId(ResolveCategory(categoryKey), Path.GetFullPath(physicalPath));
+
     internal static bool IsSafeName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))

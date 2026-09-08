@@ -257,7 +257,7 @@
 
 @if (_imageViewerStartId is not null)
 {
-    <ImageCarouselViewer Images="_imageViewerImages" StartId="_imageViewerStartId" OnExit="CloseImageViewer" />
+    <ImageCarouselViewer Images="_imageViewerImages" Category="@Category" StartId="_imageViewerStartId" OnExit="CloseImageViewer" />
 }
 
 @if (_listing?.CanCreateFolder == true)

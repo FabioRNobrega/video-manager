@@ -16,6 +16,7 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/thumbnail", GetThumbnail);
         endpoints.MapGet("/api/archive/{category}/items/{id}/preview", GetPreview);
         endpoints.MapGet("/api/archive/{category}/items/{id}/subtitle", GetSubtitle);
+        endpoints.MapPost("/api/archive/{category}/items/{id}/crop", CreateCropAsync);
         endpoints.MapPost("/api/archive/{category}/folders", CreateFolder);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/name", Rename);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/location", Move);
@@ -109,6 +110,38 @@ internal static class ArchiveEndpoints
             subtitleCoordinator,
             metadataCoordinator,
             cancellationToken));
+
+    private static async Task<IResult> CreateCropAsync(
+        string category,
+        string id,
+        ImageCropRequest request,
+        IImageCropService cropService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var outcome = await cropService.CropAsync(
+                category, id, request.X, request.Y, request.Width, request.Height, cancellationToken);
+
+            return outcome.Status switch
+            {
+                ImageCropOutcomeStatus.Success => Results.Ok(new ImageCropResponse(
+                    outcome.Id!,
+                    outcome.Name!,
+                    $"/api/archive/{Uri.EscapeDataString(category)}/items/{Uri.EscapeDataString(outcome.Id!)}/image")),
+                ImageCropOutcomeStatus.NotFound => Results.NotFound(),
+                ImageCropOutcomeStatus.OutOfBounds => Results.BadRequest(new { error = outcome.Diagnostic ?? "The crop region is invalid." }),
+                _ => Results.Problem(
+                    title: "Image crop failed.",
+                    detail: "The image could not be cropped.",
+                    statusCode: StatusCodes.Status500InternalServerError)
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+        }
+    }
 
     private static IResult StreamVideo(string category, string id, IArchiveService archive)
     {
@@ -581,4 +614,8 @@ internal static class ArchiveEndpoints
 
     private static bool IsCategoryRoot(ArchiveListing listing) =>
         listing.ParentFolder is null;
+
+    internal sealed record ImageCropRequest(int X, int Y, int Width, int Height);
+
+    internal sealed record ImageCropResponse(string Id, string Name, string ImageUrl);
 }
