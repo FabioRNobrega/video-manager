@@ -163,7 +163,7 @@
 
     private string EditorCssClass => _fillTab.IsActive
         ? "card position-fixed top-0 start-0 z-3 w-100 h-100 overflow-hidden border-0 rounded-0"
-        : "player-footer position-fixed start-0 end-0 bottom-0 z-3 bg-body border-top shadow-lg";
+        : "player-footer position-fixed start-0 end-0 bottom-0 z-3 bg-body border-top shadow-lg rounded-top-4 overflow-hidden";
 
     private string PreviewStageCssClass => _fillTab.IsActive
         ? "w-100 h-100 p-0 bg-dark"
@@ -175,7 +175,7 @@
 
     private string VideoViewportCssClass => _fillTab.IsActive
         ? "position-relative w-100 h-100 overflow-hidden bg-dark"
-        : "player-footer-preview ratio position-relative overflow-hidden bg-dark border flex-shrink-0";
+        : "player-footer-preview ratio position-relative overflow-hidden bg-dark border rounded-3 flex-shrink-0";
 
     private string? VideoViewportStyle => _fillTab.IsActive
         ? null
@@ -185,7 +185,7 @@
         $"object-position: {_frame.PositionX:0.##}% {_frame.PositionY:0.##}%; touch-action: none; filter: saturate({_saturation.Value:0}%)");
 
     private string SaturationRailCssClass =>
-        $"saturation-rail position-absolute z-3 d-flex flex-column align-items-center gap-2 text-white user-select-none {(_controlsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}";
+        $"saturation-rail position-absolute top-50 translate-middle-y z-3 d-flex flex-column align-items-center gap-2 text-white user-select-none {(_controlsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}";
 
     protected override void OnParametersSet()
     {

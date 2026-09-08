@@ -8,15 +8,11 @@ video:active {
 
 .player-footer {
     min-height: 7.5rem;
-    border-top-left-radius: 1rem;
-    border-top-right-radius: 1rem;
-    overflow: hidden;
 }
 
 .player-footer-preview {
     width: min(11rem, 34vw);
     min-width: 8rem;
-    border-radius: .5rem;
 }
 
 .player-footer-copy {
@@ -24,12 +20,7 @@ video:active {
 }
 
 .saturation-rail {
-    top: 50%;
-    left: auto;
     right: .75rem;
-    width: auto;
-    height: auto;
-    transform: translateY(-50%);
     padding: .85rem .5rem;
     background: rgba(8, 10, 9, .5);
     border: 1px solid rgba(255, 255, 255, .16);
@@ -78,10 +69,6 @@ video:active {
 .saturation-output {
     font-family: var(--font-family-meta);
     font-variant-numeric: tabular-nums;
-}
-
-.saturation-reset:disabled {
-    opacity: .5;
 }
 
 @media (prefers-reduced-motion: reduce) {
