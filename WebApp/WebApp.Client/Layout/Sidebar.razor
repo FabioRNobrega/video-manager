@@ -64,7 +64,8 @@
 
     private static readonly IReadOnlyList<NavItem> NavItems = new List<NavItem>
     {
-        new("/", "Videos", "bi-collection-play", NavLinkMatch.All),
+        new("/", "History", "bi-clock-history", NavLinkMatch.All),
+        new("/videos", "Videos", "bi-collection-play", NavLinkMatch.Prefix),
         new("/photos", "Photos", "bi-image", NavLinkMatch.Prefix),
         new("/music", "Music", "bi-music-note-beamed", NavLinkMatch.Prefix),
         new("/documents", "Documents", "bi-file-earmark-text", NavLinkMatch.Prefix),
@@ -72,7 +73,7 @@
         new("/downloads", "Downloads", "bi-download", NavLinkMatch.Prefix),
         new("/shared", "Shared", "bi-people", NavLinkMatch.Prefix),
         new("/family", "Family", "bi-house-heart", NavLinkMatch.Prefix),
-        new("/history", "History", "bi-clock-history", NavLinkMatch.Prefix),
+        new("/utilities", "Utilities", "bi-rocket-takeoff-fill", NavLinkMatch.Prefix),
         new("/trash", "Trash", "bi-trash3", NavLinkMatch.Prefix),
     };
 }
