@@ -283,6 +283,20 @@ public sealed class VideoEndpointsTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Configured_lan_host_header_is_allowed()
+    {
+        using var root = new TemporaryDirectory();
+        using var factory = new VideoManagerFactory(root.Path, allowedNetworkHosts: "192.168.0.147");
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/videos/scan");
+        request.Headers.Host = "192.168.0.147:8080";
+
+        using var response = await client.SendAsync(request);
+
+        Assert.NotEqual(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private static async Task<VideoItemDto> ScanSingleAsync(HttpClient client)
     {
         using var response = await client.PostAsync("/api/videos/scan", null);
@@ -296,11 +310,13 @@ public sealed class VideoEndpointsTests
         private readonly bool _hoverPreviewEnabled;
         private readonly string _cutPath;
         private readonly string _compositionPath;
+        private readonly string _allowedNetworkHosts;
 
-        public VideoManagerFactory(string rootPath, bool hoverPreviewEnabled = true)
+        public VideoManagerFactory(string rootPath, bool hoverPreviewEnabled = true, string allowedNetworkHosts = "")
         {
             _rootPath = rootPath;
             _hoverPreviewEnabled = hoverPreviewEnabled;
+            _allowedNetworkHosts = allowedNetworkHosts;
             PreviewPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-preview-{Guid.NewGuid():N}");
             _cutPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-cuts-{Guid.NewGuid():N}");
             _compositionPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-composition-{Guid.NewGuid():N}");
@@ -322,6 +338,7 @@ public sealed class VideoEndpointsTests
                     ["VideoCut:Path"] = _cutPath,
                     ["VideoComposition:Path"] = _compositionPath,
                     ["HoverPreview:Enabled"] = _hoverPreviewEnabled.ToString(),
+                    ["AllowedNetworkHosts:Hosts"] = _allowedNetworkHosts,
                 }));
         }
 

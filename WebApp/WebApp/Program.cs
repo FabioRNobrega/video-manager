@@ -90,6 +90,15 @@ builder.Services.AddSingleton<IStorageUsageService, StorageUsageService>();
 builder.Services.AddSingleton<IArchiveService, ArchiveService>();
 
 var app = builder.Build();
+var configuredAllowedHosts = builder.Configuration["AllowedNetworkHosts:Hosts"]?
+    .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) ?? [];
+var allowedHostSet = new HashSet<string>(configuredAllowedHosts, StringComparer.OrdinalIgnoreCase)
+{
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "[::1]"
+};
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -110,10 +119,7 @@ app.UseHttpsRedirection();
 app.Use(async (context, next) =>
 {
     var host = context.Request.Host.Host;
-    if (!string.IsNullOrWhiteSpace(host) &&
-        !string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) &&
-        host != "127.0.0.1" &&
-        host != "[::1]")
+    if (!string.IsNullOrWhiteSpace(host) && !allowedHostSet.Contains(host))
     {
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
         return;

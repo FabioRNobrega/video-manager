@@ -27,6 +27,7 @@ services:
       ThumbnailCache__Path: /previews
       VideoCut__Path: /archive/Videos/Cuts
       VideoComposition__Path: /archive/Videos/VideoComposition
+      AllowedNetworkHosts__Hosts: ${ALLOWED_NETWORK_HOSTS:-}
       # Optional: set to "false" to disable hover-preview generation and serving entirely.
       # HoverPreview__Enabled: "true"
 
