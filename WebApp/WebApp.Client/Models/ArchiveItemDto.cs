@@ -12,6 +12,8 @@ public sealed record ArchiveItemDto(
     string? ThumbnailUrl = null,
     HoverPreviewState HoverPreviewState = HoverPreviewState.Unavailable,
     string? HoverPreviewUrl = null,
+    SubtitleState SubtitleState = SubtitleState.Unavailable,
+    string? SubtitleUrl = null,
     double? DurationSeconds = null,
     int? Width = null,
     int? Height = null);

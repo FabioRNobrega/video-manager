@@ -38,6 +38,8 @@ public sealed class PersistentPlayerState
                 null,
                 HoverPreviewState.Unavailable,
                 null,
+                item.SubtitleState,
+                item.SubtitleUrl,
                 null,
                 null,
                 null),

@@ -9,6 +9,8 @@ public sealed record VideoItemDto(
     string? ThumbnailUrl,
     HoverPreviewState HoverPreviewState,
     string? HoverPreviewUrl,
+    SubtitleState SubtitleState,
+    string? SubtitleUrl,
     double? DurationSeconds,
     int? Width,
     int? Height);

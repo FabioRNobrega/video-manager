@@ -13,7 +13,7 @@ public sealed class ComingSoonSectionTests
     [InlineData("/downloads")]
     [InlineData("/shared")]
     [InlineData("/family")]
-    [InlineData("/history")]
+    [InlineData("/")]
     [InlineData("/trash")]
     public async Task Archive_route_keeps_the_local_shell_without_video_workflow_links(
         string route)

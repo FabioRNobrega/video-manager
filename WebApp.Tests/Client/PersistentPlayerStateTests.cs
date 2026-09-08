@@ -56,13 +56,17 @@ public sealed class PersistentPlayerStateTests
             ".mp4",
             2048,
             DateTime.UtcNow,
-            true);
+            true,
+            SubtitleState: SubtitleState.Ready,
+            SubtitleUrl: "/api/archive/music/items/music-video/subtitle");
 
         state.SelectArchiveVideo("music", item);
 
         Assert.True(state.HasSelection);
         Assert.Equal("music-video", state.SelectedId);
         Assert.Equal("song.mp4", state.Selected?.Name);
+        Assert.Equal(SubtitleState.Ready, state.Selected?.SubtitleState);
+        Assert.Equal("/api/archive/music/items/music-video/subtitle", state.Selected?.SubtitleUrl);
         Assert.Equal("api/archive/music/items", state.StreamBasePath);
         Assert.False(state.CanSaveCut);
     }
@@ -127,6 +131,8 @@ public sealed class PersistentPlayerStateTests
             ThumbnailState.Unavailable,
             null,
             HoverPreviewState.Unavailable,
+            null,
+            SubtitleState.Unavailable,
             null,
             61,
             1920,

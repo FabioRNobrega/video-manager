@@ -49,6 +49,12 @@ export function setLoop(video, enabled) {
     video.loop = enabled;
 }
 
+export function setSubtitlesEnabled(video, enabled) {
+    for (const track of video.textTracks ?? []) {
+        track.mode = enabled ? "showing" : "hidden";
+    }
+}
+
 export function readMediaSnapshot(video) {
     return {
         currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,

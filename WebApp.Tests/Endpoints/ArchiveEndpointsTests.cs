@@ -56,6 +56,8 @@ public sealed class ArchiveEndpointsTests
         Assert.Null(pendingVideo.ThumbnailUrl);
         Assert.Equal(HoverPreviewState.Pending, pendingVideo.HoverPreviewState);
         Assert.Null(pendingVideo.HoverPreviewUrl);
+        Assert.Equal(SubtitleState.Unavailable, pendingVideo.SubtitleState);
+        Assert.Null(pendingVideo.SubtitleUrl);
         Assert.Equal(305, pendingVideo.DurationSeconds);
         Assert.Equal(1920, pendingVideo.Width);
         Assert.Equal(1080, pendingVideo.Height);
@@ -64,6 +66,8 @@ public sealed class ArchiveEndpointsTests
         Assert.Null(nonVideo.ThumbnailUrl);
         Assert.Equal(HoverPreviewState.Unavailable, nonVideo.HoverPreviewState);
         Assert.Null(nonVideo.HoverPreviewUrl);
+        Assert.Equal(SubtitleState.Unavailable, nonVideo.SubtitleState);
+        Assert.Null(nonVideo.SubtitleUrl);
         Assert.Equal(".txt", nonVideo.Extension);
 
         var thumbnailCache = new ThumbnailCache(Options.Create(new ThumbnailCacheOptions { Path = factory.PreviewPath }));
@@ -103,6 +107,53 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task Archive_subtitle_endpoint_serves_ready_vtt_and_listing_reports_state()
+    {
+        using var root = CreateArchive();
+        var videoPath = Path.Combine(root.Path, "Downloads", "clip.mp4");
+        var subtitlePath = Path.Combine(root.Path, "Downloads", "clip.srt");
+        await File.WriteAllBytesAsync(videoPath, [1, 2, 3]);
+        await File.WriteAllTextAsync(subtitlePath, "subtitle");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        var pendingListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/downloads/items"))!;
+        var pending = pendingListing.Items.Single(item => item.Name == "clip.mp4");
+
+        Assert.Equal(SubtitleState.Pending, pending.SubtitleState);
+        Assert.Null(pending.SubtitleUrl);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/downloads/items/{pending.Id}/subtitle")).StatusCode);
+
+        var cache = new SubtitleCache(Options.Create(new ThumbnailCacheOptions { Path = factory.PreviewPath }));
+        var relativeIdentity = $"archive/downloads/{pending.Id}/clip.mp4";
+        var entry = new WebApp.Models.VideoFileEntry(
+            pending.Id,
+            videoPath,
+            relativeIdentity,
+            "clip.mp4",
+            ".mp4",
+            3,
+            File.GetLastWriteTimeUtc(videoPath));
+        var subtitle = new WebApp.Models.SubtitleFileInfo(
+            subtitlePath,
+            new FileInfo(subtitlePath).Length,
+            File.GetLastWriteTimeUtc(subtitlePath));
+        await File.WriteAllTextAsync(cache.GetFinalPath(cache.ComputeKey(entry, subtitle)), "WEBVTT\n\n");
+
+        var readyListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/downloads/items"))!;
+        var ready = readyListing.Items.Single(item => item.Name == "clip.mp4");
+
+        Assert.Equal(SubtitleState.Ready, ready.SubtitleState);
+        Assert.StartsWith("/api/archive/downloads/items/", ready.SubtitleUrl);
+
+        using var subtitleResponse = await client.GetAsync(ready.SubtitleUrl);
+        Assert.Equal(HttpStatusCode.OK, subtitleResponse.StatusCode);
+        Assert.Equal("text/vtt", subtitleResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("WEBVTT\n\n", await subtitleResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Archive_media_endpoints_reject_non_video_and_stale_ids()
     {
         using var root = CreateArchive();
@@ -116,6 +167,8 @@ public sealed class ArchiveEndpointsTests
             (await client.GetAsync($"/api/archive/documents/items/{item.Id}/thumbnail")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await client.GetAsync($"/api/archive/documents/items/{item.Id}/preview")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{item.Id}/subtitle")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await client.GetAsync($"/api/archive/documents/items/{Guid.NewGuid():N}/thumbnail")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
@@ -194,7 +247,7 @@ public sealed class ArchiveEndpointsTests
             "../../../../WebApp/WebApp.Client/Components/ArchiveBrowser.razor"));
         var home = File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
-            "../../../../WebApp/WebApp.Client/Pages/Home.razor"));
+            "../../../../WebApp/WebApp.Client/Pages/UtilitiesPages/VideoComposition.razor"));
 
         Assert.Contains("bi-three-dots-vertical", archiveBrowser);
         Assert.Contains("data-bs-toggle=\"dropdown\"", archiveBrowser);

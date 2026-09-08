@@ -32,7 +32,7 @@ public sealed class VideoEndpointsTests
         using var document = JsonDocument.Parse(json);
         var item = Assert.Single(document.RootElement.EnumerateArray());
         Assert.Equal(
-            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl", "width"],
+            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "subtitleState", "subtitleUrl", "thumbnailState", "thumbnailUrl", "width"],
             item.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
         Assert.Equal("clip.MP4", item.GetProperty("name").GetString());
         Assert.Equal(".mp4", item.GetProperty("extension").GetString());
@@ -42,6 +42,56 @@ public sealed class VideoEndpointsTests
         Assert.Equal(JsonValueKind.Null, item.GetProperty("thumbnailUrl").ValueKind);
         Assert.Equal((int)HoverPreviewState.Pending, item.GetProperty("hoverPreviewState").GetInt32());
         Assert.Equal(JsonValueKind.Null, item.GetProperty("hoverPreviewUrl").ValueKind);
+        Assert.Equal((int)SubtitleState.Unavailable, item.GetProperty("subtitleState").GetInt32());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("subtitleUrl").ValueKind);
+    }
+
+    [Fact]
+    public async Task Subtitle_endpoint_serves_ready_vtt_and_scan_reports_state()
+    {
+        using var root = new TemporaryDirectory();
+        var videoPath = Path.Combine(root.Path, "clip.mp4");
+        var subtitlePath = Path.Combine(root.Path, "clip.srt");
+        await File.WriteAllBytesAsync(videoPath, [1, 2, 3]);
+        await File.WriteAllTextAsync(subtitlePath, "subtitle");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        var pending = await ScanSingleAsync(client);
+
+        Assert.Equal(SubtitleState.Pending, pending.SubtitleState);
+        Assert.Null(pending.SubtitleUrl);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{pending.Id}/subtitle")).StatusCode);
+
+        var cache = new SubtitleCache(Options.Create(new ThumbnailCacheOptions { Path = factory.PreviewPath }));
+        var entry = new WebApp.Models.VideoFileEntry(
+            pending.Id,
+            videoPath,
+            "clip.mp4",
+            "clip.mp4",
+            ".mp4",
+            3,
+            File.GetLastWriteTimeUtc(videoPath));
+        var subtitle = new WebApp.Models.SubtitleFileInfo(
+            subtitlePath,
+            new FileInfo(subtitlePath).Length,
+            File.GetLastWriteTimeUtc(subtitlePath));
+        await File.WriteAllTextAsync(cache.GetFinalPath(cache.ComputeKey(entry, subtitle)), "WEBVTT\n\n");
+
+        var ready = Assert.Single((await client.GetFromJsonAsync<List<VideoItemDto>>("/api/videos"))!);
+        Assert.Equal(SubtitleState.Ready, ready.SubtitleState);
+        Assert.NotNull(ready.SubtitleUrl);
+
+        using var subtitleResponse = await client.GetAsync(ready.SubtitleUrl);
+        Assert.Equal(HttpStatusCode.OK, subtitleResponse.StatusCode);
+        Assert.Equal("text/vtt", subtitleResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("WEBVTT\n\n", await subtitleResponse.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/videos/not-an-id/subtitle")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{Guid.NewGuid():N}/subtitle")).StatusCode);
     }
 
     [Fact]

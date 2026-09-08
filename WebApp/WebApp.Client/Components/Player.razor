@@ -43,6 +43,14 @@
                        @onseeking="SynchronizeMediaStateAsync"
                        @onseeked="HandleSeekedAsync"
                        @onended="SynchronizeMediaStateAsync">
+                    @if (HasSubtitles)
+                    {
+                        <track kind="subtitles"
+                               src="@SubtitleSource"
+                               srclang="en"
+                               label="English"
+                               default />
+                    }
                     Your browser does not support HTML5 video.
                 </video>
                 @if (_fillTab.IsActive)
@@ -158,8 +166,13 @@
                                                                    EnterFillTab="EnterFillTabAsync"
                                                                    IsFillTabActive="_fillTab.IsActive"
                                                                    FillTabFocusRequest="_fillTabFocusRequest"
+                                                                   HasSubtitles="HasSubtitles"
+                                                                   ToggleSubtitles="ToggleSubtitlesAsync"
                                                                    CanSaveCut="PlayerState.CanSaveCut"
                                                                    IsFooterMode="@(!_fillTab.IsActive)" />;
+
+    private bool HasSubtitles => Selected?.SubtitleState == SubtitleState.Ready;
+    private string SubtitleSource => Selected?.SubtitleUrl ?? $"{StreamBasePath}/{Selected?.Id}/subtitle";
 
     private string EditorCssClass => _fillTab.IsActive
         ? "card position-fixed top-0 start-0 z-3 w-100 h-100 overflow-hidden border-0 rounded-0"
@@ -371,6 +384,7 @@
             await _module.InvokeVoidAsync("setMuted", _video, _player.IsMuted);
             await _module.InvokeVoidAsync("setPlaybackRate", _video, _player.PlaybackRate);
             await _module.InvokeVoidAsync("setLoop", _video, false);
+            await _module.InvokeVoidAsync("setSubtitlesEnabled", _video, HasSubtitles && _player.IsSubtitlesEnabled);
             await SynchronizeMediaStateAsync();
         }
         catch (JSException)
@@ -436,6 +450,17 @@
         _player.SetStandardLoop(!_player.IsStandardLoop);
         await ExecuteMediaCommandAsync("setLoop", _player.IsStandardLoop);
         await SynchronizeMediaStateAsync();
+    }
+
+    private async Task ToggleSubtitlesAsync()
+    {
+        if (!HasSubtitles)
+        {
+            return;
+        }
+
+        _player.SetSubtitlesEnabled(!_player.IsSubtitlesEnabled);
+        await ExecuteMediaCommandAsync("setSubtitlesEnabled", _player.IsSubtitlesEnabled);
     }
 
     private void SetMarkerA() => _player.SetMarkerA();

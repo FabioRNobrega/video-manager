@@ -6,6 +6,19 @@ video:active {
     cursor: grabbing;
 }
 
+::deep video::cue {
+    background: transparent;
+    color: yellow;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0 0 3px #000;
+}
+
 .player-footer {
     min-height: 7.5rem;
 }

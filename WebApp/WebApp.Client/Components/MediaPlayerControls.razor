@@ -197,6 +197,17 @@
         </div>
 
         <div class="btn-group" role="group" aria-label="Video actions">
+        <button class="btn @ToggleCssClass(State.IsSubtitlesEnabled)"
+                type="button"
+                disabled="@(!HasSubtitles)"
+                aria-label="@(State.IsSubtitlesEnabled ? "Hide subtitles" : "Show subtitles")"
+                title="@(State.IsSubtitlesEnabled ? "Hide subtitles" : "Show subtitles")"
+                data-bs-toggle="tooltip"
+                data-bs-title="@(State.IsSubtitlesEnabled ? "Hide subtitles" : "Show subtitles")"
+                aria-pressed="@BooleanValue(State.IsSubtitlesEnabled)"
+                @onclick="HandleToggleSubtitlesAsync">
+            <i class="bi bi-card-text" aria-hidden="true"></i>
+        </button>
         <button @ref="_fillTabButton"
                 class="btn @ToggleCssClass(IsFillTabActive)"
                 type="button"
@@ -246,6 +257,8 @@
     [Parameter] public EventCallback EnterFillTab { get; set; }
     [Parameter] public bool IsFillTabActive { get; set; }
     [Parameter] public int FillTabFocusRequest { get; set; }
+    [Parameter] public bool HasSubtitles { get; set; }
+    [Parameter] public EventCallback ToggleSubtitles { get; set; }
     [Parameter] public bool CanSaveCut { get; set; } = true;
     [Parameter] public bool IsFooterMode { get; set; }
 
@@ -367,6 +380,7 @@
     private Task HandleTogglePlaybackAsync() => TogglePlayback.InvokeAsync();
     private Task HandleToggleMuteAsync() => ToggleMute.InvokeAsync();
     private Task HandleToggleStandardLoopAsync() => ToggleStandardLoop.InvokeAsync();
+    private Task HandleToggleSubtitlesAsync() => ToggleSubtitles.InvokeAsync();
     private Task HandleSkipBackwardAsync() => SkipBackward.InvokeAsync();
     private Task HandleSkipForwardAsync() => SkipForward.InvokeAsync();
     private Task HandleEnterFillTabAsync() => EnterFillTab.InvokeAsync();

@@ -12,6 +12,7 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/stream", StreamVideo);
         endpoints.MapGet("/api/archive/{category}/items/{id}/thumbnail", GetThumbnail);
         endpoints.MapGet("/api/archive/{category}/items/{id}/preview", GetPreview);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/subtitle", GetSubtitle);
         endpoints.MapPost("/api/archive/{category}/folders", CreateFolder);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/name", Rename);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/location", Move);
@@ -25,12 +26,14 @@ internal static class ArchiveEndpoints
         IArchiveService archive,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.List(category, folderId),
             thumbnailCoordinator,
             hoverPreviewCoordinator,
+            subtitleCoordinator,
             metadataCoordinator,
             cancellationToken));
 
@@ -40,12 +43,14 @@ internal static class ArchiveEndpoints
         IArchiveService archive,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.CreateFolder(category, request.ParentId, request.Name),
             thumbnailCoordinator,
             hoverPreviewCoordinator,
+            subtitleCoordinator,
             metadataCoordinator,
             cancellationToken));
 
@@ -56,12 +61,14 @@ internal static class ArchiveEndpoints
         IArchiveService archive,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.Rename(category, id, request.Name),
             thumbnailCoordinator,
             hoverPreviewCoordinator,
+            subtitleCoordinator,
             metadataCoordinator,
             cancellationToken));
 
@@ -72,12 +79,14 @@ internal static class ArchiveEndpoints
         IArchiveService archive,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.Move(category, id, request.DestinationFolderId),
             thumbnailCoordinator,
             hoverPreviewCoordinator,
+            subtitleCoordinator,
             metadataCoordinator,
             cancellationToken));
 
@@ -87,12 +96,14 @@ internal static class ArchiveEndpoints
         IArchiveService archive,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.MoveToTrash(category, id),
             thumbnailCoordinator,
             hoverPreviewCoordinator,
+            subtitleCoordinator,
             metadataCoordinator,
             cancellationToken));
 
@@ -157,6 +168,22 @@ internal static class ArchiveEndpoints
         }
 
         return Results.File(coordinator.GetFinalPath(entry), "video/mp4", enableRangeProcessing: true);
+    }
+
+    private static IResult GetSubtitle(
+        string category,
+        string id,
+        IArchiveService archive,
+        SubtitleCoordinator coordinator)
+    {
+        if (!TryResolveMediaEntry(category, id, archive, out var entry) ||
+            entry is null ||
+            coordinator.Resolve(entry) != SubtitleState.Ready)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(coordinator.GetFinalPath(entry), "text/vtt");
     }
 
     private static IResult Execute(Func<ArchiveListingDto> action)
@@ -241,7 +268,8 @@ internal static class ArchiveEndpoints
     private static ArchiveListingDto ToDto(
         ArchiveListing listing,
         ThumbnailCoordinator thumbnailCoordinator,
-        HoverPreviewCoordinator hoverPreviewCoordinator)
+        HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator)
     {
         var videoEntries = listing.Items
             .Where(item => item.IsVideo)
@@ -249,6 +277,7 @@ internal static class ArchiveEndpoints
             .ToList();
         thumbnailCoordinator.Reconcile(videoEntries);
         hoverPreviewCoordinator.Reconcile(videoEntries);
+        subtitleCoordinator.Reconcile(videoEntries);
 
         return new(
             listing.Category.Key,
@@ -257,13 +286,14 @@ internal static class ArchiveEndpoints
             listing.ParentFolder?.Id,
             listing.Category.CanCreateFolder,
             listing.Breadcrumbs,
-            listing.Items.Select(item => ToDto(item, thumbnailCoordinator, hoverPreviewCoordinator)).ToList());
+            listing.Items.Select(item => ToDto(item, thumbnailCoordinator, hoverPreviewCoordinator, subtitleCoordinator)).ToList());
     }
 
     private static async Task<ArchiveListingDto> ToDtoAsync(
         ArchiveListing listing,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken)
     {
@@ -273,9 +303,10 @@ internal static class ArchiveEndpoints
             .ToList();
         thumbnailCoordinator.Reconcile(videoEntries);
         hoverPreviewCoordinator.Reconcile(videoEntries);
+        subtitleCoordinator.Reconcile(videoEntries);
 
         var items = await Task.WhenAll(listing.Items.Select(item =>
-            ToDtoAsync(item, thumbnailCoordinator, hoverPreviewCoordinator, metadataCoordinator, cancellationToken)));
+            ToDtoAsync(item, thumbnailCoordinator, hoverPreviewCoordinator, subtitleCoordinator, metadataCoordinator, cancellationToken)));
 
         return new(
             listing.Category.Key,
@@ -300,7 +331,8 @@ internal static class ArchiveEndpoints
     private static ArchiveItemDto ToDto(
         ArchiveItemEntry item,
         ThumbnailCoordinator thumbnailCoordinator,
-        HoverPreviewCoordinator hoverPreviewCoordinator)
+        HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator)
     {
         if (!item.IsVideo)
         {
@@ -316,6 +348,10 @@ internal static class ArchiveEndpoints
         var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready
             ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/preview"
             : null;
+        var subtitleState = subtitleCoordinator.Resolve(entry);
+        var subtitleUrl = subtitleState == SubtitleState.Ready
+            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/subtitle"
+            : null;
 
         return new ArchiveItemDto(
             item.Id,
@@ -328,13 +364,16 @@ internal static class ArchiveEndpoints
             thumbnailState,
             thumbnailUrl,
             hoverPreviewState,
-            hoverPreviewUrl);
+            hoverPreviewUrl,
+            subtitleState,
+            subtitleUrl);
     }
 
     private static async Task<ArchiveItemDto> ToDtoAsync(
         ArchiveItemEntry item,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken)
     {
@@ -351,6 +390,10 @@ internal static class ArchiveEndpoints
         var hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
         var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready
             ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/preview"
+            : null;
+        var subtitleState = subtitleCoordinator.Resolve(entry);
+        var subtitleUrl = subtitleState == SubtitleState.Ready
+            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/subtitle"
             : null;
 
         VideoMetadata metadata;
@@ -379,6 +422,8 @@ internal static class ArchiveEndpoints
             thumbnailUrl,
             hoverPreviewState,
             hoverPreviewUrl,
+            subtitleState,
+            subtitleUrl,
             metadata.Duration?.TotalSeconds,
             metadata.Width,
             metadata.Height);
