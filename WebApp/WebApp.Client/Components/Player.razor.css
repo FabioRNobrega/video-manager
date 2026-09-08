@@ -23,14 +23,6 @@ video:active {
     width: min(16rem, 100%);
 }
 
-.player-footer .player-footer-copy {
-    order: 2;
-}
-
-.player-footer .player-footer-controls {
-    order: 3;
-}
-
 .saturation-rail {
     top: 50%;
     left: auto;
@@ -95,16 +87,6 @@ video:active {
 @media (prefers-reduced-motion: reduce) {
     .saturation-rail {
         transition: none;
-    }
-}
-
-@media (min-width: 62rem) {
-    .player-footer .player-footer-copy {
-        order: 0;
-    }
-
-    .player-footer .player-footer-controls {
-        order: 0;
     }
 }
 

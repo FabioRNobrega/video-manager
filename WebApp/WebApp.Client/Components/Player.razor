@@ -16,6 +16,7 @@
     else
     {
         <div class="@PreviewStageCssClass">
+            <div class="@MediaRowCssClass">
             <div class="@VideoViewportCssClass" style="@VideoViewportStyle" @ref="_viewport">
                 <video @key="Selected.Id"
                        @ref="_video"
@@ -76,6 +77,15 @@
                     @PlayerControls
                 }
             </div>
+            @if (!_fillTab.IsActive)
+            {
+                <div class="player-footer-copy flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0">
+                    <p class="small fw-bold text-uppercase text-body-secondary mb-1">Now playing</p>
+                    <p class="fw-semibold text-break mb-1">@Selected.Name</p>
+                    <p class="small text-body-secondary mb-0">@FormatMetadata(Selected)</p>
+                </div>
+            }
+            </div>
             @if (_playbackError && !_fillTab.IsActive)
             {
                 <div class="alert alert-danger w-100 mt-3 mb-0 text-center" role="alert" aria-live="assertive">
@@ -85,12 +95,7 @@
             }
             @if (!_fillTab.IsActive)
             {
-                <div class="player-footer-copy min-w-0">
-                    <p class="small fw-bold text-uppercase text-body-secondary mb-1">Now playing</p>
-                    <p class="fw-semibold text-break mb-1">@Selected.Name</p>
-                    <p class="small text-body-secondary mb-0">@FormatMetadata(Selected)</p>
-                </div>
-                <div class="player-footer-controls flex-fill min-w-0">
+                <div class="player-footer-controls flex-grow-1 w-100 min-w-0">
                     @PlayerControls
                 </div>
             }
@@ -163,6 +168,10 @@
     private string PreviewStageCssClass => _fillTab.IsActive
         ? "w-100 h-100 p-0 bg-dark"
         : "d-flex flex-column flex-lg-row align-items-stretch gap-3 px-3 py-2";
+
+    private string MediaRowCssClass => _fillTab.IsActive
+        ? "w-100 h-100"
+        : "player-footer-media d-flex flex-row align-items-stretch gap-3 flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0";
 
     private string VideoViewportCssClass => _fillTab.IsActive
         ? "position-relative w-100 h-100 overflow-hidden bg-dark"
