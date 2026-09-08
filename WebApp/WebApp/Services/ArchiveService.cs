@@ -106,6 +106,32 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         return BuildListing(category, GetParentEntry(category, item.PhysicalPath));
     }
 
+    public bool TryResolveVideo(string categoryKey, string itemId, out ArchiveItemEntry? item)
+    {
+        item = null;
+        try
+        {
+            var category = ResolveCategory(categoryKey);
+            var resolved = ResolveItem(category, itemId);
+            if (resolved.Kind != ArchiveItemKind.File || !resolved.IsVideo)
+            {
+                return false;
+            }
+
+            item = resolved;
+            return true;
+        }
+        catch (ArchiveException)
+        {
+            return false;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
+
     internal static bool IsSafeName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))

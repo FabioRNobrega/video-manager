@@ -9,6 +9,7 @@ internal static class ArchiveEndpoints
     public static IEndpointRouteBuilder MapArchiveEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/archive/{category}/items", List);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/stream", StreamVideo);
         endpoints.MapPost("/api/archive/{category}/folders", CreateFolder);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/name", Rename);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/location", Move);
@@ -42,6 +43,37 @@ internal static class ArchiveEndpoints
     private static IResult MoveToTrash(string category, string id, IArchiveService archive) =>
         Execute(() => ToDto(archive.MoveToTrash(category, id)));
 
+    private static IResult StreamVideo(string category, string id, IArchiveService archive)
+    {
+        if (!archive.TryResolveVideo(category, id, out var item) || item is null || item.Extension is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!ContentTypes.TryGetValue(item.Extension, out var contentType))
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var stream = new FileStream(
+                item.PhysicalPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+            return Results.Stream(stream, contentType, enableRangeProcessing: true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return Results.NotFound();
+        }
+    }
+
     private static IResult Execute(Func<ArchiveListingDto> action)
     {
         try
@@ -69,6 +101,15 @@ internal static class ArchiveEndpoints
             return Results.Problem(title: "Archive operation failed.", detail: "The archive item could not be changed.", statusCode: StatusCodes.Status500InternalServerError);
         }
     }
+
+    private static readonly IReadOnlyDictionary<string, string> ContentTypes =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".mp4"] = "video/mp4",
+            [".webm"] = "video/webm",
+            [".mov"] = "video/quicktime",
+            [".m4v"] = "video/x-m4v"
+        };
 
     private static ArchiveListingDto ToDto(ArchiveListing listing) =>
         new(

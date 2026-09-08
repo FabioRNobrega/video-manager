@@ -218,6 +218,20 @@ h1:focus { outline: none; }
     --bs-btn-disabled-border-color: #b98a2e;
 }
 
+.btn-outline-primary {
+    --bs-btn-color: #b98a2e;
+    --bs-btn-border-color: #b98a2e;
+    --bs-btn-hover-color: #16211b;
+    --bs-btn-hover-bg: #b98a2e;
+    --bs-btn-hover-border-color: #b98a2e;
+    --bs-btn-focus-shadow-rgb: 185, 138, 46;
+    --bs-btn-active-color: #16211b;
+    --bs-btn-active-bg: #946e25;
+    --bs-btn-active-border-color: #8b6822;
+    --bs-btn-disabled-color: var(--text-muted);
+    --bs-btn-disabled-border-color: var(--border);
+}
+
 .btn-secondary {
     --bs-btn-color: #fff;
     --bs-btn-bg: #2f7a4f;
@@ -293,6 +307,10 @@ html[data-bs-theme="light"] .form-switch .form-check-input:focus {
 
 .blazor-error-boundary { padding: 1rem; color: var(--alert-danger-text); background: var(--alert-danger-bg); }
 .blazor-error-boundary::after { content: "An error has occurred."; }
+
+.has-player-footer #main-content {
+    padding-bottom: 10rem !important;
+}
 
 @media (prefers-reduced-motion: no-preference) {
     body,

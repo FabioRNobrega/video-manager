@@ -13,4 +13,6 @@ internal interface IArchiveService
     ArchiveListing Move(string categoryKey, string itemId, string? destinationFolderId);
 
     ArchiveListing MoveToTrash(string categoryKey, string itemId);
+
+    bool TryResolveVideo(string categoryKey, string itemId, out ArchiveItemEntry? item);
 }

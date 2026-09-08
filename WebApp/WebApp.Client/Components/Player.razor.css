@@ -6,6 +6,31 @@ video:active {
     cursor: grabbing;
 }
 
+.player-footer {
+    min-height: 7.5rem;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+    overflow: hidden;
+}
+
+.player-footer-preview {
+    width: min(11rem, 34vw);
+    min-width: 8rem;
+    border-radius: .5rem;
+}
+
+.player-footer-copy {
+    width: min(16rem, 100%);
+}
+
+.player-footer .player-footer-copy {
+    order: 2;
+}
+
+.player-footer .player-footer-controls {
+    order: 3;
+}
+
 .saturation-rail {
     top: 50%;
     left: auto;
@@ -70,5 +95,22 @@ video:active {
 @media (prefers-reduced-motion: reduce) {
     .saturation-rail {
         transition: none;
+    }
+}
+
+@media (min-width: 62rem) {
+    .player-footer .player-footer-copy {
+        order: 0;
+    }
+
+    .player-footer .player-footer-controls {
+        order: 0;
+    }
+}
+
+@media (max-width: 36rem) {
+    .player-footer-preview {
+        width: 7rem;
+        min-width: 7rem;
     }
 }

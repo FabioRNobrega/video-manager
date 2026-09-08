@@ -60,6 +60,39 @@ public sealed class ArchiveEndpointsTests
         Assert.True(File.Exists(Path.Combine(root.Path, "Trash", "note.txt")));
     }
 
+    [Fact]
+    public async Task Stream_video_serves_supported_archive_file_without_exposing_paths()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Music", "clip.mp4"), "fake mp4");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/music/items"))!;
+        var item = Assert.Single(listing.Items);
+
+        using var response = await client.GetAsync($"/api/archive/music/items/{item.Id}/stream");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("video/mp4", response.Content.Headers.ContentType?.MediaType);
+        Assert.DoesNotContain(root.Path, body);
+    }
+
+    [Fact]
+    public async Task Stream_video_rejects_non_video_archive_file()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "note.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var item = Assert.Single(listing.Items);
+
+        using var response = await client.GetAsync($"/api/archive/documents/items/{item.Id}/stream");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private sealed class VideoManagerFactory(string archiveRoot) : WebApplicationFactory<Program>
     {
         private readonly string _previewPath = CreateDirectory();

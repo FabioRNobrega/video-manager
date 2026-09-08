@@ -1,5 +1,6 @@
 @page "/"
 @inject HttpClient Http
+@inject PersistentPlayerState PlayerState
 @implements IDisposable
 
 <PageTitle>Videos · PereneArchive</PageTitle>
@@ -11,16 +12,7 @@
 <div class="d-flex flex-column mb-3 align-content-between">
     <ArchiveBrowser Category="videos"
                     Title="Videos"
-                    Icon="bi-collection-play"
-                    OnVideoSelected="SelectArchiveVideoAsync" />
-    @if (_scanError is not null)
-    {
-        <div class="alert alert-danger mt-3" role="alert">@_scanError</div>
-    }
-    <VerticalVideoEditor Selected="_selected"
-                         StreamBasePath="@_selectedStreamBasePath"
-                         CutQueued="HandleCutQueued"
-                         CutCompletionSignal="_cutCompletionSignal" />
+                    Icon="bi-collection-play" />
     <section class="card mt-3 overflow-hidden" aria-labelledby="cuts-heading">
         <div class="card-header d-flex align-items-center justify-content-between gap-3 flex-wrap">
             <div>
@@ -59,7 +51,7 @@
                    HasLoaded="_cutsLoaded"
                    IsLoading="_cutsLoading"
                    Error="@_cutError"
-                   SelectedId="@(_selectedStreamBasePath == CutStreamBasePath ? _selected?.Id : null)"
+                   SelectedId="@(PlayerState.StreamBasePath == PersistentPlayerState.CutStreamBasePath ? PlayerState.SelectedId : null)"
                    PreviewingVideoId="@_previewingCutId"
                    OnSelect="SelectCut"
                    OnCardMouseEnter="OnCutMouseEnter"
@@ -114,7 +106,7 @@
         <VideoGrid Items="_compositions"
                    HasLoaded="_compositionsLoaded"
                    IsLoading="_compositionsLoading"
-                   SelectedId="@(_selectedStreamBasePath == CompositionStreamBasePath ? _selected?.Id : null)"
+                   SelectedId="@(PlayerState.StreamBasePath == PersistentPlayerState.CompositionStreamBasePath ? PlayerState.SelectedId : null)"
                    OnSelect="SelectComposition"
                    GridLabel="Video compositions"
                    SingularLabel="composition"
@@ -133,16 +125,10 @@
 
 @code {
     private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(2);
-    private const string VideoStreamBasePath = "api/videos";
-    private const string CutStreamBasePath = "api/cuts";
-    private const string CompositionStreamBasePath = "api/compositions";
-
     private IReadOnlyList<VideoItemDto> _videos = Array.Empty<VideoItemDto>();
     private IReadOnlyList<VideoItemDto> _cuts = Array.Empty<VideoItemDto>();
     private IReadOnlyList<VideoItemDto> _compositions = Array.Empty<VideoItemDto>();
     private IReadOnlyList<CompositionJobDto> _compositionJobs = Array.Empty<CompositionJobDto>();
-    private VideoItemDto? _selected;
-    private string _selectedStreamBasePath = VideoStreamBasePath;
     private bool _cutsLoaded;
     private bool _cutsLoading = true;
     private bool _isPollingCuts;
@@ -150,7 +136,6 @@
     private bool _compositionsLoading = true;
     private bool _isPollingCompositions;
     private bool _isCreatingComposition;
-    private string? _scanError;
     private string? _cutError;
     private string? _compositionLoadError;
     private string? _compositionCreateError;
@@ -159,62 +144,24 @@
     private CancellationTokenSource? _cutPollingCts;
     private CancellationTokenSource? _cutHoverDelayCts;
     private CancellationTokenSource? _compositionPollingCts;
-    private int _cutCompletionSignal;
     private readonly HashSet<string> _selectedCutIds = new(StringComparer.Ordinal);
     private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(300);
 
     protected override async Task OnInitializedAsync()
     {
+        PlayerState.CutQueued += HandleCutQueued;
         await LoadCutsAsync();
         await LoadCompositionsAsync();
     }
 
-    private void SelectVideo(VideoItemDto video)
-    {
-        _selected = video;
-        _selectedStreamBasePath = VideoStreamBasePath;
-    }
-
-    private async Task SelectArchiveVideoAsync(ArchiveItemDto item)
-    {
-        _scanError = null;
-
-        try
-        {
-            using var response = await Http.PostAsync("api/videos/scan", content: null);
-            if (!response.IsSuccessStatusCode)
-            {
-                _scanError = "The video could not be prepared for playback.";
-                return;
-            }
-
-            _videos = await response.Content.ReadFromJsonAsync<List<VideoItemDto>>() ?? [];
-            var video = _videos.FirstOrDefault(video => video.Id == item.Id);
-            if (video is null)
-            {
-                _scanError = "The selected file is not available to the video player yet.";
-                return;
-            }
-
-            SelectVideo(video);
-            StartPollingIfPending();
-        }
-        catch (HttpRequestException)
-        {
-            _scanError = "The video could not be reached.";
-        }
-    }
-
     private void SelectCut(VideoItemDto cut)
     {
-        _selected = cut;
-        _selectedStreamBasePath = CutStreamBasePath;
+        PlayerState.SelectCut(cut);
     }
 
     private void SelectComposition(VideoItemDto composition)
     {
-        _selected = composition;
-        _selectedStreamBasePath = CompositionStreamBasePath;
+        PlayerState.SelectComposition(composition);
     }
 
     private void ToggleCutSelection(string cutId)
@@ -285,10 +232,9 @@
         }
     }
 
-    private Task HandleCutQueued()
+    private void HandleCutQueued()
     {
         StartCutPolling(_cuts.Count);
-        return Task.CompletedTask;
     }
 
     private async Task LoadCompositionsAsync()
@@ -429,9 +375,13 @@
                 _compositions = items;
                 _compositionsLoaded = true;
 
-                if (_selected is not null && _selectedStreamBasePath == CompositionStreamBasePath)
+                if (PlayerState.Selected is not null && PlayerState.StreamBasePath == PersistentPlayerState.CompositionStreamBasePath)
                 {
-                    _selected = items.FirstOrDefault(item => item.Id == _selected.Id) ?? _selected;
+                    var selected = items.FirstOrDefault(item => item.Id == PlayerState.Selected.Id);
+                    if (selected is not null)
+                    {
+                        PlayerState.UpdateSelected(selected);
+                    }
                 }
 
                 await InvokeAsync(StateHasChanged);
@@ -484,9 +434,13 @@
                 }
 
                 _videos = updated;
-                if (_selected is not null)
+                if (PlayerState.Selected is not null && PlayerState.StreamBasePath == PersistentPlayerState.VideoStreamBasePath)
                 {
-                    _selected = updated.FirstOrDefault(video => video.Id == _selected.Id) ?? _selected;
+                    var selected = updated.FirstOrDefault(video => video.Id == PlayerState.Selected.Id);
+                    if (selected is not null)
+                    {
+                        PlayerState.UpdateSelected(selected);
+                    }
                 }
 
                 await InvokeAsync(StateHasChanged);
@@ -530,14 +484,17 @@
                 _cuts = updated;
                 _cutsLoaded = true;
 
-                if (_selected is not null && _selectedStreamBasePath == CutStreamBasePath)
+                if (PlayerState.Selected is not null && PlayerState.StreamBasePath == PersistentPlayerState.CutStreamBasePath)
                 {
-                    _selected = updated.FirstOrDefault(video => video.Id == _selected.Id) ?? _selected;
+                    var selected = updated.FirstOrDefault(video => video.Id == PlayerState.Selected.Id);
+                    if (selected is not null)
+                    {
+                        PlayerState.UpdateSelected(selected);
+                    }
                 }
 
                 if (updated.Count > previousCount)
                 {
-                    _cutCompletionSignal++;
                     previousCount = updated.Count;
                 }
 
@@ -614,6 +571,7 @@
 
     public void Dispose()
     {
+        PlayerState.CutQueued -= HandleCutQueued;
         CancelPolling();
         CancelCutPolling();
         CancelCutHover();

@@ -1,12 +1,18 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject PersistentPlayerState PlayerState
 
-<div class="vh-100 bg-body-tertiary d-flex flex-column overflow-hidden p-0 p-md-4">
+<div class="vh-100 bg-body-tertiary d-flex flex-column overflow-hidden p-0 p-md-4 @(PlayerState.HasSelection ? "has-player-footer" : null)">
     <a class="visually-hidden-focusable btn btn-primary position-fixed top-0 start-0 z-3 m-2"
        href="#main-content">Skip to main content</a>
     <div class="d-flex flex-column flex-md-row flex-fill min-h-0 overflow-hidden bg-body-tertiary">
         <Sidebar />
         <main id="main-content" class="flex-fill min-w-0 min-h-0 overflow-y-auto scrollbar-none-mobile m-2 m-md-0 px-3 px-md-4 py-4 bg-body border rounded-4 shadow-sm">@Body</main>
     </div>
+    @if (PlayerState.Selected is not null)
+    {
+        <Player PlayerState="PlayerState" />
+    }
 </div>
 
 <div id="blazor-error-ui"
@@ -20,3 +26,20 @@
             class="btn-close position-absolute top-50 end-0 translate-middle-y me-2"
             aria-label="Dismiss error"></button>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        PlayerState.StateChanged += HandlePlayerStateChanged;
+    }
+
+    private void HandlePlayerStateChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        PlayerState.StateChanged -= HandlePlayerStateChanged;
+    }
+}

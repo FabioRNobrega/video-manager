@@ -1,5 +1,7 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject PersistentPlayerState PlayerState
+@implements IDisposable
 
 <section class="card overflow-hidden" aria-labelledby="@HeadingId">
     <div class="card-header d-flex align-items-center justify-content-between gap-3 flex-wrap">
@@ -81,10 +83,18 @@
         <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 p-3" aria-label="@Title">
             @foreach (var item in _listing.Items)
             {
+                var selected = IsSelected(item);
                 <div class="col">
-                    <div class="card h-100">
+                    <div class="card h-100 position-relative @(selected ? "border-primary border-2" : null)">
+                        @if (selected)
+                        {
+                            <span class="badge text-bg-primary position-absolute top-0 end-0 z-1 m-2">
+                                <i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Selected
+                            </span>
+                        }
                         <button class="card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center gap-2"
                                 type="button"
+                                aria-pressed="@(item.IsVideo ? selected : null)"
                                 @onclick="() => ActivateAsync(item)">
                             <i class="bi @(item.Kind == ArchiveItemKind.Folder ? "bi-folder-fill text-primary" : FileIcon(item)) display-5" aria-hidden="true"></i>
                             <span class="fw-semibold text-break text-center">@item.Name</span>
@@ -218,10 +228,16 @@
     private string RenameModalLabelId => $"archive-{Category}-rename-modal-label";
     private string RenameInputId => $"archive-{Category}-rename";
     private string MoveInputId => $"archive-{Category}-move";
+    private string ArchiveStreamBasePath => $"api/archive/{Uri.EscapeDataString(Category)}/items";
 
     protected override async Task OnParametersSetAsync()
     {
         await LoadAsync(null);
+    }
+
+    protected override void OnInitialized()
+    {
+        PlayerState.StateChanged += HandlePlayerStateChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -277,7 +293,66 @@
         if (item.IsVideo && OnVideoSelected.HasDelegate)
         {
             await OnVideoSelected.InvokeAsync(item);
+            return;
         }
+
+        if (item.IsVideo)
+        {
+            await SelectVideoAsync(item);
+        }
+    }
+
+    private async Task SelectVideoAsync(ArchiveItemDto item)
+    {
+        if (!string.Equals(Category, "videos", StringComparison.OrdinalIgnoreCase))
+        {
+            PlayerState.SelectArchiveVideo(Category, item);
+            return;
+        }
+
+        _error = null;
+
+        try
+        {
+            using var response = await Http.PostAsync("api/videos/scan", content: null);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "The video could not be prepared for playback.";
+                return;
+            }
+
+            var videos = await response.Content.ReadFromJsonAsync<List<VideoItemDto>>() ?? [];
+            var video = videos.FirstOrDefault(video => video.Id == item.Id);
+            if (video is null)
+            {
+                _error = "The selected file is not available to the video player yet.";
+                return;
+            }
+
+            PlayerState.SelectVideo(video);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The video could not be reached.";
+        }
+    }
+
+    private bool IsSelected(ArchiveItemDto item)
+    {
+        if (!item.IsVideo || !string.Equals(PlayerState.SelectedId, item.Id, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var expectedStreamBasePath = string.Equals(Category, "videos", StringComparison.OrdinalIgnoreCase)
+            ? PersistentPlayerState.VideoStreamBasePath
+            : ArchiveStreamBasePath;
+        return string.Equals(PlayerState.StreamBasePath, expectedStreamBasePath, StringComparison.Ordinal);
+    }
+
+    private void HandlePlayerStateChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private async Task CreateFolderAsync()
@@ -419,6 +494,11 @@
         }
 
         return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
+    }
+
+    public void Dispose()
+    {
+        PlayerState.StateChanged -= HandlePlayerStateChanged;
     }
 
     private sealed class FolderForm
