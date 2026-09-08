@@ -18,5 +18,7 @@ internal interface IArchiveService
 
     bool TryResolveMusic(string categoryKey, string itemId, out ArchiveItemEntry? item);
 
+    bool TryResolveImage(string categoryKey, string itemId, out ArchiveItemEntry? item);
+
     bool TryResolveAlbumCover(string categoryKey, string folderId, out ArchiveAlbumCoverInfo? cover);
 }

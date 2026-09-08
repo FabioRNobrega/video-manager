@@ -13,6 +13,9 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
     private static readonly HashSet<string> MusicExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".mp3", ".wav", ".m4a" };
 
+    private static readonly HashSet<string> ImageExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
+
     private static readonly HashSet<string> AlbumCoverExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
 
@@ -164,6 +167,32 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         }
     }
 
+    public bool TryResolveImage(string categoryKey, string itemId, out ArchiveItemEntry? item)
+    {
+        item = null;
+        try
+        {
+            var category = ResolveCategory(categoryKey);
+            var resolved = ResolveItem(category, itemId);
+            if (resolved.Kind != ArchiveItemKind.File || !resolved.IsImage)
+            {
+                return false;
+            }
+
+            item = resolved;
+            return true;
+        }
+        catch (ArchiveException)
+        {
+            return false;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
+
     public bool TryResolveAlbumCover(string categoryKey, string folderId, out ArchiveAlbumCoverInfo? cover)
     {
         cover = null;
@@ -250,7 +279,8 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
                     info?.Length,
                     isDirectory ? directory!.LastWriteTimeUtc : info!.LastWriteTimeUtc,
                     extension is not null && VideoExtensions.Contains(extension),
-                    extension is not null && MusicExtensions.Contains(extension)));
+                    extension is not null && MusicExtensions.Contains(extension),
+                    extension is not null && ImageExtensions.Contains(extension)));
             }
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
@@ -369,7 +399,8 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
             file?.Length,
             isDirectory ? directory!.LastWriteTimeUtc : file!.LastWriteTimeUtc,
             extension is not null && VideoExtensions.Contains(extension),
-            extension is not null && MusicExtensions.Contains(extension));
+            extension is not null && MusicExtensions.Contains(extension),
+            extension is not null && ImageExtensions.Contains(extension));
     }
 
     private ArchiveAlbumCoverInfo? FindAlbumCover(ArchiveCategory category, ArchiveItemEntry folder)

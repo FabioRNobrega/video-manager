@@ -12,6 +12,7 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/stream", StreamVideo);
         endpoints.MapGet("/api/archive/{category}/items/{id}/audio", StreamAudio);
         endpoints.MapGet("/api/archive/{category}/items/{id}/cover", GetAlbumCover);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/image", GetImage);
         endpoints.MapGet("/api/archive/{category}/items/{id}/thumbnail", GetThumbnail);
         endpoints.MapGet("/api/archive/{category}/items/{id}/preview", GetPreview);
         endpoints.MapGet("/api/archive/{category}/items/{id}/subtitle", GetSubtitle);
@@ -184,6 +185,21 @@ internal static class ArchiveEndpoints
         }
 
         return Results.File(cover.PhysicalPath, contentType, lastModified: cover.LastWriteTimeUtc);
+    }
+
+    private static IResult GetImage(string category, string id, IArchiveService archive)
+    {
+        if (!archive.TryResolveImage(category, id, out var item) || item is null || item.Extension is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!ImageContentTypes.TryGetValue(item.Extension, out var contentType))
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(item.PhysicalPath, contentType, lastModified: item.LastWriteTimeUtc);
     }
 
     private static IResult GetThumbnail(
@@ -393,7 +409,9 @@ internal static class ArchiveEndpoints
             item.IsVideo,
             IsMusic: item.IsMusic,
             AudioUrl: AudioUrl(item),
-            AlbumCoverUrl: AlbumCoverUrl(item));
+            AlbumCoverUrl: AlbumCoverUrl(item),
+            IsImage: item.IsImage,
+            ImageUrl: ImageUrl(item));
 
     private static ArchiveItemDto ToDto(
         ArchiveItemEntry item,
@@ -523,6 +541,11 @@ internal static class ArchiveEndpoints
     private static string? AudioUrl(ArchiveItemEntry item) =>
         item.IsMusic
             ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/audio"
+            : null;
+
+    private static string? ImageUrl(ArchiveItemEntry item) =>
+        item.IsImage
+            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/image"
             : null;
 
     private static string? AlbumCoverUrl(ArchiveItemEntry item) =>

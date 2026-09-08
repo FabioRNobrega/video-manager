@@ -102,17 +102,20 @@
                                 aria-label="Reset saturation"
                                 title="Reset saturation"
                                 @onclick="ResetSaturation">
-                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                            <i class="bi bi-droplet-half" aria-hidden="true"></i>
                         </button>
                     </div>
-                    <input class="form-range saturation-range"
-                           type="range"
-                           min="0"
-                           max="@Invariant(SaturationState.Max)"
-                           step="1"
-                           value="@Invariant(_saturation.Value)"
-                           aria-label="Saturation"
-                           @oninput="HandleSaturationInput" />
+                    <div class="saturation-track position-relative">
+                        <span class="saturation-fill position-absolute bottom-0 start-50 translate-middle-x" style="@SaturationFillStyle" aria-hidden="true"></span>
+                        <input class="form-range saturation-range"
+                               type="range"
+                               min="0"
+                               max="@Invariant(SaturationState.Max)"
+                               step="1"
+                               value="@Invariant(_saturation.Value)"
+                               aria-label="Saturation"
+                               @oninput="HandleSaturationInput" />
+                    </div>
                     <output class="small text-white saturation-output" aria-hidden="true">@Math.Round(_saturation.Value)%</output>
                 </div>
                 }
@@ -252,6 +255,9 @@
     private string NowPlayingNameCssClass => PlayerState.IsMusic
         ? "fw-semibold text-nowrap mb-1"
         : "fw-semibold text-break mb-1";
+
+    private string SaturationFillStyle =>
+        $"height: {Invariant(Math.Clamp(_saturation.Value / SaturationState.Max * 100, 0, 100))}%";
 
     private string SaturationRailCssClass =>
         $"saturation-rail position-absolute top-50 translate-middle-y z-3 d-flex flex-column align-items-center gap-2 text-white user-select-none {(_controlsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}";

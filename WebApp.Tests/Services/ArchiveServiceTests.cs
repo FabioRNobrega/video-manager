@@ -141,6 +141,54 @@ public sealed class ArchiveServiceTests
     }
 
     [Fact]
+    public void Image_files_are_marked_in_any_category()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Pictures", "photo.jpg"));
+        awaitFile(Path.Combine(root.Path, "Pictures", "scan.jpeg"));
+        awaitFile(Path.Combine(root.Path, "Pictures", "banner.png"));
+        awaitFile(Path.Combine(root.Path, "Pictures", "notes.txt"));
+        awaitFile(Path.Combine(root.Path, "Documents", "receipt.png"));
+        var service = CreateService(root.Path);
+
+        var pictures = service.List("photos", null).Items;
+        var document = Assert.Single(service.List("documents", null).Items);
+
+        Assert.Equal(3, pictures.Count(item => item.IsImage));
+        Assert.True(pictures.Single(item => item.Name == "notes.txt") is { IsImage: false });
+        Assert.True(document.IsImage);
+        Assert.False(document.IsVideo);
+        Assert.False(document.IsMusic);
+    }
+
+    [Fact]
+    public void TryResolveImage_returns_false_for_folders_and_non_image_files()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Pictures", "Album"));
+        awaitFile(Path.Combine(root.Path, "Pictures", "notes.txt"));
+        var service = CreateService(root.Path);
+        var folder = service.List("photos", null).Items.Single(item => item.Name == "Album");
+        var textFile = service.List("photos", null).Items.Single(item => item.Name == "notes.txt");
+
+        Assert.False(service.TryResolveImage("photos", folder.Id, out _));
+        Assert.False(service.TryResolveImage("photos", textFile.Id, out _));
+        Assert.False(service.TryResolveImage("photos", "unknown-id", out _));
+    }
+
+    [Fact]
+    public void TryResolveImage_resolves_a_valid_image_item()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Pictures", "photo.jpg"));
+        var service = CreateService(root.Path);
+        var item = Assert.Single(service.List("photos", null).Items);
+
+        Assert.True(service.TryResolveImage("photos", item.Id, out var resolved));
+        Assert.Equal(Path.Combine(root.Path, "Pictures", "photo.jpg"), resolved!.PhysicalPath);
+    }
+
+    [Fact]
     public void Album_cover_resolver_works_for_any_category_folder()
     {
         using var root = CreateArchive();

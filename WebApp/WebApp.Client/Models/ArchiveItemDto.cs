@@ -19,4 +19,6 @@ public sealed record ArchiveItemDto(
     int? Height = null,
     bool IsMusic = false,
     string? AudioUrl = null,
-    string? AlbumCoverUrl = null);
+    string? AlbumCoverUrl = null,
+    bool IsImage = false,
+    string? ImageUrl = null);

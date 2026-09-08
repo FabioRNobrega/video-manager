@@ -1,4 +1,5 @@
 let fillTabEscapeHandler;
+let arrowKeyNavigationHandler;
 
 export function measureAndCapture(viewport, video, pointerId) {
     if (video.setPointerCapture) {
@@ -12,6 +13,15 @@ export function measureAndCapture(viewport, video, pointerId) {
         videoWidth: video.videoWidth,
         videoHeight: video.videoHeight
     };
+}
+
+export function measureAndCaptureElement(element, pointerId) {
+    if (element.setPointerCapture) {
+        element.setPointerCapture(pointerId);
+    }
+
+    const bounds = element.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height };
 }
 
 export function releasePointer(video, pointerId) {
@@ -93,4 +103,27 @@ export function exitFillTab() {
     }
 
     document.body.classList.remove("fill-tab-active");
+}
+
+export function addArrowKeyNavigation(dotNetReference) {
+    removeArrowKeyNavigation();
+
+    arrowKeyNavigationHandler = event => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+            return;
+        }
+
+        event.preventDefault();
+        const method = event.key === "ArrowLeft" ? "SelectPreviousFromKeyboardAsync" : "SelectNextFromKeyboardAsync";
+        dotNetReference.invokeMethodAsync(method).catch(() => { });
+    };
+
+    window.addEventListener("keydown", arrowKeyNavigationHandler);
+}
+
+export function removeArrowKeyNavigation() {
+    if (arrowKeyNavigationHandler) {
+        window.removeEventListener("keydown", arrowKeyNavigationHandler);
+        arrowKeyNavigationHandler = undefined;
+    }
 }

@@ -13,4 +13,5 @@ internal sealed record ArchiveItemEntry(
     DateTime LastWriteTimeUtc,
     bool IsVideo,
     bool IsMusic = false,
+    bool IsImage = false,
     string? AlbumCoverId = null);

@@ -1,0 +1,105 @@
+.image-carousel-viewer {
+    z-index: 4;
+}
+
+.image-carousel-viewer .carousel-item img {
+    -webkit-user-drag: none;
+    user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+}
+
+.image-carousel-viewer .carousel.zoomable {
+    cursor: grab;
+    touch-action: none;
+}
+
+.image-carousel-viewer .carousel.zoomable:active {
+    cursor: grabbing;
+}
+
+.image-carousel-controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    padding: 4.5rem .75rem .8rem;
+    background: linear-gradient(to bottom, transparent, rgba(8, 10, 9, .84) 34%, rgba(8, 10, 9, .98));
+    touch-action: manipulation;
+    transform: translateY(.4rem);
+    transition: opacity .16s ease, transform .16s ease, visibility .16s;
+}
+
+.image-carousel-controls.is-visible {
+    transform: translateY(0);
+}
+
+.saturation-control {
+    min-width: 8rem;
+    max-width: 12rem;
+    flex: 1 1 8rem;
+}
+
+.saturation-control output {
+    font-family: var(--font-family-meta);
+    font-variant-numeric: tabular-nums;
+}
+
+.saturation-control input {
+    height: 1rem;
+}
+
+.saturation-control input::-webkit-slider-runnable-track {
+    height: .3rem;
+    background: linear-gradient(
+        to right,
+        var(--bs-primary) 0,
+        var(--bs-primary) var(--saturation-progress, 0%),
+        rgba(255, 255, 255, .24) var(--saturation-progress, 0%),
+        rgba(255, 255, 255, .24) 100%);
+}
+
+.saturation-control input::-moz-range-track {
+    height: .3rem;
+    background: rgba(255, 255, 255, .24);
+}
+
+.saturation-control input::-moz-range-progress {
+    height: .3rem;
+    background: var(--bs-primary);
+}
+
+.saturation-control input::-webkit-slider-thumb {
+    margin-top: -.35rem;
+    background-color: var(--bs-primary);
+}
+
+.saturation-control input::-moz-range-thumb {
+    background-color: var(--bs-primary);
+    border: 0;
+}
+
+@media (max-width: 36rem) {
+    .image-carousel-controls {
+        padding-inline: .5rem;
+        padding-bottom: .55rem;
+    }
+
+    .image-carousel-controls .btn-toolbar {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        gap: .35rem !important;
+    }
+
+    .saturation-control {
+        flex-basis: 6rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .image-carousel-controls {
+        transition: none;
+    }
+}

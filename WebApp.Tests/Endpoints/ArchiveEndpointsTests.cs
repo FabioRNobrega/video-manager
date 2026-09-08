@@ -357,6 +357,71 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task Image_listing_and_endpoint_work_in_any_category_without_exposing_paths()
+    {
+        using var root = CreateArchive();
+        byte[] jpgFixture = [1, 2, 3, 4];
+        byte[] pngFixture = [5, 6, 7, 8];
+        await File.WriteAllBytesAsync(Path.Combine(root.Path, "Pictures", "photo.jpg"), jpgFixture);
+        await File.WriteAllBytesAsync(Path.Combine(root.Path, "Documents", "scan.png"), pngFixture);
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "note.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var picturesResponse = await client.GetAsync("/api/archive/photos/items");
+        var picturesJson = await picturesResponse.Content.ReadAsStringAsync();
+        var picturesListing = await picturesResponse.Content.ReadFromJsonAsync<ArchiveListingDto>();
+        var photo = Assert.Single(picturesListing!.Items);
+
+        Assert.DoesNotContain(root.Path, picturesJson);
+        Assert.True(photo.IsImage);
+        Assert.False(photo.IsVideo);
+        Assert.False(photo.IsMusic);
+        Assert.StartsWith("/api/archive/photos/items/", photo.ImageUrl);
+        Assert.EndsWith("/image", photo.ImageUrl);
+
+        using var jpgResponse = await client.GetAsync(photo.ImageUrl);
+        Assert.Equal(HttpStatusCode.OK, jpgResponse.StatusCode);
+        Assert.Equal("image/jpeg", jpgResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(jpgFixture, await jpgResponse.Content.ReadAsByteArrayAsync());
+
+        var documentsListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var scan = documentsListing.Items.Single(item => item.Name == "scan.png");
+        var note = documentsListing.Items.Single(item => item.Name == "note.txt");
+
+        Assert.True(scan.IsImage);
+        Assert.False(note.IsImage);
+        Assert.Null(note.ImageUrl);
+
+        using var pngResponse = await client.GetAsync(scan.ImageUrl);
+        Assert.Equal(HttpStatusCode.OK, pngResponse.StatusCode);
+        Assert.Equal("image/png", pngResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(pngFixture, await pngResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Image_endpoint_returns_not_found_for_non_image_folder_and_unknown_ids()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Pictures", "Album"));
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Pictures", "notes.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/photos/items"))!;
+        var folder = listing.Items.Single(item => item.Name == "Album");
+        var textFile = listing.Items.Single(item => item.Name == "notes.txt");
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/photos/items/{folder.Id}/image")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/photos/items/{textFile.Id}/image")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/photos/items/{Guid.NewGuid():N}/image")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/archive/photos/items/%2Fetc%2Fpasswd/image")).StatusCode);
+    }
+
+    [Fact]
     public void Archive_browser_markup_uses_unified_dropdown_cards_and_keeps_video_grid_specialized()
     {
         var archiveBrowser = File.ReadAllText(Path.Combine(
@@ -372,8 +437,9 @@ public sealed class ArchiveEndpointsTests
         Assert.Contains("ratio ratio-16x9", archiveBrowser);
         Assert.Contains("HoverPreviewUrl", archiveBrowser);
         Assert.Contains("AlbumCoverUrl", archiveBrowser);
-        Assert.Contains("archive-music-cover ratio ratio-1x1", archiveBrowser);
-        Assert.Contains("archive-music-overlay", archiveBrowser);
+        Assert.Contains("archive-cover-tile ratio ratio-1x1", archiveBrowser);
+        Assert.Contains("archive-cover-overlay", archiveBrowser);
+        Assert.Contains("ImageUrl", archiveBrowser);
         Assert.Contains("FormatDisplayName(item)", archiveBrowser);
         Assert.Contains("FormatDuration(item.DurationSeconds)", archiveBrowser);
         Assert.Contains("SelectMusic", archiveBrowser);
