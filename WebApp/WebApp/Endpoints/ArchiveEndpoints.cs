@@ -465,6 +465,11 @@ internal static class ArchiveEndpoints
             return Results.BadRequest(new { error = "A valid chapter is required to save progress." });
         }
 
+        if (request.WordOffset < 0)
+        {
+            return Results.BadRequest(new { error = "A valid word offset is required to save progress." });
+        }
+
         try
         {
             await progressService.SaveProgressAsync(

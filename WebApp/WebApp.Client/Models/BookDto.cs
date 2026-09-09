@@ -8,4 +8,6 @@ public sealed record BookDto(
     string? CoverUrl,
     IReadOnlyList<BookNavigationItemDto> Navigation,
     IReadOnlyList<string> ChapterIds,
+    IReadOnlyList<BookChapterProgressMetadataDto> Chapters,
+    int TotalWordCount,
     BookProgressDto? Progress);

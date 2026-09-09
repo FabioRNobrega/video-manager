@@ -1,11 +1,13 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
+using HtmlAgilityPack;
 using VersOne.Epub;
 using WebApp.Client.Models;
 using WebApp.Models;
 
 namespace WebApp.Services;
 
-internal sealed class EpubBookService(IEpubContentSanitizer sanitizer) : IEpubBookService
+internal sealed partial class EpubBookService(IEpubContentSanitizer sanitizer) : IEpubBookService
 {
     public bool TryGetBook(ArchiveItemEntry item, out BookDto? book)
     {
@@ -22,11 +24,12 @@ internal sealed class EpubBookService(IEpubContentSanitizer sanitizer) : IEpubBo
         var navigation = epubBook.Navigation is null
             ? new List<BookNavigationItemDto>()
             : BuildNavigation(epubBook.Navigation, chapterIndexByPath);
+        var chapters = BuildChapterProgressMetadata(epubBook);
         var hasCover = epubBook.CoverImage is { Length: > 0 };
         var title = string.IsNullOrWhiteSpace(epubBook.Title) ? item.Name : epubBook.Title;
         var author = string.IsNullOrWhiteSpace(epubBook.Author) ? null : epubBook.Author;
 
-        book = new BookDto(item.Id, title, author, hasCover, null, navigation, chapterIds, null);
+        book = new BookDto(item.Id, title, author, hasCover, null, navigation, chapterIds, chapters, chapters.Sum(chapter => chapter.WordCount), null);
         return true;
     }
 
@@ -49,7 +52,8 @@ internal sealed class EpubBookService(IEpubContentSanitizer sanitizer) : IEpubBo
         var nextId = index < epubBook.ReadingOrder.Count - 1 ? ToChapterId(index + 1) : null;
         var title = epubBook.Navigation is null ? null : FindNavigationTitle(epubBook.Navigation, contentFile.FilePath);
 
-        chapter = new BookChapterDto(ToChapterId(index), index, title, sanitizedHtml, previousId, nextId);
+        var wordCount = CountWordsFromHtml(sanitizedHtml);
+        chapter = new BookChapterDto(ToChapterId(index), index, title, sanitizedHtml, wordCount, previousId, nextId);
         return true;
     }
 
@@ -87,6 +91,34 @@ internal sealed class EpubBookService(IEpubContentSanitizer sanitizer) : IEpubBo
         int.TryParse(chapterId, NumberStyles.None, CultureInfo.InvariantCulture, out index) && index >= 0;
 
     private static string ToChapterId(int index) => index.ToString(CultureInfo.InvariantCulture);
+
+    private List<BookChapterProgressMetadataDto> BuildChapterProgressMetadata(EpubBook book)
+    {
+        var chapters = new List<BookChapterProgressMetadataDto>(book.ReadingOrder.Count);
+        for (var index = 0; index < book.ReadingOrder.Count; index++)
+        {
+            var sanitizedHtml = sanitizer.Sanitize(book.ReadingOrder[index].Content);
+            chapters.Add(new BookChapterProgressMetadataDto(ToChapterId(index), index, CountWordsFromHtml(sanitizedHtml)));
+        }
+
+        return chapters;
+    }
+
+    internal static int CountWordsFromHtml(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return 0;
+        }
+
+        var document = new HtmlDocument();
+        document.LoadHtml(html);
+        var text = HtmlEntity.DeEntitize(document.DocumentNode.InnerText);
+        return WordRegex().Count(text);
+    }
+
+    [GeneratedRegex(@"[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*", RegexOptions.CultureInvariant)]
+    private static partial Regex WordRegex();
 
     private static Dictionary<string, int> BuildChapterIndexByPath(EpubBook book)
     {

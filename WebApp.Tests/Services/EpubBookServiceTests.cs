@@ -22,6 +22,21 @@ public sealed class EpubBookServiceTests
         Assert.Equal("Test Author", book.Author);
         Assert.True(book.HasCover);
         Assert.Equal(["0", "1"], book.ChapterIds);
+        Assert.Equal(20, book.TotalWordCount);
+        Assert.Collection(
+            book.Chapters,
+            chapter =>
+            {
+                Assert.Equal("0", chapter.ChapterId);
+                Assert.Equal(0, chapter.ChapterIndex);
+                Assert.Equal(10, chapter.WordCount);
+            },
+            chapter =>
+            {
+                Assert.Equal("1", chapter.ChapterId);
+                Assert.Equal(1, chapter.ChapterIndex);
+                Assert.Equal(10, chapter.WordCount);
+            });
         Assert.Equal(2, book.Navigation.Count);
         Assert.Equal("Chapter One", book.Navigation[0].Title);
         Assert.Equal("0", book.Navigation[0].ChapterId);
@@ -71,6 +86,7 @@ public sealed class EpubBookServiceTests
         Assert.True(foundFirst);
         Assert.NotNull(first);
         Assert.Equal(0, first!.ChapterIndex);
+        Assert.Equal(10, first.WordCount);
         Assert.Null(first.PreviousChapterId);
         Assert.Equal("1", first.NextChapterId);
         Assert.Contains("This is the first chapter", first.ContentHtml);

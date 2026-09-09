@@ -31,7 +31,7 @@ internal sealed class EpubProgressService(IOptions<ArchiveRootOptions> options) 
         }
 
         return entries.TryGetValue(key, out var record)
-            ? new BookProgressDto(record.ChapterId, record.ScrollFraction)
+            ? new BookProgressDto(record.ChapterId, Math.Max(0, record.WordOffset ?? 0))
             : null;
     }
 
@@ -50,7 +50,7 @@ internal sealed class EpubProgressService(IOptions<ArchiveRootOptions> options) 
         try
         {
             var entries = await ReadAllUnlockedAsync(cancellationToken);
-            entries[key] = new ProgressRecord(progress.ChapterId, progress.ScrollFraction);
+            entries[key] = new ProgressRecord(progress.ChapterId, Math.Max(0, progress.WordOffset));
             await WriteAllUnlockedAsync(entries, cancellationToken);
         }
         finally
@@ -105,5 +105,5 @@ internal sealed class EpubProgressService(IOptions<ArchiveRootOptions> options) 
         return Convert.ToHexString(hash)[..32].ToLowerInvariant();
     }
 
-    private sealed record ProgressRecord(string ChapterId, double ScrollFraction);
+    private sealed record ProgressRecord(string ChapterId, int? WordOffset = null, double? ScrollFraction = null);
 }

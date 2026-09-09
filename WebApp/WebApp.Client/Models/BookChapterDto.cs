@@ -5,5 +5,6 @@ public sealed record BookChapterDto(
     int ChapterIndex,
     string? Title,
     string ContentHtml,
+    int WordCount,
     string? PreviousChapterId,
     string? NextChapterId);

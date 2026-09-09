@@ -541,7 +541,7 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
-    public async Task Book_progress_endpoint_round_trips_chapter_and_scroll_position()
+    public async Task Book_progress_endpoint_round_trips_chapter_and_word_offset()
     {
         using var root = CreateArchive();
         EpubTestFixture.CreateMinimalEpub(Path.Combine(root.Path, "Books", "novel.epub"));
@@ -555,12 +555,12 @@ public sealed class ArchiveEndpointsTests
         Assert.Null(await initial.Content.ReadFromJsonAsync<BookProgressDto>());
 
         using var saveResponse = await client.PutAsJsonAsync(
-            $"/api/archive/books/items/{book.Id}/book/progress", new BookProgressDto("1", 0.75));
+            $"/api/archive/books/items/{book.Id}/book/progress", new BookProgressDto("1", 750));
         Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
 
         var reloaded = await client.GetFromJsonAsync<BookProgressDto>($"/api/archive/books/items/{book.Id}/book/progress");
         Assert.Equal("1", reloaded!.ChapterId);
-        Assert.Equal(0.75, reloaded.ScrollFraction);
+        Assert.Equal(750, reloaded.WordOffset);
 
         var bookDtoAfterProgress = await client.GetFromJsonAsync<BookDto>($"/api/archive/books/items/{book.Id}/book");
         Assert.Equal("1", bookDtoAfterProgress!.Progress?.ChapterId);

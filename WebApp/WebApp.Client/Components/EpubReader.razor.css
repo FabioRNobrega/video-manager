@@ -121,6 +121,7 @@
 .epub-reader-content {
     position: relative;
     --epub-reader-page-gap: clamp(2rem, 6vw, 5rem);
+    padding-bottom: 4.5rem;
     touch-action: pan-y;
     user-select: text;
     scrollbar-width: none;
@@ -128,6 +129,22 @@
 
 .epub-reader-content::-webkit-scrollbar {
     display: none;
+}
+
+.epub-reader-progress-footer {
+    position: absolute;
+    z-index: 3;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.epub-reader-progress-value {
+    min-width: 7.5rem;
+}
+
+.epub-reader-page-controls {
+    flex: 0 0 auto;
 }
 
 .epub-chapter {
@@ -139,21 +156,6 @@
     overflow: visible;
     orphans: 2;
     widows: 2;
-}
-
-.epub-reader-page-button {
-    position: absolute;
-    z-index: 3;
-    bottom: 1rem;
-    min-height: 2.75rem;
-}
-
-.epub-reader-page-button-previous {
-    left: 1rem;
-}
-
-.epub-reader-page-button-next {
-    right: 1rem;
 }
 
 .epub-chapter ::deep img,
@@ -191,5 +193,18 @@
         width: min(18rem, 76vw);
         max-width: calc(100vw - 3rem);
         box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
+    }
+
+    .epub-reader-progress-footer {
+        justify-content: center !important;
+    }
+
+    .epub-reader-progress-value {
+        flex: 1 1 calc(50% - .5rem);
+        min-width: 0;
+    }
+
+    .epub-reader-page-controls {
+        order: 3;
     }
 }

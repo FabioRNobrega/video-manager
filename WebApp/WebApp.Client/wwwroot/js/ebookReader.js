@@ -82,3 +82,12 @@ export function getPageFraction(container) {
 
     return Math.min(1, Math.max(0, Math.round(container.scrollLeft / pageStride) / (pageCount - 1)));
 }
+
+export function getVisibleWordOffset(container, chapterWordCount) {
+    const wordCount = Math.max(0, Number.parseInt(chapterWordCount, 10) || 0);
+    if (!container || wordCount === 0) {
+        return 0;
+    }
+
+    return Math.round(getPageFraction(container) * wordCount);
+}

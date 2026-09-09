@@ -25,14 +25,14 @@ public sealed class EpubProgressServiceTests
     {
         using var root = new TemporaryDirectory();
         var service = CreateService(root.Path);
-        var saved = new BookProgressDto("3", 0.42);
+        var saved = new BookProgressDto("3", 420);
 
         await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, saved, CancellationToken.None);
         var loaded = await service.LoadProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, CancellationToken.None);
 
         Assert.NotNull(loaded);
         Assert.Equal("3", loaded!.ChapterId);
-        Assert.Equal(0.42, loaded.ScrollFraction);
+        Assert.Equal(420, loaded.WordOffset);
     }
 
     [Fact]
@@ -41,13 +41,13 @@ public sealed class EpubProgressServiceTests
         using var root = new TemporaryDirectory();
         var service = CreateService(root.Path);
 
-        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("1", 0.1), CancellationToken.None);
-        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("5", 0.9), CancellationToken.None);
+        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("1", 100), CancellationToken.None);
+        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("5", 900), CancellationToken.None);
 
         var loaded = await service.LoadProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, CancellationToken.None);
 
         Assert.Equal("5", loaded!.ChapterId);
-        Assert.Equal(0.9, loaded.ScrollFraction);
+        Assert.Equal(900, loaded.WordOffset);
     }
 
     [Fact]
@@ -56,8 +56,8 @@ public sealed class EpubProgressServiceTests
         using var root = new TemporaryDirectory();
         var service = CreateService(root.Path);
 
-        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("1", 0.1), CancellationToken.None);
-        await service.SaveProgressAsync("books", "item-1", 2048, LastWriteTimeUtc, new BookProgressDto("9", 0.9), CancellationToken.None);
+        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("1", 100), CancellationToken.None);
+        await service.SaveProgressAsync("books", "item-1", 2048, LastWriteTimeUtc, new BookProgressDto("9", 900), CancellationToken.None);
 
         var originalVersionProgress = await service.LoadProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, CancellationToken.None);
         var replacedVersionProgress = await service.LoadProgressAsync("books", "item-1", 2048, LastWriteTimeUtc, CancellationToken.None);
@@ -86,7 +86,7 @@ public sealed class EpubProgressServiceTests
         using var root = new TemporaryDirectory();
         var service = CreateService(root.Path);
 
-        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("1", 0.5), CancellationToken.None);
+        await service.SaveProgressAsync("books", "item-1", 1024, LastWriteTimeUtc, new BookProgressDto("1", 500), CancellationToken.None);
 
         var notesFolder = Path.Combine(root.Path, "Books", "Notes");
         var leftoverTempFiles = Directory.GetFiles(notesFolder, "*.tmp");
