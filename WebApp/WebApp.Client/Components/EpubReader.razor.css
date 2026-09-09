@@ -28,6 +28,7 @@
     --bs-link-hover-color: #1d3e59;
     --bs-link-color-rgb: 29, 62, 89;
     --bs-focus-ring-color: rgba(185, 138, 46, .28);
+    --epub-reader-toc-bg: #f8efd9;
 }
 
 .epub-reader.reader-dark {
@@ -49,10 +50,13 @@
     --bs-link-hover-color: #85b8d6;
     --bs-link-color-rgb: 133, 184, 214;
     --bs-focus-ring-color: rgba(185, 138, 46, .35);
+    --epub-reader-toc-bg: #141f19;
 }
 
 .epub-reader-toolbars {
     flex: 0 0 auto;
+    position: relative;
+    z-index: 4;
 }
 
 .epub-reader-toolbar-show-button {
@@ -67,12 +71,15 @@
 .epub-reader-body {
     /* Flex children need an explicit min-height to allow their own overflow/scroll instead of growing the row. */
     min-height: 0;
+    position: relative;
 }
 
 .epub-reader-toc {
     width: 18rem;
     max-width: 80vw;
     flex: 0 0 auto;
+    background-color: var(--epub-reader-toc-bg);
+    color: var(--bs-body-color);
 }
 
 .epub-reader-toc-button {
@@ -169,8 +176,9 @@
         position: absolute;
         inset-block: 0;
         left: 0;
-        z-index: 2;
-        background-color: inherit;
+        z-index: 3;
+        width: min(18rem, 76vw);
+        max-width: calc(100vw - 3rem);
         box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
     }
 }
