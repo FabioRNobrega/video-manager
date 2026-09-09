@@ -214,14 +214,14 @@
                         <button class="btn btn-secondary d-inline-flex align-items-center gap-2"
                                 type="button"
                                 disabled="@(_pageIndex <= 0 && _chapter.PreviousChapterId is null)"
-                                @onclick="GoToPreviousPageAsync">
+                                @onclick="GoToPreviousPageFromButtonAsync">
                             <i class="bi bi-chevron-left" aria-hidden="true"></i>
                             Previous
                         </button>
                         <button class="btn btn-secondary d-inline-flex align-items-center gap-2"
                                 type="button"
                                 disabled="@(_pageIndex >= _pageCount - 1 && _chapter.NextChapterId is null)"
-                                @onclick="GoToNextPageAsync">
+                                @onclick="GoToNextPageFromButtonAsync">
                             Next
                             <i class="bi bi-chevron-right" aria-hidden="true"></i>
                         </button>
@@ -285,7 +285,7 @@
     private string? _loadedItemId;
     private ElementReference _contentRef;
     private IJSObjectReference? _module;
-    private DotNetObjectReference<EpubReader>? _keyboardNavigationReference;
+    private DotNetObjectReference<EpubReader>? _pageNavigationReference;
     private CancellationTokenSource? _statusCts;
 
     private bool _pendingPaginationApply;
@@ -359,8 +359,9 @@
         if (firstRender)
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/ebookReader.js");
-            _keyboardNavigationReference = DotNetObjectReference.Create(this);
-            await _module.InvokeVoidAsync("registerPageNavigation", _keyboardNavigationReference);
+            _pageNavigationReference = DotNetObjectReference.Create(this);
+            await _module.InvokeVoidAsync("registerPageNavigation", _pageNavigationReference);
+            await _module.InvokeVoidAsync("registerTapNavigation", _contentRef, _pageNavigationReference);
             if (await ApplyResponsiveContentPaddingDefaultAsync())
             {
                 StateHasChanged();
@@ -738,10 +739,14 @@
     }
 
     [JSInvokable]
-    public Task GoToNextPageFromKeyboardAsync() => GoToNextPageAsync();
+    public Task GoToNextPageFromInputAsync() => GoToNextPageAsync();
 
     [JSInvokable]
-    public Task GoToPreviousPageFromKeyboardAsync() => GoToPreviousPageAsync();
+    public Task GoToPreviousPageFromInputAsync() => GoToPreviousPageAsync();
+
+    private Task GoToNextPageFromButtonAsync() => GoToNextPageAsync();
+
+    private Task GoToPreviousPageFromButtonAsync() => GoToPreviousPageAsync();
 
     private async Task HandleSelectionChangedAsync()
     {
@@ -884,6 +889,7 @@
         try
         {
             await _module.InvokeVoidAsync("unregisterPageNavigation");
+            await _module.InvokeVoidAsync("unregisterTapNavigation");
         }
         catch (JSDisconnectedException)
         {
@@ -925,7 +931,7 @@
         _statusCts?.Dispose();
 
         await UnregisterPageNavigationAsync();
-        _keyboardNavigationReference?.Dispose();
+        _pageNavigationReference?.Dispose();
 
         if (_module is not null)
         {

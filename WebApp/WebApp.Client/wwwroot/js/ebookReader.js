@@ -1,16 +1,37 @@
 let pageNavigationHandler = null;
+let tapNavigationHandlers = null;
+
+// A completed pointer gesture only counts as a tap (page turn) if it barely moved and was quick -
+// this is what tells a tap apart from a drag-to-select, a flick, or a long-press-to-select.
+const TAP_MAX_DISTANCE_PX = 10;
+const TAP_MAX_DURATION_MS = 500;
+const SIDE_ZONE_RATIO = 0.35;
+
+function requestPageChange(dotNetReference, direction) {
+    const method = direction === "previous"
+        ? "GoToPreviousPageFromInputAsync"
+        : direction === "next"
+            ? "GoToNextPageFromInputAsync"
+            : null;
+
+    if (!method) {
+        return;
+    }
+
+    dotNetReference.invokeMethodAsync(method).catch(() => { });
+}
 
 export function registerPageNavigation(dotNetReference) {
     unregisterPageNavigation();
 
     pageNavigationHandler = event => {
-        const method = event.key === "ArrowLeft"
-            ? "GoToPreviousPageFromKeyboardAsync"
+        const direction = event.key === "ArrowLeft"
+            ? "previous"
             : event.key === "ArrowRight"
-                ? "GoToNextPageFromKeyboardAsync"
+                ? "next"
                 : null;
 
-        if (!method) {
+        if (!direction) {
             return;
         }
 
@@ -20,7 +41,7 @@ export function registerPageNavigation(dotNetReference) {
             return;
         }
 
-        dotNetReference.invokeMethodAsync(method).catch(() => { });
+        requestPageChange(dotNetReference, direction);
     };
 
     window.addEventListener("keydown", pageNavigationHandler);
@@ -33,6 +54,125 @@ export function unregisterPageNavigation() {
 
     window.removeEventListener("keydown", pageNavigationHandler);
     pageNavigationHandler = null;
+}
+
+function isTapGesture(maxDistance, durationMs) {
+    return maxDistance <= TAP_MAX_DISTANCE_PX && durationMs <= TAP_MAX_DURATION_MS;
+}
+
+function isInteractiveTarget(target) {
+    return !!target?.closest?.("a, button, input, select, textarea");
+}
+
+function resolveZone(container, clientX) {
+    const rect = container.getBoundingClientRect();
+    if (rect.width <= 0) {
+        return null;
+    }
+
+    const relativeX = (clientX - rect.left) / rect.width;
+    if (relativeX < SIDE_ZONE_RATIO) {
+        return "previous";
+    }
+
+    if (relativeX > 1 - SIDE_ZONE_RATIO) {
+        return "next";
+    }
+
+    return null;
+}
+
+export function registerTapNavigation(container, dotNetReference) {
+    unregisterTapNavigation();
+
+    if (!container) {
+        return;
+    }
+
+    let activePointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let maxDistance = 0;
+
+    const resetGesture = () => {
+        activePointerId = null;
+    };
+
+    const onPointerDown = event => {
+        if (activePointerId !== null) {
+            return;
+        }
+
+        activePointerId = event.pointerId;
+        startX = event.clientX;
+        startY = event.clientY;
+        startTime = event.timeStamp;
+        maxDistance = 0;
+    };
+
+    const onPointerMove = event => {
+        if (event.pointerId !== activePointerId) {
+            return;
+        }
+
+        const distance = Math.hypot(event.clientX - startX, event.clientY - startY);
+        maxDistance = Math.max(maxDistance, distance);
+    };
+
+    const onPointerUp = event => {
+        if (event.pointerId !== activePointerId) {
+            return;
+        }
+
+        const durationMs = event.timeStamp - startTime;
+        resetGesture();
+
+        if (!isTapGesture(maxDistance, durationMs)) {
+            return;
+        }
+
+        if (isInteractiveTarget(event.target)) {
+            return;
+        }
+
+        if (!window.getSelection()?.isCollapsed) {
+            return;
+        }
+
+        const direction = resolveZone(container, event.clientX);
+        if (!direction) {
+            return;
+        }
+
+        requestPageChange(dotNetReference, direction);
+    };
+
+    const onPointerCancel = event => {
+        if (event.pointerId === activePointerId) {
+            resetGesture();
+        }
+    };
+
+    container.addEventListener("pointerdown", onPointerDown);
+    container.addEventListener("pointermove", onPointerMove);
+    container.addEventListener("pointerup", onPointerUp);
+    container.addEventListener("pointercancel", onPointerCancel);
+
+    tapNavigationHandlers = { container, onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
+}
+
+export function unregisterTapNavigation() {
+    if (!tapNavigationHandlers) {
+        return;
+    }
+
+    const { container, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = tapNavigationHandlers;
+    container.removeEventListener("pointerdown", onPointerDown);
+    container.removeEventListener("pointermove", onPointerMove);
+    container.removeEventListener("pointerup", onPointerUp);
+    container.removeEventListener("pointercancel", onPointerCancel);
+    tapNavigationHandlers = null;
 }
 
 export function getSelectionText(container) {
