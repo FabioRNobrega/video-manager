@@ -1,0 +1,181 @@
+.epub-reader {
+    z-index: 4;
+}
+
+/*
+ * The reader's light/dark mode is independent of the app's global data-bs-theme, so Bootstrap
+ * classes used inside it (btn-outline-secondary, text-body-secondary, border-*, alert-*) must
+ * not inherit the ambient theme's variable values, or text/controls lose contrast whenever the
+ * reader mode and app theme disagree. Re-declaring the same Bootstrap custom properties app.css
+ * defines per theme keeps every Bootstrap-driven color correct for the reader's own mode.
+ */
+.epub-reader.reader-light {
+    background-color: #f8efd9;
+    color: #2b2418;
+    --bs-body-color: #4a4030;
+    --bs-body-color-rgb: 74, 64, 48;
+    --bs-emphasis-color: #2b2418;
+    --bs-emphasis-color-rgb: 43, 36, 24;
+    --bs-secondary-color: #6b6048;
+    --bs-secondary-color-rgb: 107, 96, 72;
+    --bs-border-color: #d2be8d;
+    --bs-border-color-translucent: #d2be8d;
+    --bs-secondary-bg: #e6d6ae;
+    --bs-secondary-bg-rgb: 230, 214, 174;
+    --bs-tertiary-bg: #e6d6ae;
+    --bs-tertiary-bg-rgb: 230, 214, 174;
+    --bs-link-color: #1d3e59;
+    --bs-link-hover-color: #1d3e59;
+    --bs-link-color-rgb: 29, 62, 89;
+    --bs-focus-ring-color: rgba(185, 138, 46, .28);
+}
+
+.epub-reader.reader-dark {
+    background-color: #141f19;
+    color: #edeae0;
+    --bs-body-color: #c9d2cb;
+    --bs-body-color-rgb: 201, 210, 203;
+    --bs-emphasis-color: #edeae0;
+    --bs-emphasis-color-rgb: 237, 234, 224;
+    --bs-secondary-color: #8fa398;
+    --bs-secondary-color-rgb: 143, 163, 152;
+    --bs-border-color: #28352d;
+    --bs-border-color-translucent: #28352d;
+    --bs-secondary-bg: #1b2a22;
+    --bs-secondary-bg-rgb: 27, 42, 34;
+    --bs-tertiary-bg: #1b2a22;
+    --bs-tertiary-bg-rgb: 27, 42, 34;
+    --bs-link-color: #85b8d6;
+    --bs-link-hover-color: #85b8d6;
+    --bs-link-color-rgb: 133, 184, 214;
+    --bs-focus-ring-color: rgba(185, 138, 46, .35);
+}
+
+/*
+ * The toolbars float above the reading surface and stay hidden until the pointer rests near the
+ * top edge (or a control inside gains focus), so the page itself is not permanently pushed down
+ * by chrome the reader is mostly reading, not operating.
+ */
+.epub-reader-hover-zone {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1rem;
+    z-index: 5;
+}
+
+.epub-reader-toolbars {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    z-index: 4;
+    transform: translateY(-100%);
+    transition: transform .18s ease;
+    pointer-events: none;
+}
+
+.epub-reader-toolbars.is-visible {
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.epub-reader-body {
+    /* Flex children need an explicit min-height to allow their own overflow/scroll instead of growing the row. */
+    min-height: 0;
+}
+
+.epub-reader-toc {
+    width: 18rem;
+    max-width: 80vw;
+    flex: 0 0 auto;
+}
+
+/*
+ * The reading-margin padding lives on this outer frame, not on `.epub-reader-content` itself.
+ * The content element is the clipped page viewport; the chapter inside it is laid out into
+ * viewport-width CSS columns and translated horizontally by ebookReader.js.
+ */
+.epub-reader-page-frame {
+    position: relative;
+    padding: 1rem;
+}
+
+@media (min-width: 48rem) {
+    .epub-reader-page-frame {
+        padding-inline: 4rem;
+    }
+
+    .epub-reader-page-frame.epub-content-wide {
+        padding-inline: 1.5rem;
+    }
+}
+
+.epub-reader-content {
+    position: relative;
+    touch-action: pan-y;
+    user-select: text;
+}
+
+.epub-chapter {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.epub-reader-page-button {
+    position: absolute;
+    z-index: 3;
+    bottom: 1rem;
+    min-height: 2.75rem;
+}
+
+.epub-reader-page-button-previous {
+    left: 1rem;
+}
+
+.epub-reader-page-button-next {
+    right: 1rem;
+}
+
+.epub-chapter ::deep img,
+.epub-chapter ::deep video,
+.epub-chapter ::deep svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.epub-chapter ::deep p,
+.epub-chapter ::deep blockquote,
+.epub-chapter ::deep figure,
+.epub-chapter ::deep pre,
+.epub-chapter ::deep table,
+.epub-chapter ::deep ul,
+.epub-chapter ::deep ol {
+    break-inside: avoid;
+}
+
+.epub-chapter ::deep h1,
+.epub-chapter ::deep h2,
+.epub-chapter ::deep h3,
+.epub-chapter ::deep h4,
+.epub-chapter ::deep h5,
+.epub-chapter ::deep h6 {
+    break-after: avoid;
+}
+
+@media (max-width: 47.98rem) {
+    .epub-reader-toc {
+        position: absolute;
+        inset-block: 0;
+        left: 0;
+        z-index: 2;
+        background-color: inherit;
+        box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .epub-reader-toolbars {
+        transition: none;
+    }
+}

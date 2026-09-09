@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using WebApp.Client.Models;
 using WebApp.Configuration;
 using WebApp.Services;
+using WebApp.Tests.Services;
 
 namespace WebApp.Tests.Endpoints;
 
@@ -419,6 +420,177 @@ public sealed class ArchiveEndpointsTests
             (await client.GetAsync($"/api/archive/photos/items/{Guid.NewGuid():N}/image")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await client.GetAsync("/api/archive/photos/items/%2Fetc%2Fpasswd/image")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Book_listing_returns_browser_safe_epub_fields_without_paths()
+    {
+        using var root = CreateArchive();
+        EpubTestFixture.CreateMinimalEpub(Path.Combine(root.Path, "Books", "novel.epub"), "My Book", "My Author");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/archive/books/items");
+        var json = await response.Content.ReadAsStringAsync();
+        var listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
+        var book = Assert.Single(listing!.Items);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(root.Path, json);
+        Assert.True(book.IsBook);
+        Assert.Equal("My Book", book.BookTitle);
+        Assert.Equal("My Author", book.BookAuthor);
+        Assert.StartsWith("/api/archive/books/items/", book.BookCoverUrl);
+        Assert.EndsWith("/book/cover", book.BookCoverUrl);
+    }
+
+    [Fact]
+    public async Task Book_endpoint_returns_metadata_navigation_and_progress()
+    {
+        using var root = CreateArchive();
+        EpubTestFixture.CreateMinimalEpub(Path.Combine(root.Path, "Books", "novel.epub"), "My Book", "My Author");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
+        var book = Assert.Single(listing.Items);
+
+        using var response = await client.GetAsync($"/api/archive/books/items/{book.Id}/book");
+        var json = await response.Content.ReadAsStringAsync();
+        var bookDto = await response.Content.ReadFromJsonAsync<BookDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(root.Path, json);
+        Assert.Equal("My Book", bookDto!.Title);
+        Assert.Equal("My Author", bookDto.Author);
+        Assert.True(bookDto.HasCover);
+        Assert.Equal(2, bookDto.Navigation.Count);
+        Assert.Equal(["0", "1"], bookDto.ChapterIds);
+        Assert.Null(bookDto.Progress);
+    }
+
+    [Fact]
+    public async Task Book_cover_endpoint_serves_embedded_cover_image()
+    {
+        using var root = CreateArchive();
+        EpubTestFixture.CreateMinimalEpub(Path.Combine(root.Path, "Books", "novel.epub"));
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
+        var book = Assert.Single(listing.Items);
+
+        using var response = await client.GetAsync($"/api/archive/books/items/{book.Id}/book/cover");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        Assert.NotEmpty(await response.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Book_chapter_endpoint_returns_sanitized_content_and_rejects_unknown_chapters()
+    {
+        using var root = CreateArchive();
+        EpubTestFixture.CreateMinimalEpub(Path.Combine(root.Path, "Books", "novel.epub"));
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
+        var book = Assert.Single(listing.Items);
+
+        using var response = await client.GetAsync($"/api/archive/books/items/{book.Id}/book/chapters/0");
+        var chapter = await response.Content.ReadFromJsonAsync<BookChapterDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("This is the first chapter", chapter!.ContentHtml);
+        Assert.DoesNotContain("<script", chapter.ContentHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(chapter.PreviousChapterId);
+        Assert.Equal("1", chapter.NextChapterId);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/books/items/{book.Id}/book/chapters/99")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Book_note_endpoint_appends_to_shared_notes_file_and_rejects_invalid_requests()
+    {
+        using var root = CreateArchive();
+        EpubTestFixture.CreateMinimalEpub(Path.Combine(root.Path, "Books", "novel.epub"), "My Book", "My Author");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
+        var book = Assert.Single(listing.Items);
+
+        using var response = await client.PostAsJsonAsync(
+            $"/api/archive/books/items/{book.Id}/book/notes",
+            new BookNoteRequest("0", "A memorable passage.", null, null));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var notesPath = Path.Combine(root.Path, "Books", "Notes", "pereneArchiveBookNotes.txt");
+        var content = await File.ReadAllTextAsync(notesPath);
+        Assert.Contains("My Book (My Author)", content);
+        Assert.Contains("A memorable passage.", content);
+        Assert.Contains("==========", content);
+
+        using var emptySelection = await client.PostAsJsonAsync(
+            $"/api/archive/books/items/{book.Id}/book/notes",
+            new BookNoteRequest("0", "   ", null, null));
+        Assert.Equal(HttpStatusCode.BadRequest, emptySelection.StatusCode);
+
+        using var unknownId = await client.PostAsJsonAsync(
+            $"/api/archive/books/items/{Guid.NewGuid():N}/book/notes",
+            new BookNoteRequest("0", "Text", null, null));
+        Assert.Equal(HttpStatusCode.NotFound, unknownId.StatusCode);
+    }
+
+    [Fact]
+    public async Task Book_progress_endpoint_round_trips_chapter_and_scroll_position()
+    {
+        using var root = CreateArchive();
+        EpubTestFixture.CreateMinimalEpub(Path.Combine(root.Path, "Books", "novel.epub"));
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
+        var book = Assert.Single(listing.Items);
+
+        using var initial = await client.GetAsync($"/api/archive/books/items/{book.Id}/book/progress");
+        Assert.Equal(HttpStatusCode.OK, initial.StatusCode);
+        Assert.Null(await initial.Content.ReadFromJsonAsync<BookProgressDto>());
+
+        using var saveResponse = await client.PutAsJsonAsync(
+            $"/api/archive/books/items/{book.Id}/book/progress", new BookProgressDto("1", 0.75));
+        Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
+
+        var reloaded = await client.GetFromJsonAsync<BookProgressDto>($"/api/archive/books/items/{book.Id}/book/progress");
+        Assert.Equal("1", reloaded!.ChapterId);
+        Assert.Equal(0.75, reloaded.ScrollFraction);
+
+        var bookDtoAfterProgress = await client.GetFromJsonAsync<BookDto>($"/api/archive/books/items/{book.Id}/book");
+        Assert.Equal("1", bookDtoAfterProgress!.Progress?.ChapterId);
+    }
+
+    [Fact]
+    public async Task Book_endpoints_reject_malformed_epub_and_non_book_categories_without_leaking_paths()
+    {
+        using var root = CreateArchive();
+        EpubTestFixture.CreateMalformedEpub(Path.Combine(root.Path, "Books", "broken.epub"));
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "note.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var booksListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
+        var broken = Assert.Single(booksListing.Items);
+        var documentsListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var nonBookItem = Assert.Single(documentsListing.Items);
+
+        using var brokenResponse = await client.GetAsync($"/api/archive/books/items/{broken.Id}/book");
+        var brokenJson = await brokenResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, brokenResponse.StatusCode);
+        Assert.DoesNotContain(root.Path, brokenJson);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{nonBookItem.Id}/book")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/books/items/{Guid.NewGuid():N}/book")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/archive/books/items/%2Fetc%2Fpasswd/book")).StatusCode);
     }
 
     [Fact]

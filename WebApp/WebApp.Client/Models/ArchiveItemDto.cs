@@ -21,4 +21,8 @@ public sealed record ArchiveItemDto(
     string? AudioUrl = null,
     string? AlbumCoverUrl = null,
     bool IsImage = false,
-    string? ImageUrl = null);
+    string? ImageUrl = null,
+    bool IsBook = false,
+    string? BookCoverUrl = null,
+    string? BookTitle = null,
+    string? BookAuthor = null);

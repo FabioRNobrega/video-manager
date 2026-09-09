@@ -97,6 +97,10 @@ builder.Services.AddSingleton<IArchiveService, ArchiveService>();
 builder.Services.AddSingleton<ImageCropNamingService>();
 builder.Services.AddSingleton<IImageCropGenerator, ImageSharpCropGenerator>();
 builder.Services.AddSingleton<IImageCropService, ImageCropService>();
+builder.Services.AddSingleton<IEpubContentSanitizer, EpubContentSanitizer>();
+builder.Services.AddSingleton<IEpubBookService, EpubBookService>();
+builder.Services.AddSingleton<IEpubNoteService, EpubNoteService>();
+builder.Services.AddSingleton<IEpubProgressService, EpubProgressService>();
 
 var app = builder.Build();
 var configuredAllowedHosts = builder.Configuration["AllowedNetworkHosts:Hosts"]?

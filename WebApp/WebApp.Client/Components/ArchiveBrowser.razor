@@ -189,6 +189,31 @@
                                     </span>
                                 </span>
                             }
+                            else if (item.IsBook)
+                            {
+                                <span class="archive-cover-tile book-cover-tile ratio w-100" style="--bs-aspect-ratio: 150%;" aria-hidden="true">
+                                    @if (!string.IsNullOrWhiteSpace(item.BookCoverUrl))
+                                    {
+                                        <img src="@item.BookCoverUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                    }
+                                    else
+                                    {
+                                        <span class="d-flex align-items-center justify-content-center h-100">
+                                            <i class="bi bi-book display-1 lh-1 text-primary" aria-hidden="true"></i>
+                                        </span>
+                                    }
+                                    <span class="archive-cover-overlay position-absolute start-0 end-0 bottom-0 d-flex flex-column gap-1 text-start p-3">
+                                        <span class="fw-semibold text-truncate">@(item.BookTitle ?? FormatDisplayName(item))</span>
+                                        <span class="small d-flex gap-2 flex-wrap">
+                                            @if (!string.IsNullOrWhiteSpace(item.BookAuthor))
+                                            {
+                                                <span class="text-truncate">@item.BookAuthor</span>
+                                            }
+                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                        </span>
+                                    </span>
+                                </span>
+                            }
                             else if (item.IsVideo)
                             {
                                 <span class="ratio ratio-16x9 bg-body-tertiary border-bottom w-100" aria-hidden="true">
@@ -223,7 +248,7 @@
                                     </span>
                                 </span>
                             }
-                            @if (!item.IsMusic && !item.IsImage)
+                            @if (!item.IsMusic && !item.IsImage && !item.IsBook)
                             {
                                 <span class="card-body d-flex flex-column w-100 text-center">
                                     <span class="fw-semibold text-break">@item.Name</span>
@@ -344,6 +369,7 @@
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
     [Parameter] public EventCallback<ArchiveItemDto> OnVideoSelected { get; set; }
+    [Parameter] public EventCallback<ArchiveItemDto> OnBookSelected { get; set; }
 
     private readonly FolderForm _createFolder = new();
     private ArchiveListingDto? _listing;
@@ -437,6 +463,16 @@
         if (item.IsVideo && OnVideoSelected.HasDelegate)
         {
             await OnVideoSelected.InvokeAsync(item);
+            return;
+        }
+
+        if (item.IsBook)
+        {
+            if (OnBookSelected.HasDelegate)
+            {
+                await OnBookSelected.InvokeAsync(item);
+            }
+
             return;
         }
 
@@ -600,7 +636,7 @@
     private void ClearPreview() => _previewingVideoId = null;
 
     private static string CardButtonCssClass(ArchiveItemDto item) =>
-        item.IsMusic || item.IsImage
+        item.IsMusic || item.IsImage || item.IsBook
             ? "archive-cover-card card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center p-0 overflow-hidden"
             : "card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center gap-2 p-0";
 

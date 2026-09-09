@@ -14,4 +14,5 @@ internal sealed record ArchiveItemEntry(
     bool IsVideo,
     bool IsMusic = false,
     bool IsImage = false,
+    bool IsBook = false,
     string? AlbumCoverId = null);

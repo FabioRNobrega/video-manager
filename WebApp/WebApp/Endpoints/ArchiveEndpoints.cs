@@ -17,6 +17,12 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/preview", GetPreview);
         endpoints.MapGet("/api/archive/{category}/items/{id}/subtitle", GetSubtitle);
         endpoints.MapPost("/api/archive/{category}/items/{id}/crop", CreateCropAsync);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/book", GetBookAsync);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/book/cover", GetBookCover);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/book/chapters/{chapterId}", GetBookChapter);
+        endpoints.MapPost("/api/archive/{category}/items/{id}/book/notes", SaveBookNoteAsync);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/book/progress", GetBookProgressAsync);
+        endpoints.MapPut("/api/archive/{category}/items/{id}/book/progress", SaveBookProgressAsync);
         endpoints.MapPost("/api/archive/{category}/folders", CreateFolder);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/name", Rename);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/location", Move);
@@ -32,6 +38,7 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.List(category, folderId),
@@ -39,6 +46,7 @@ internal static class ArchiveEndpoints
             hoverPreviewCoordinator,
             subtitleCoordinator,
             metadataCoordinator,
+            epubBookService,
             cancellationToken));
 
     private static async Task<IResult> CreateFolder(
@@ -49,6 +57,7 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.CreateFolder(category, request.ParentId, request.Name),
@@ -56,6 +65,7 @@ internal static class ArchiveEndpoints
             hoverPreviewCoordinator,
             subtitleCoordinator,
             metadataCoordinator,
+            epubBookService,
             cancellationToken));
 
     private static async Task<IResult> Rename(
@@ -67,6 +77,7 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.Rename(category, id, request.Name),
@@ -74,6 +85,7 @@ internal static class ArchiveEndpoints
             hoverPreviewCoordinator,
             subtitleCoordinator,
             metadataCoordinator,
+            epubBookService,
             cancellationToken));
 
     private static async Task<IResult> Move(
@@ -85,6 +97,7 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.Move(category, id, request.DestinationFolderId),
@@ -92,6 +105,7 @@ internal static class ArchiveEndpoints
             hoverPreviewCoordinator,
             subtitleCoordinator,
             metadataCoordinator,
+            epubBookService,
             cancellationToken));
 
     private static async Task<IResult> MoveToTrash(
@@ -102,6 +116,7 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.MoveToTrash(category, id),
@@ -109,6 +124,7 @@ internal static class ArchiveEndpoints
             hoverPreviewCoordinator,
             subtitleCoordinator,
             metadataCoordinator,
+            epubBookService,
             cancellationToken));
 
     private static async Task<IResult> CreateCropAsync(
@@ -283,6 +299,191 @@ internal static class ArchiveEndpoints
         return Results.File(coordinator.GetFinalPath(entry), "text/vtt");
     }
 
+    private static async Task<IResult> GetBookAsync(
+        string category,
+        string id,
+        IArchiveService archive,
+        IEpubBookService epubBookService,
+        IEpubProgressService progressService,
+        CancellationToken cancellationToken)
+    {
+        if (!archive.TryResolveBook(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!epubBookService.TryGetBook(item, out var book) || book is null)
+        {
+            return Results.NotFound();
+        }
+
+        BookProgressDto? progress;
+        try
+        {
+            progress = await progressService.LoadProgressAsync(
+                category, item.Id, item.SizeBytes, item.LastWriteTimeUtc, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+        }
+
+        var coverUrl = book.HasCover ? BookCoverUrl(item) : null;
+        return Results.Ok(book with { CoverUrl = coverUrl, Progress = progress });
+    }
+
+    private static IResult GetBookCover(string category, string id, IArchiveService archive, IEpubBookService epubBookService)
+    {
+        if (!archive.TryResolveBook(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!epubBookService.TryGetCover(item, out var coverBytes, out var contentType) || coverBytes is null || contentType is null)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(coverBytes, contentType);
+    }
+
+    private static IResult GetBookChapter(
+        string category,
+        string id,
+        string chapterId,
+        IArchiveService archive,
+        IEpubBookService epubBookService)
+    {
+        if (!archive.TryResolveBook(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!epubBookService.TryGetChapter(item, chapterId, out var chapter) || chapter is null)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.Ok(chapter);
+    }
+
+    private static async Task<IResult> SaveBookNoteAsync(
+        string category,
+        string id,
+        BookNoteRequest request,
+        IArchiveService archive,
+        IEpubBookService epubBookService,
+        IEpubNoteService noteService,
+        CancellationToken cancellationToken)
+    {
+        if (!archive.TryResolveBook(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.SelectedText))
+        {
+            return Results.BadRequest(new { error = "Selected text is required to save a note." });
+        }
+
+        if (!int.TryParse(request.ChapterId, out var chapterIndex) || chapterIndex < 0)
+        {
+            return Results.BadRequest(new { error = "A valid chapter is required to save a note." });
+        }
+
+        if (!epubBookService.TryGetBook(item, out var book) || book is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            await noteService.AppendNoteAsync(
+                book.Title,
+                book.Author,
+                chapterIndex,
+                request.TextOffsetStart,
+                request.TextOffsetEnd,
+                request.SelectedText,
+                cancellationToken);
+            return Results.Ok();
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Results.Problem(
+                title: "The note could not be saved.",
+                detail: "The note file could not be written.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private static async Task<IResult> GetBookProgressAsync(
+        string category,
+        string id,
+        IArchiveService archive,
+        IEpubProgressService progressService,
+        CancellationToken cancellationToken)
+    {
+        if (!archive.TryResolveBook(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var progress = await progressService.LoadProgressAsync(
+                category, item.Id, item.SizeBytes, item.LastWriteTimeUtc, cancellationToken);
+            // Results.Json/Ok write an empty body (rather than the JSON literal "null") when the value is null,
+            // so serialize explicitly to keep this endpoint's response body always JSON-parseable.
+            return Results.Text(System.Text.Json.JsonSerializer.Serialize(progress), "application/json");
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+        }
+    }
+
+    private static async Task<IResult> SaveBookProgressAsync(
+        string category,
+        string id,
+        BookProgressDto request,
+        IArchiveService archive,
+        IEpubProgressService progressService,
+        CancellationToken cancellationToken)
+    {
+        if (!archive.TryResolveBook(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ChapterId))
+        {
+            return Results.BadRequest(new { error = "A valid chapter is required to save progress." });
+        }
+
+        try
+        {
+            await progressService.SaveProgressAsync(
+                category, item.Id, item.SizeBytes, item.LastWriteTimeUtc, request, cancellationToken);
+            return Results.Ok();
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Results.Problem(
+                title: "Progress could not be saved.",
+                detail: "The progress file could not be written.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
     private static IResult Execute(Func<ArchiveListingDto> action)
     {
         try
@@ -408,6 +609,7 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
         CancellationToken cancellationToken)
     {
         var videoEntries = listing.Items
@@ -419,7 +621,7 @@ internal static class ArchiveEndpoints
         subtitleCoordinator.Reconcile(videoEntries);
 
         var items = await Task.WhenAll(listing.Items.Select(item =>
-            ToDtoAsync(item, thumbnailCoordinator, hoverPreviewCoordinator, subtitleCoordinator, metadataCoordinator, cancellationToken)));
+            ToDtoAsync(item, thumbnailCoordinator, hoverPreviewCoordinator, subtitleCoordinator, metadataCoordinator, epubBookService, cancellationToken)));
 
         return new(
             listing.Category.Key,
@@ -431,8 +633,13 @@ internal static class ArchiveEndpoints
             items);
     }
 
-    private static ArchiveItemDto ToDto(ArchiveItemEntry item) =>
-        new(
+    private static ArchiveItemDto ToDto(ArchiveItemEntry item, IEpubBookService? epubBookService = null)
+    {
+        var (bookCoverUrl, bookTitle, bookAuthor) = item.IsBook
+            ? ReadBookSummary(item, epubBookService)
+            : (null, null, null);
+
+        return new(
             item.Id,
             item.Name,
             item.Kind,
@@ -444,7 +651,24 @@ internal static class ArchiveEndpoints
             AudioUrl: AudioUrl(item),
             AlbumCoverUrl: AlbumCoverUrl(item),
             IsImage: item.IsImage,
-            ImageUrl: ImageUrl(item));
+            ImageUrl: ImageUrl(item),
+            IsBook: item.IsBook,
+            BookCoverUrl: bookCoverUrl,
+            BookTitle: bookTitle,
+            BookAuthor: bookAuthor);
+    }
+
+    private static (string? CoverUrl, string? Title, string? Author) ReadBookSummary(
+        ArchiveItemEntry item, IEpubBookService? epubBookService)
+    {
+        if (epubBookService is null || !epubBookService.TryGetBook(item, out var book) || book is null)
+        {
+            return (null, null, null);
+        }
+
+        var coverUrl = book.HasCover ? BookCoverUrl(item) : null;
+        return (coverUrl, book.Title, book.Author);
+    }
 
     private static ArchiveItemDto ToDto(
         ArchiveItemEntry item,
@@ -505,11 +729,12 @@ internal static class ArchiveEndpoints
         HoverPreviewCoordinator hoverPreviewCoordinator,
         SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
         CancellationToken cancellationToken)
     {
         if (!item.IsVideo && !item.IsMusic)
         {
-            return ToDto(item);
+            return ToDto(item, epubBookService);
         }
 
         var entry = ToMediaEntry(item);
@@ -580,6 +805,9 @@ internal static class ArchiveEndpoints
         item.IsImage
             ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/image"
             : null;
+
+    private static string BookCoverUrl(ArchiveItemEntry item) =>
+        $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/book/cover";
 
     private static string? AlbumCoverUrl(ArchiveItemEntry item) =>
         item.IsMusic && !string.IsNullOrWhiteSpace(item.AlbumCoverId)

@@ -201,6 +201,79 @@ public sealed class ArchiveServiceTests
     }
 
     [Fact]
+    public void Epub_files_are_marked_as_books_only_inside_the_books_category()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Books", "novel.epub"));
+        awaitFile(Path.Combine(root.Path, "Downloads", "archive.epub"));
+        var service = CreateService(root.Path);
+
+        var book = Assert.Single(service.List("books", null).Items);
+        var download = Assert.Single(service.List("downloads", null).Items);
+
+        Assert.True(book.IsBook);
+        Assert.False(book.IsVideo);
+        Assert.False(book.IsMusic);
+        Assert.False(download.IsBook);
+    }
+
+    [Fact]
+    public void Books_notes_helper_file_is_not_misclassified_as_book_content()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Books", "Notes"));
+        awaitFile(Path.Combine(root.Path, "Books", "Notes", "pereneArchiveBookNotes.txt"));
+        awaitFile(Path.Combine(root.Path, "Books", "novel.epub"));
+        var service = CreateService(root.Path);
+
+        var rootListing = service.List("books", null).Items;
+        var notesFolder = rootListing.Single(item => item.Name == "Notes");
+        var book = rootListing.Single(item => item.Name == "novel.epub");
+        var notesFile = service.List("books", notesFolder.Id).Items.Single(item => item.Name == "pereneArchiveBookNotes.txt");
+
+        Assert.False(notesFile.IsBook);
+        Assert.True(book.IsBook);
+    }
+
+    [Fact]
+    public void TryResolveBook_returns_false_for_folders_and_non_epub_files()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Books", "Series"));
+        awaitFile(Path.Combine(root.Path, "Books", "notes.txt"));
+        var service = CreateService(root.Path);
+        var folder = service.List("books", null).Items.Single(item => item.Name == "Series");
+        var textFile = service.List("books", null).Items.Single(item => item.Name == "notes.txt");
+
+        Assert.False(service.TryResolveBook("books", folder.Id, out _));
+        Assert.False(service.TryResolveBook("books", textFile.Id, out _));
+        Assert.False(service.TryResolveBook("books", "unknown-id", out _));
+    }
+
+    [Fact]
+    public void TryResolveBook_returns_false_when_extension_matches_outside_books_category()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Downloads", "archive.epub"));
+        var service = CreateService(root.Path);
+        var item = Assert.Single(service.List("downloads", null).Items);
+
+        Assert.False(service.TryResolveBook("downloads", item.Id, out _));
+    }
+
+    [Fact]
+    public void TryResolveBook_resolves_a_valid_epub_item()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Books", "novel.epub"));
+        var service = CreateService(root.Path);
+        var item = Assert.Single(service.List("books", null).Items);
+
+        Assert.True(service.TryResolveBook("books", item.Id, out var resolved));
+        Assert.Equal(Path.Combine(root.Path, "Books", "novel.epub"), resolved!.PhysicalPath);
+    }
+
+    [Fact]
     public void GetCategoryRootPath_returns_the_category_physical_folder()
     {
         using var root = CreateArchive();
