@@ -216,6 +216,14 @@
     break-after: avoid;
 }
 
+.epub-chapter ::deep .epub-saved-highlight {
+    background-color: rgba(255, 218, 74, .52);
+    color: inherit;
+    border-radius: .12rem;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
 @media (max-width: 47.98rem) {
     .epub-reader-toc {
         position: absolute;

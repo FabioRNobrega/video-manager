@@ -48,12 +48,13 @@ internal sealed partial class EpubBookService(IEpubContentSanitizer sanitizer) :
 
         var contentFile = epubBook.ReadingOrder[index];
         var sanitizedHtml = sanitizer.Sanitize(contentFile.Content);
+        var normalizedText = EpubChapterText.Normalize(sanitizedHtml);
         var previousId = index > 0 ? ToChapterId(index - 1) : null;
         var nextId = index < epubBook.ReadingOrder.Count - 1 ? ToChapterId(index + 1) : null;
         var title = epubBook.Navigation is null ? null : FindNavigationTitle(epubBook.Navigation, contentFile.FilePath);
 
         var wordCount = CountWordsFromHtml(sanitizedHtml);
-        chapter = new BookChapterDto(ToChapterId(index), index, title, sanitizedHtml, wordCount, previousId, nextId);
+        chapter = new BookChapterDto(ToChapterId(index), index, title, sanitizedHtml, normalizedText, wordCount, previousId, nextId);
         return true;
     }
 

@@ -21,6 +21,7 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/cover", GetBookCover);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/chapters/{chapterId}", GetBookChapter);
         endpoints.MapPost("/api/archive/{category}/items/{id}/book/notes", SaveBookNoteAsync);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/book/highlights", GetBookHighlightsAsync);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/progress", GetBookProgressAsync);
         endpoints.MapPut("/api/archive/{category}/items/{id}/book/progress", SaveBookProgressAsync);
         endpoints.MapPost("/api/archive/{category}/folders", CreateFolder);
@@ -374,6 +375,7 @@ internal static class ArchiveEndpoints
         IArchiveService archive,
         IEpubBookService epubBookService,
         IEpubNoteService noteService,
+        IEpubHighlightService highlightService,
         CancellationToken cancellationToken)
     {
         if (!archive.TryResolveBook(category, id, out var item) || item is null)
@@ -386,9 +388,10 @@ internal static class ArchiveEndpoints
             return Results.BadRequest(new { error = "Selected text is required to save a note." });
         }
 
-        if (!int.TryParse(request.ChapterId, out var chapterIndex) || chapterIndex < 0)
+        if (!int.TryParse(request.ChapterId, out var chapterIndex) || chapterIndex < 0 ||
+            request.TextOffsetStart is not { } start || request.TextOffsetEnd is not { } end || start < 0 || end <= start)
         {
-            return Results.BadRequest(new { error = "A valid chapter is required to save a note." });
+            return Results.BadRequest(new { error = "A valid chapter selection is required to save a note." });
         }
 
         if (!epubBookService.TryGetBook(item, out var book) || book is null)
@@ -396,8 +399,31 @@ internal static class ArchiveEndpoints
             return Results.NotFound();
         }
 
+        if (!epubBookService.TryGetChapter(item, request.ChapterId, out var chapter) || chapter is null)
+        {
+            return Results.BadRequest(new { error = "The selected chapter could not be validated." });
+        }
+
+        var chapterText = chapter.NormalizedText;
+        var selectedText = EpubChapterText.Normalize(request.SelectedText);
+        if (end > chapterText.Length || !string.Equals(chapterText[start..end], selectedText, StringComparison.Ordinal))
+        {
+            return Results.BadRequest(new
+            {
+                error = "The selected text no longer matches this chapter.",
+                selectionLength = end - start,
+                chapterLength = chapterText.Length
+            });
+        }
+
+        var highlight = new BookHighlightDto(
+            Guid.NewGuid().ToString("N"), request.ChapterId, start, end, selectedText,
+            request.ContextBefore?.Trim() ?? string.Empty, request.ContextAfter?.Trim() ?? string.Empty, DateTimeOffset.UtcNow);
+
         try
         {
+            await highlightService.SaveHighlightAsync(
+                item.Category.Key, item.Id, item.SizeBytes, item.LastWriteTimeUtc, highlight, cancellationToken);
             await noteService.AppendNoteAsync(
                 book.Title,
                 book.Author,
@@ -418,6 +444,30 @@ internal static class ArchiveEndpoints
                 title: "The note could not be saved.",
                 detail: "The note file could not be written.",
                 statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private static async Task<IResult> GetBookHighlightsAsync(
+        string category,
+        string id,
+        IArchiveService archive,
+        IEpubHighlightService highlightService,
+        CancellationToken cancellationToken)
+    {
+        if (!archive.TryResolveBook(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var highlights = await highlightService.LoadHighlightsAsync(
+                item.Category.Key, item.Id, item.SizeBytes, item.LastWriteTimeUtc, cancellationToken);
+            return Results.Ok(highlights);
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
         }
     }
 

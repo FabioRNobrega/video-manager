@@ -517,16 +517,19 @@ public sealed class ArchiveEndpointsTests
         using var client = factory.CreateClient();
         var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/books/items"))!;
         var book = Assert.Single(listing.Items);
+        var chapter = (await client.GetFromJsonAsync<BookChapterDto>($"/api/archive/books/items/{book.Id}/book/chapters/0"))!;
+        const string selectedText = "This is the first chapter";
+        var start = EpubChapterText.Normalize(chapter.ContentHtml).IndexOf(selectedText, StringComparison.Ordinal);
 
         using var response = await client.PostAsJsonAsync(
             $"/api/archive/books/items/{book.Id}/book/notes",
-            new BookNoteRequest("0", "A memorable passage.", null, null));
+            new BookNoteRequest("0", selectedText, start, start + selectedText.Length));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var notesPath = Path.Combine(root.Path, "Books", "Notes", "pereneArchiveBookNotes.txt");
         var content = await File.ReadAllTextAsync(notesPath);
         Assert.Contains("My Book (My Author)", content);
-        Assert.Contains("A memorable passage.", content);
+        Assert.Contains(selectedText, content);
         Assert.Contains("==========", content);
 
         using var emptySelection = await client.PostAsJsonAsync(
@@ -536,8 +539,20 @@ public sealed class ArchiveEndpointsTests
 
         using var unknownId = await client.PostAsJsonAsync(
             $"/api/archive/books/items/{Guid.NewGuid():N}/book/notes",
-            new BookNoteRequest("0", "Text", null, null));
+            new BookNoteRequest("0", "Text", 0, 4));
         Assert.Equal(HttpStatusCode.NotFound, unknownId.StatusCode);
+
+        using var invalidRange = await client.PostAsJsonAsync(
+            $"/api/archive/books/items/{book.Id}/book/notes",
+            new BookNoteRequest("0", "Different text", 0, 14));
+        Assert.Equal(HttpStatusCode.BadRequest, invalidRange.StatusCode);
+
+        var highlights = await client.GetFromJsonAsync<List<BookHighlightDto>>(
+            $"/api/archive/books/items/{book.Id}/book/highlights");
+        var highlight = Assert.Single(highlights!);
+        Assert.Equal(selectedText, highlight.SelectedText);
+        Assert.Equal(start, highlight.TextOffsetStart);
+        Assert.True(File.Exists(Path.Combine(root.Path, "Books", "Notes", "pereneArchiveBookHighlights.json")));
     }
 
     [Fact]

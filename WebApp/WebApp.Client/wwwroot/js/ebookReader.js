@@ -219,6 +219,130 @@ function getSelectionDetails(container) {
     };
 }
 
+function normalizeText(text) {
+    return text.replace(/\s+/g, " ").trim();
+}
+
+function getTextNodes(container) {
+    const nodes = [];
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+        nodes.push(walker.currentNode);
+    }
+    return nodes;
+}
+
+function rawOffsetForBoundary(container, boundaryNode, boundaryOffset) {
+    const range = document.createRange();
+    range.setStart(container, 0);
+    range.setEnd(boundaryNode, boundaryOffset);
+    return range.toString().length;
+}
+
+function normalizedOffset(rawText, rawOffset) {
+    return normalizeText(rawText.slice(0, rawOffset)).length;
+}
+
+function findTextPosition(chapterText, selectedText, contextBefore, contextAfter) {
+    let fallback = -1;
+    for (let position = chapterText.indexOf(selectedText); position >= 0; position = chapterText.indexOf(selectedText, position + 1)) {
+        if (fallback < 0) fallback = position;
+        const before = chapterText.slice(Math.max(0, position - contextBefore.length), position).trim();
+        const after = chapterText.slice(position + selectedText.length, position + selectedText.length + contextAfter.length).trim();
+        if (before.endsWith(contextBefore.trim()) && after.startsWith(contextAfter.trim())) return position;
+    }
+    return fallback;
+}
+
+export function getSelectionRange(container, normalizedChapterText) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed || !container) return null;
+    const range = selection.getRangeAt(0);
+    const chapter = container.querySelector(".epub-chapter");
+    if (!chapter || !chapter.contains(range.commonAncestorContainer)) return null;
+    const rawText = chapter.textContent ?? "";
+    const selectedText = normalizeText(range.toString());
+    const domStart = normalizedOffset(rawText, rawOffsetForBoundary(chapter, range.startContainer, range.startOffset));
+    const domEnd = normalizedOffset(rawText, rawOffsetForBoundary(chapter, range.endContainer, range.endOffset));
+    if (!selectedText || domEnd <= domStart) return null;
+    const normalizedDomText = normalizeText(rawText);
+    const domContextBefore = normalizedDomText.slice(Math.max(0, domStart - 40), domStart);
+    const domContextAfter = normalizedDomText.slice(domEnd, domEnd + 40);
+    const normalizedChapter = normalizeText(normalizedChapterText ?? "");
+    const start = findTextPosition(normalizedChapter, selectedText, domContextBefore, domContextAfter);
+    if (start < 0) return null;
+    const end = start + selectedText.length;
+    return {
+        textOffsetStart: start,
+        textOffsetEnd: end,
+        selectedText,
+        contextBefore: normalizedChapter.slice(Math.max(0, start - 40), start),
+        contextAfter: normalizedChapter.slice(end, end + 40)
+    };
+}
+
+function normalizedCharacterRawOffsets(rawText) {
+    const offsets = [];
+    let pendingWhitespace = false;
+    let started = false;
+    for (let index = 0; index < rawText.length; index++) {
+        if (/\s/.test(rawText[index])) {
+            pendingWhitespace = started;
+            continue;
+        }
+        if (pendingWhitespace) {
+            offsets.push(index - 1);
+            pendingWhitespace = false;
+        }
+        offsets.push(index);
+        started = true;
+    }
+    return offsets;
+}
+
+function boundaryForRawOffset(nodes, rawOffset) {
+    let position = 0;
+    for (const node of nodes) {
+        const nextPosition = position + node.nodeValue.length;
+        if (rawOffset <= nextPosition) return { node, offset: Math.max(0, rawOffset - position) };
+        position = nextPosition;
+    }
+    return null;
+}
+
+export function applyHighlights(container, highlights) {
+    const chapter = container?.querySelector(".epub-chapter");
+    if (!chapter) return;
+    chapter.querySelectorAll(".epub-saved-highlight").forEach(element => element.replaceWith(...element.childNodes));
+    const initialNodes = getTextNodes(chapter);
+    const rawText = initialNodes.map(node => node.nodeValue).join("");
+    const normalizedText = normalizeText(rawText);
+    const offsets = normalizedCharacterRawOffsets(rawText);
+    for (const highlight of highlights ?? []) {
+        const start = findTextPosition(normalizedText, highlight.selectedText, highlight.contextBefore ?? "", highlight.contextAfter ?? "");
+        const end = start + (highlight.selectedText?.length ?? 0);
+        if (start < 0 || end > offsets.length) continue;
+        const rawStart = offsets[start];
+        const rawEnd = offsets[end - 1] + 1;
+        let position = 0;
+        for (const node of [...getTextNodes(chapter)]) {
+            const nodeEnd = position + node.nodeValue.length;
+            const overlapStart = Math.max(rawStart, position);
+            const overlapEnd = Math.min(rawEnd, nodeEnd);
+            if (overlapStart < overlapEnd && node.parentNode) {
+                const before = node.nodeValue.slice(0, overlapStart - position);
+                const selected = node.nodeValue.slice(overlapStart - position, overlapEnd - position);
+                const after = node.nodeValue.slice(overlapEnd - position);
+                const mark = document.createElement("mark");
+                mark.className = "epub-saved-highlight";
+                mark.textContent = selected;
+                node.replaceWith(document.createTextNode(before), mark, document.createTextNode(after));
+            }
+            position = nodeEnd;
+        }
+    }
+}
+
 export function registerSelectionObserver(container, dotNetReference) {
     unregisterSelectionObserver();
 

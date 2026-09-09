@@ -101,6 +101,7 @@ builder.Services.AddSingleton<IEpubContentSanitizer, EpubContentSanitizer>();
 builder.Services.AddSingleton<IEpubBookService, EpubBookService>();
 builder.Services.AddSingleton<IEpubNoteService, EpubNoteService>();
 builder.Services.AddSingleton<IEpubProgressService, EpubProgressService>();
+builder.Services.AddSingleton<IEpubHighlightService, EpubHighlightService>();
 
 var app = builder.Build();
 var configuredAllowedHosts = builder.Configuration["AllowedNetworkHosts:Hosts"]?
