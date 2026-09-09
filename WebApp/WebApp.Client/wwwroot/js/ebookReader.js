@@ -1,3 +1,40 @@
+let pageNavigationHandler = null;
+
+export function registerPageNavigation(dotNetReference) {
+    unregisterPageNavigation();
+
+    pageNavigationHandler = event => {
+        const method = event.key === "ArrowLeft"
+            ? "GoToPreviousPageFromKeyboardAsync"
+            : event.key === "ArrowRight"
+                ? "GoToNextPageFromKeyboardAsync"
+                : null;
+
+        if (!method) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (event.repeat) {
+            return;
+        }
+
+        dotNetReference.invokeMethodAsync(method).catch(() => { });
+    };
+
+    window.addEventListener("keydown", pageNavigationHandler);
+}
+
+export function unregisterPageNavigation() {
+    if (!pageNavigationHandler) {
+        return;
+    }
+
+    window.removeEventListener("keydown", pageNavigationHandler);
+    pageNavigationHandler = null;
+}
+
 export function getSelectionText(container) {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {

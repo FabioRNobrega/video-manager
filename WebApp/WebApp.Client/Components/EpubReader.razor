@@ -186,10 +186,8 @@
             <div class="epub-reader-content h-100 overflow-hidden"
                  style="@ContentStyle"
                  @ref="_contentRef"
-                 tabindex="0"
                  @onmouseup="HandleSelectionChangedAsync"
-                 @onkeyup="HandleSelectionChangedAsync"
-                 @onkeydown="HandleContentKeyDownAsync">
+                 @onkeyup="HandleSelectionChangedAsync">
                 @if (_isLoadingBook || _isLoadingChapter)
                 {
                     <div class="d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary h-100 justify-content-center" role="status" aria-live="polite">
@@ -287,6 +285,7 @@
     private string? _loadedItemId;
     private ElementReference _contentRef;
     private IJSObjectReference? _module;
+    private DotNetObjectReference<EpubReader>? _keyboardNavigationReference;
     private CancellationTokenSource? _statusCts;
 
     private bool _pendingPaginationApply;
@@ -360,6 +359,8 @@
         if (firstRender)
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/ebookReader.js");
+            _keyboardNavigationReference = DotNetObjectReference.Create(this);
+            await _module.InvokeVoidAsync("registerPageNavigation", _keyboardNavigationReference);
             if (await ApplyResponsiveContentPaddingDefaultAsync())
             {
                 StateHasChanged();
@@ -464,9 +465,9 @@
         PageIntent intent = PageIntent.First,
         double? fraction = null)
     {
-        if (saveProgressForPrevious)
+        if (_isLoadingChapter)
         {
-            await SaveProgressAsync();
+            return;
         }
 
         _isLoadingChapter = true;
@@ -474,6 +475,11 @@
         StateHasChanged();
         try
         {
+            if (saveProgressForPrevious)
+            {
+                await SaveProgressAsync();
+            }
+
             var url = $"api/archive/{Uri.EscapeDataString(Category)}/items/{Uri.EscapeDataString(ItemId)}/book/chapters/{Uri.EscapeDataString(chapterId)}";
             var chapter = await Http.GetFromJsonAsync<BookChapterDto>(url);
             if (chapter is null)
@@ -699,6 +705,7 @@
             if (_chapter.NextChapterId is { } nextId)
             {
                 await LoadChapterAsync(nextId);
+                await InvokeAsync(StateHasChanged);
             }
 
             return;
@@ -720,6 +727,7 @@
             if (_chapter.PreviousChapterId is { } previousId)
             {
                 await LoadChapterAsync(previousId, intent: PageIntent.Last);
+                await InvokeAsync(StateHasChanged);
             }
 
             return;
@@ -729,12 +737,11 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private Task HandleContentKeyDownAsync(KeyboardEventArgs args) => args.Key switch
-    {
-        "ArrowRight" or "PageDown" or " " => GoToNextPageAsync(),
-        "ArrowLeft" or "PageUp" => GoToPreviousPageAsync(),
-        _ => Task.CompletedTask
-    };
+    [JSInvokable]
+    public Task GoToNextPageFromKeyboardAsync() => GoToNextPageAsync();
+
+    [JSInvokable]
+    public Task GoToPreviousPageFromKeyboardAsync() => GoToPreviousPageAsync();
 
     private async Task HandleSelectionChangedAsync()
     {
@@ -863,7 +870,24 @@
     private async Task CloseAsync()
     {
         await SaveProgressAsync();
+        await UnregisterPageNavigationAsync();
         await OnClose.InvokeAsync();
+    }
+
+    private async Task UnregisterPageNavigationAsync()
+    {
+        if (_module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _module.InvokeVoidAsync("unregisterPageNavigation");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
     private static string FormatPercent(double value) =>
@@ -899,6 +923,9 @@
     {
         _statusCts?.Cancel();
         _statusCts?.Dispose();
+
+        await UnregisterPageNavigationAsync();
+        _keyboardNavigationReference?.Dispose();
 
         if (_module is not null)
         {
