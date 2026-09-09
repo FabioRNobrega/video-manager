@@ -1,5 +1,6 @@
 let pageNavigationHandler = null;
 let tapNavigationHandlers = null;
+let selectionObserverHandlers = null;
 
 // A completed pointer gesture only counts as a tap (page turn) if it barely moved and was quick -
 // this is what tells a tap apart from a drag-to-select, a flick, or a long-press-to-select.
@@ -175,18 +176,97 @@ export function unregisterTapNavigation() {
     tapNavigationHandlers = null;
 }
 
-export function getSelectionText(container) {
+const SELECTION_MENU_EDGE_MARGIN_PX = 8;
+const SELECTION_MENU_ESTIMATED_WIDTH_PX = 260;
+const SELECTION_MENU_ESTIMATED_HEIGHT_PX = 48;
+
+function getSelectionDetails(container) {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-        return "";
+        return null;
     }
 
     const range = selection.getRangeAt(0);
     if (!container || !container.contains(range.commonAncestorContainer)) {
-        return "";
+        return null;
     }
 
-    return selection.toString().trim();
+    const text = selection.toString().trim();
+    // Anchor outside the entire selection so the actions never cover any line in a multi-line
+    // passage. The browser's union rectangle gives us the first and last selected line.
+    const rect = range.getBoundingClientRect();
+    if (!text || (rect.width === 0 && rect.height === 0)) {
+        return null;
+    }
+
+    const menuWidth = Math.min(
+        SELECTION_MENU_ESTIMATED_WIDTH_PX,
+        Math.max(0, window.innerWidth - (SELECTION_MENU_EDGE_MARGIN_PX * 2)));
+    const halfMenuWidth = menuWidth / 2;
+    const left = Math.min(
+        Math.max(halfMenuWidth + SELECTION_MENU_EDGE_MARGIN_PX, rect.left + (rect.width / 2)),
+        window.innerWidth - halfMenuWidth - SELECTION_MENU_EDGE_MARGIN_PX);
+    // Android Chrome renders its own selection toolbar above the passage. Keep the app's
+    // complementary actions below on touch-first devices, while preserving desktop placement.
+    const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+    const menuAbove = !isCoarsePointer && rect.top >= SELECTION_MENU_ESTIMATED_HEIGHT_PX + SELECTION_MENU_EDGE_MARGIN_PX;
+
+    return {
+        text,
+        left,
+        top: menuAbove ? rect.top - SELECTION_MENU_EDGE_MARGIN_PX : rect.bottom + SELECTION_MENU_EDGE_MARGIN_PX,
+        menuAbove
+    };
+}
+
+export function registerSelectionObserver(container, dotNetReference) {
+    unregisterSelectionObserver();
+
+    if (!container || !dotNetReference) {
+        return;
+    }
+
+    let pendingFrame = null;
+    const notifySelection = () => {
+        pendingFrame = null;
+        const selection = getSelectionDetails(container);
+        const invocation = selection
+            ? dotNetReference.invokeMethodAsync("UpdateSelectionFromBrowserAsync", selection.text, selection.left, selection.top, selection.menuAbove)
+            : dotNetReference.invokeMethodAsync("ClearSelectionFromBrowserAsync");
+        invocation.catch(() => { });
+    };
+    const scheduleSelectionNotification = () => {
+        if (pendingFrame !== null) {
+            return;
+        }
+
+        pendingFrame = window.requestAnimationFrame(notifySelection);
+    };
+
+    document.addEventListener("selectionchange", scheduleSelectionNotification);
+    container.addEventListener("pointerup", scheduleSelectionNotification);
+    container.addEventListener("touchend", scheduleSelectionNotification);
+    selectionObserverHandlers = { container, scheduleSelectionNotification, pendingFrame: () => pendingFrame };
+}
+
+export function unregisterSelectionObserver() {
+    if (!selectionObserverHandlers) {
+        return;
+    }
+
+    const { container, scheduleSelectionNotification, pendingFrame } = selectionObserverHandlers;
+    document.removeEventListener("selectionchange", scheduleSelectionNotification);
+    container.removeEventListener("pointerup", scheduleSelectionNotification);
+    container.removeEventListener("touchend", scheduleSelectionNotification);
+    const frame = pendingFrame();
+    if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+    }
+    selectionObserverHandlers = null;
+}
+
+export function getSelectionText(container) {
+    return getSelectionDetails(container)?.text ?? "";
 }
 
 export function clearSelection() {

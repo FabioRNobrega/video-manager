@@ -68,6 +68,42 @@
     min-height: 2.5rem;
 }
 
+.epub-reader-selection-menu {
+    position: fixed;
+    z-index: 5;
+    top: var(--epub-reader-selection-menu-top);
+    left: var(--epub-reader-selection-menu-left);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    max-width: calc(100vw - 1rem);
+    padding: .5rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    background-color: var(--bs-tertiary-bg);
+    transform: translate(-50%, 0);
+}
+
+.epub-reader-selection-menu-above {
+    transform: translate(-50%, -100%);
+}
+
+.epub-reader-selection-menu .btn {
+    min-height: 2.5rem;
+}
+
+@media (pointer: coarse) {
+    .epub-reader-selection-menu {
+        flex-wrap: nowrap;
+    }
+
+    .epub-reader-selection-menu .btn {
+        gap: .35rem !important;
+        padding-inline: .625rem;
+        white-space: nowrap;
+    }
+}
+
 .epub-reader-body {
     /* Flex children need an explicit min-height to allow their own overflow/scroll instead of growing the row. */
     min-height: 0;
