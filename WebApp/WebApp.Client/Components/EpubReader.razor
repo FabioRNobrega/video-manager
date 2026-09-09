@@ -206,28 +206,11 @@
             {
                 <footer class="epub-reader-progress-footer border-top d-flex flex-wrap align-items-center justify-content-between gap-2 pt-3 pb-2"
                         aria-label="Reading progress and page navigation">
-                    <span class="small fw-semibold text-body-secondary epub-reader-progress-value ms-4">
+                    <span class="small fw-semibold text-body-secondary text-nowrap epub-reader-progress-value ms-2 ms-md-4">
                     Book Progress @FormatPercent(BookProgress)
                     </span>
 
-                    <div class="btn-group epub-reader-page-controls" role="group" aria-label="Page navigation">
-                        <button class="btn btn-secondary d-inline-flex align-items-center gap-2"
-                                type="button"
-                                disabled="@(_pageIndex <= 0 && _chapter.PreviousChapterId is null)"
-                                @onclick="GoToPreviousPageFromButtonAsync">
-                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                            Previous
-                        </button>
-                        <button class="btn btn-secondary d-inline-flex align-items-center gap-2"
-                                type="button"
-                                disabled="@(_pageIndex >= _pageCount - 1 && _chapter.NextChapterId is null)"
-                                @onclick="GoToNextPageFromButtonAsync">
-                            Next
-                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                        </button>
-                    </div>
-
-                    <span class="small fw-semibold text-body-secondary text-end epub-reader-progress-value me-4">
+                    <span class="small fw-semibold text-body-secondary text-nowrap text-end epub-reader-progress-value me-2 me-md-4">
                         Chapter Progress @FormatPercent(CurrentChapterProgress)
                     </span>
                 </footer>
@@ -743,10 +726,6 @@
 
     [JSInvokable]
     public Task GoToPreviousPageFromInputAsync() => GoToPreviousPageAsync();
-
-    private Task GoToNextPageFromButtonAsync() => GoToNextPageAsync();
-
-    private Task GoToPreviousPageFromButtonAsync() => GoToPreviousPageAsync();
 
     private async Task HandleSelectionChangedAsync()
     {
