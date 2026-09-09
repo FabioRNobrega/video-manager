@@ -51,32 +51,17 @@
     --bs-focus-ring-color: rgba(185, 138, 46, .35);
 }
 
-/*
- * The toolbars float above the reading surface and stay hidden until the pointer rests near the
- * top edge (or a control inside gains focus), so the page itself is not permanently pushed down
- * by chrome the reader is mostly reading, not operating.
- */
-.epub-reader-hover-zone {
-    position: absolute;
-    inset-inline: 0;
-    top: 0;
-    height: 1rem;
-    z-index: 5;
-}
-
 .epub-reader-toolbars {
-    position: absolute;
-    inset-inline: 0;
-    top: 0;
-    z-index: 4;
-    transform: translateY(-100%);
-    transition: transform .18s ease;
-    pointer-events: none;
+    flex: 0 0 auto;
 }
 
-.epub-reader-toolbars.is-visible {
-    transform: translateY(0);
-    pointer-events: auto;
+.epub-reader-toolbar-show-button {
+    position: absolute;
+    top: .5rem;
+    right: .5rem;
+    z-index: 4;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
 }
 
 .epub-reader-body {
@@ -90,23 +75,39 @@
     flex: 0 0 auto;
 }
 
+.epub-reader-toc-button {
+    color: var(--bs-body-color);
+    border: 0;
+    border-radius: .25rem;
+    padding: .45rem .5rem;
+}
+
+.epub-reader-toc-button:hover,
+.epub-reader-toc-button:focus-visible {
+    color: var(--bs-emphasis-color);
+    background-color: rgba(var(--bs-secondary-bg-rgb), .7);
+}
+
+.epub-reader-toc-button.active {
+    color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), .12);
+    font-weight: 700;
+}
+
 /*
  * The reading-margin padding lives on this outer frame, not on `.epub-reader-content` itself.
- * The content element is the clipped page viewport; the chapter inside it is laid out into
- * viewport-width CSS columns and translated horizontally by ebookReader.js.
+ * The inline padding is adjustable in 20px steps so the visible text measure can be widened or
+ * narrowed without changing the reader shell.
  */
 .epub-reader-page-frame {
     position: relative;
     padding: 1rem;
+    padding-inline: var(--epub-reader-inline-padding, 5%);
 }
 
 @media (min-width: 48rem) {
     .epub-reader-page-frame {
-        padding-inline: 4rem;
-    }
-
-    .epub-reader-page-frame.epub-content-wide {
-        padding-inline: 1.5rem;
+        padding-inline: var(--epub-reader-inline-padding, 25%);
     }
 }
 
@@ -171,11 +172,5 @@
         z-index: 2;
         background-color: inherit;
         box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .epub-reader-toolbars {
-        transition: none;
     }
 }

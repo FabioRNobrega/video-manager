@@ -29,6 +29,10 @@ export async function copyText(text) {
     }
 }
 
+export function getDefaultContentPaddingPercent() {
+    return window.matchMedia("(max-width: 47.98rem)").matches ? 5 : 25;
+}
+
 export function paginateChapter(container, html) {
     if (!container) {
         return [html ?? ""];

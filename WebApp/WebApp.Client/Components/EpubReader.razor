@@ -2,15 +2,20 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 
-<section class="epub-reader card position-fixed top-0 start-0 w-100 h-100 overflow-hidden border-0 rounded-0 @(_isDarkReaderMode ? "reader-dark" : "reader-light")"
+<section class="epub-reader card position-fixed top-0 start-0 w-100 h-100 overflow-hidden border-0 rounded-0 d-flex flex-column @(_isDarkReaderMode ? "reader-dark" : "reader-light")"
          aria-label="Book reader">
-    <div class="epub-reader-hover-zone" @onmouseenter="RevealToolbar" @onclick="RevealToolbar" aria-hidden="true"></div>
+    @if (_isToolbarCollapsed)
+    {
+        <button class="btn btn-outline-secondary epub-reader-toolbar-show-button d-inline-flex align-items-center justify-content-center p-2"
+                type="button"
+                aria-label="Show reader toolbar"
+                title="Show reader toolbar"
+                @onclick="ShowToolbar">
+            <i class="bi bi-arrow-bar-down" aria-hidden="true"></i>
+        </button>
+    }
 
-    <div class="epub-reader-toolbars @(_isToolbarVisible ? "is-visible" : "")"
-         @onmouseenter="HandleToolbarHoverStarted"
-         @onmouseleave="HandleToolbarHoverEnded"
-         @onfocusin="HandleToolbarHoverStarted"
-         @onfocusout="HandleToolbarHoverEnded">
+    <div class="epub-reader-toolbars @(_isToolbarCollapsed ? "d-none" : "")">
         <header class="epub-reader-toolbar bg-body-tertiary border-bottom d-flex flex-wrap align-items-center gap-2 p-2">
             <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
                     type="button"
@@ -79,14 +84,24 @@
                 }
             </select>
 
-            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
-                    type="button"
-                    aria-label="@(_isWideColumn ? "Narrow text column" : "Widen text column")"
-                    title="@(_isWideColumn ? "Narrow text column" : "Widen text column")"
-                    aria-pressed="@_isWideColumn"
-                    @onclick="ToggleColumnWidth">
-                <i class="bi @(_isWideColumn ? "bi-arrows-angle-contract" : "bi-arrows-angle-expand")" aria-hidden="true"></i>
-            </button>
+            <div class="btn-group" role="group" aria-label="Text width">
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+                        type="button"
+                        disabled="@(_contentPaddingPercent >= MaxContentPaddingPercent)"
+                        aria-label="Decrease text width"
+                        title="Decrease text width"
+                        @onclick="DecreaseTextWidth">
+                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+                        type="button"
+                        disabled="@(_contentPaddingPercent <= MinContentPaddingPercent)"
+                        aria-label="Increase text width"
+                        title="Increase text width"
+                        @onclick="IncreaseTextWidth">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                </button>
+            </div>
 
             <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
                     type="button"
@@ -132,6 +147,13 @@
             {
                 <span class="small text-body-secondary" role="status" aria-live="polite">@_statusMessage</span>
             }
+            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2 ms-auto"
+                    type="button"
+                    aria-label="Hide reader toolbar"
+                    title="Hide reader toolbar"
+                    @onclick="HideToolbar">
+                <i class="bi bi-arrow-bar-up" aria-hidden="true"></i>
+            </button>
         </div>
 
         @if (_error is not null)
@@ -140,7 +162,7 @@
         }
     </div>
 
-    <div class="epub-reader-body h-100 d-flex overflow-hidden">
+    <div class="epub-reader-body flex-grow-1 d-flex overflow-hidden">
         @if (_showToc)
         {
             <nav class="epub-reader-toc border-end p-3 overflow-auto" aria-label="Table of contents">
@@ -159,7 +181,7 @@
             </nav>
         }
 
-        <div class="epub-reader-page-frame flex-grow-1 overflow-hidden @(_isWideColumn ? "epub-content-wide" : "")">
+        <div class="epub-reader-page-frame flex-grow-1 overflow-hidden" style="@PageFrameStyle">
             @if (_chapter is not null && !_isLoadingBook && !_isLoadingChapter)
             {
                 <button class="btn btn-secondary epub-reader-page-button epub-reader-page-button-previous d-inline-flex align-items-center gap-2"
@@ -224,8 +246,6 @@
         ("Loose", 2.4)
     ];
 
-    private static readonly TimeSpan ToolbarHideDelay = TimeSpan.FromSeconds(3);
-
     [Parameter, EditorRequired] public string Category { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string ItemId { get; set; } = string.Empty;
     [Parameter] public EventCallback OnClose { get; set; }
@@ -236,11 +256,17 @@
     private bool _isLoadingChapter;
     private bool _isSavingNote;
     private bool _showToc = true;
+    private bool _isToolbarCollapsed;
     private bool _isDarkReaderMode;
     private int _fontSizeIndex = 2;
     private string _fontFamily = "Montserrat";
     private int _lineHeightIndex = 1;
-    private bool _isWideColumn;
+    private const int MinContentPaddingPercent = 5;
+    private const int MaxContentPaddingPercent = 30;
+    private const int ContentPaddingStepPercent = 5;
+    private const int DesktopDefaultContentPaddingPercent = 25;
+
+    private int _contentPaddingPercent = DesktopDefaultContentPaddingPercent;
     private string? _error;
     private string? _statusMessage;
     private string _selectedText = string.Empty;
@@ -249,11 +275,8 @@
     private IJSObjectReference? _module;
     private CancellationTokenSource? _statusCts;
 
-    private bool _isToolbarVisible = true;
-    private bool _toolbarHoverActive;
-    private CancellationTokenSource? _toolbarHideCancellation;
-
     private bool _pendingPaginationApply;
+    private bool _contentPaddingDefaultPending;
     private PageIntent _pendingPageIntent = PageIntent.First;
     private double? _pendingPageFraction;
     private int _pageIndex;
@@ -263,6 +286,8 @@
 
     private string ContentStyle => FormattableString.Invariant(
         $"font-size: {FontSizesPx[_fontSizeIndex]}px; font-family: {FontFamilyStacks[_fontFamily]}; line-height: {LineHeights[_lineHeightIndex].Value};");
+
+    private string PageFrameStyle => FormattableString.Invariant($"--epub-reader-inline-padding: {_contentPaddingPercent}%;");
 
     protected override async Task OnParametersSetAsync()
     {
@@ -295,6 +320,11 @@
         if (firstRender)
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/ebookReader.js");
+            if (await ApplyResponsiveContentPaddingDefaultAsync())
+            {
+                StateHasChanged();
+                return;
+            }
         }
 
         if (_module is not null && _pendingPaginationApply && _chapter is not null && !_isLoadingChapter)
@@ -311,16 +341,40 @@
         _error = null;
         _statusMessage = null;
         _selectedText = string.Empty;
+        _isToolbarCollapsed = false;
         _fontSizeIndex = 2;
         _fontFamily = "Montserrat";
         _lineHeightIndex = 1;
-        _isWideColumn = false;
+        _contentPaddingPercent = DesktopDefaultContentPaddingPercent;
+        _contentPaddingDefaultPending = true;
         _pageIndex = 0;
         _pageCount = 1;
         _pages = [];
         _pageHtml = string.Empty;
-        _isToolbarVisible = true;
-        CancelToolbarHideTimer();
+    }
+
+    private async Task<bool> ApplyResponsiveContentPaddingDefaultAsync()
+    {
+        if (_module is null || !_contentPaddingDefaultPending)
+        {
+            return false;
+        }
+
+        var previousPadding = _contentPaddingPercent;
+        try
+        {
+            _contentPaddingPercent = await _module.InvokeAsync<int>("getDefaultContentPaddingPercent");
+        }
+        catch (JSException)
+        {
+            _contentPaddingPercent = DesktopDefaultContentPaddingPercent;
+        }
+        finally
+        {
+            _contentPaddingDefaultPending = false;
+        }
+
+        return _contentPaddingPercent != previousPadding;
     }
 
     private async Task LoadBookAsync()
@@ -427,12 +481,36 @@
 
     private void ToggleToc() => _showToc = !_showToc;
 
+    private void HideToolbar()
+    {
+        _isToolbarCollapsed = true;
+        RequestPaginationReflow();
+    }
+
+    private void ShowToolbar()
+    {
+        _isToolbarCollapsed = false;
+        RequestPaginationReflow();
+    }
+
     private void ToggleReaderMode() => _isDarkReaderMode = !_isDarkReaderMode;
 
-    private void ToggleColumnWidth()
+    private void DecreaseTextWidth()
     {
-        _isWideColumn = !_isWideColumn;
-        RequestPaginationReflow();
+        if (_contentPaddingPercent < MaxContentPaddingPercent)
+        {
+            _contentPaddingPercent = Math.Min(MaxContentPaddingPercent, _contentPaddingPercent + ContentPaddingStepPercent);
+            RequestPaginationReflow();
+        }
+    }
+
+    private void IncreaseTextWidth()
+    {
+        if (_contentPaddingPercent > MinContentPaddingPercent)
+        {
+            _contentPaddingPercent = Math.Max(MinContentPaddingPercent, _contentPaddingPercent - ContentPaddingStepPercent);
+            RequestPaginationReflow();
+        }
     }
 
     private void DecreaseFontSize()
@@ -588,63 +666,6 @@
         _ => Task.CompletedTask
     };
 
-    private void RevealToolbar()
-    {
-        _isToolbarVisible = true;
-        ArmToolbarHideTimer();
-    }
-
-    private void HandleToolbarHoverStarted()
-    {
-        _toolbarHoverActive = true;
-        _isToolbarVisible = true;
-        CancelToolbarHideTimer();
-    }
-
-    private void HandleToolbarHoverEnded()
-    {
-        _toolbarHoverActive = false;
-        ArmToolbarHideTimer();
-    }
-
-    private void ArmToolbarHideTimer()
-    {
-        CancelToolbarHideTimer();
-        if (_toolbarHoverActive)
-        {
-            return;
-        }
-
-        _toolbarHideCancellation = new CancellationTokenSource();
-        _ = HideToolbarAfterDelayAsync(_toolbarHideCancellation.Token);
-    }
-
-    private async Task HideToolbarAfterDelayAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await Task.Delay(ToolbarHideDelay, cancellationToken);
-            await InvokeAsync(() =>
-            {
-                if (!_toolbarHoverActive)
-                {
-                    _isToolbarVisible = false;
-                    StateHasChanged();
-                }
-            });
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private void CancelToolbarHideTimer()
-    {
-        _toolbarHideCancellation?.Cancel();
-        _toolbarHideCancellation?.Dispose();
-        _toolbarHideCancellation = null;
-    }
-
     private async Task HandleSelectionChangedAsync()
     {
         if (_module is null)
@@ -782,7 +803,7 @@
                     @if (navItem.ChapterId is not null)
                     {
                         <button type="button"
-                                class="btn btn-link btn-sm text-start text-decoration-none p-1 @(IsCurrentChapter(navItem.ChapterId) ? "fw-bold text-primary" : "text-body")"
+                                class="btn btn-sm text-start text-decoration-none w-100 epub-reader-toc-button @(IsCurrentChapter(navItem.ChapterId) ? "active" : "")"
                                 aria-current="@(IsCurrentChapter(navItem.ChapterId) ? "true" : null)"
                                 @onclick="() => JumpToChapterAsync(navItem.ChapterId)">
                             @navItem.Title
@@ -804,7 +825,6 @@
     {
         _statusCts?.Cancel();
         _statusCts?.Dispose();
-        CancelToolbarHideTimer();
 
         if (_module is not null)
         {
