@@ -216,7 +216,7 @@
                 else if (_chapter is not null)
                 {
                     <article class="epub-chapter">
-                        @((MarkupString)_pageHtml)
+                        @((MarkupString)_chapter.ContentHtml)
                     </article>
                 }
             </div>
@@ -281,8 +281,6 @@
     private double? _pendingPageFraction;
     private int _pageIndex;
     private int _pageCount = 1;
-    private string[] _pages = [];
-    private string _pageHtml = string.Empty;
 
     private string ContentStyle => FormattableString.Invariant(
         $"font-size: {FontSizesPx[_fontSizeIndex]}px; font-family: {FontFamilyStacks[_fontFamily]}; line-height: {LineHeights[_lineHeightIndex].Value};");
@@ -349,8 +347,6 @@
         _contentPaddingDefaultPending = true;
         _pageIndex = 0;
         _pageCount = 1;
-        _pages = [];
-        _pageHtml = string.Empty;
     }
 
     private async Task<bool> ApplyResponsiveContentPaddingDefaultAsync()
@@ -444,8 +440,8 @@
 
             _chapter = chapter;
             _selectedText = string.Empty;
-            _pages = [];
-            _pageHtml = string.Empty;
+            _pageIndex = 0;
+            _pageCount = 1;
             _pendingPageIntent = intent;
             _pendingPageFraction = fraction;
             _pendingPaginationApply = true;
@@ -479,7 +475,11 @@
     private bool IsCurrentChapter(string? chapterId) =>
         chapterId is not null && string.Equals(_chapter?.ChapterId, chapterId, StringComparison.Ordinal);
 
-    private void ToggleToc() => _showToc = !_showToc;
+    private void ToggleToc()
+    {
+        _showToc = !_showToc;
+        RequestPaginationReflow();
+    }
 
     private void HideToolbar()
     {
@@ -568,34 +568,21 @@
             return;
         }
 
-        var chapterHtml = _chapter.ContentHtml;
-
         try
         {
-            var currentFraction = _pendingPageIntent is PageIntent.Fraction && _pendingPageFraction is { } pendingFraction
-                ? pendingFraction
-                : 0;
-            var currentIndex = _pendingPageIntent switch
-            {
-                PageIntent.Last => int.MaxValue,
-                PageIntent.Fraction => (int)Math.Round(currentFraction * Math.Max(0, _pageCount - 1)),
-                _ => 0
-            };
-
-            _pages = await _module.InvokeAsync<string[]>("paginateChapter", _contentRef, chapterHtml);
-            _pageCount = Math.Max(1, _pages.Length);
+            _pageCount = Math.Max(1, await _module.InvokeAsync<int>("measurePagination", _contentRef));
 
             switch (_pendingPageIntent)
             {
                 case PageIntent.Fraction when _pendingPageFraction is { } fraction:
                     var targetIndex = (int)Math.Round(fraction * Math.Max(0, _pageCount - 1));
-                    SetPageIndex(targetIndex);
+                    await SetPageIndexAsync(targetIndex);
                     break;
                 case PageIntent.Last:
-                    SetPageIndex(_pageCount - 1);
+                    await SetPageIndexAsync(_pageCount - 1);
                     break;
                 default:
-                    SetPageIndex(0);
+                    await SetPageIndexAsync(0);
                     break;
             }
         }
@@ -610,11 +597,14 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void SetPageIndex(int pageIndex)
+    private async Task SetPageIndexAsync(int pageIndex)
     {
-        _pageCount = Math.Max(1, _pages.Length);
         _pageIndex = Math.Min(_pageCount - 1, Math.Max(0, pageIndex));
-        _pageHtml = _pages.Length > 0 ? _pages[_pageIndex] : _chapter?.ContentHtml ?? string.Empty;
+
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("goToPage", _contentRef, _pageIndex);
+        }
     }
 
     private async Task GoToNextPageAsync()
@@ -634,7 +624,7 @@
             return;
         }
 
-        SetPageIndex(_pageIndex + 1);
+        await SetPageIndexAsync(_pageIndex + 1);
         await InvokeAsync(StateHasChanged);
     }
 
@@ -655,7 +645,7 @@
             return;
         }
 
-        SetPageIndex(_pageIndex - 1);
+        await SetPageIndexAsync(_pageIndex - 1);
         await InvokeAsync(StateHasChanged);
     }
 
@@ -780,6 +770,17 @@
         try
         {
             var fraction = _pageCount > 1 ? (double)_pageIndex / (_pageCount - 1) : 0;
+            if (_module is not null)
+            {
+                try
+                {
+                    fraction = await _module.InvokeAsync<double>("getPageFraction", _contentRef);
+                }
+                catch (JSException)
+                {
+                }
+            }
+
             var url = $"api/archive/{Uri.EscapeDataString(Category)}/items/{Uri.EscapeDataString(ItemId)}/book/progress";
             using var response = await Http.PutAsJsonAsync(url, new BookProgressDto(_chapter.ChapterId, fraction));
         }

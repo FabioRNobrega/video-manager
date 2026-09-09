@@ -33,60 +33,52 @@ export function getDefaultContentPaddingPercent() {
     return window.matchMedia("(max-width: 47.98rem)").matches ? 5 : 25;
 }
 
-export function paginateChapter(container, html) {
-    if (!container) {
-        return [html ?? ""];
-    }
+function getPageMetrics(container) {
+    const pageWidth = Math.max(1, container.clientWidth);
+    container.style.setProperty("--epub-reader-page-width", `${pageWidth}px`);
 
-    const template = document.createElement("template");
-    template.innerHTML = html ?? "";
+    const chapter = container.querySelector(".epub-chapter");
+    const chapterStyle = chapter ? getComputedStyle(chapter) : null;
+    const columnGap = Math.max(0, Number.parseFloat(chapterStyle?.columnGap ?? "0") || 0);
 
-    const measurer = document.createElement("article");
-    measurer.className = "epub-chapter epub-chapter-measurer";
-    const containerStyle = getComputedStyle(container);
-    measurer.style.position = "fixed";
-    measurer.style.left = "-10000px";
-    measurer.style.top = "0";
-    measurer.style.visibility = "hidden";
-    measurer.style.pointerEvents = "none";
-    measurer.style.boxSizing = "border-box";
-    measurer.style.overflow = "hidden";
-    measurer.style.font = containerStyle.font;
-    measurer.style.fontFamily = containerStyle.fontFamily;
-    measurer.style.fontSize = containerStyle.fontSize;
-    measurer.style.lineHeight = containerStyle.lineHeight;
-    measurer.style.color = containerStyle.color;
-    measurer.style.width = `${Math.max(1, container.clientWidth)}px`;
-    measurer.style.height = `${Math.max(1, container.clientHeight)}px`;
-    document.body.appendChild(measurer);
-
-    const pages = [];
-    const currentNodes = [];
-
-    const publishPage = () => {
-        pages.push(currentNodes.map((node) => node.outerHTML ?? node.textContent ?? "").join(""));
-        currentNodes.length = 0;
-        measurer.replaceChildren();
+    return {
+        pageWidth,
+        columnGap,
+        pageStride: pageWidth + columnGap
     };
+}
 
-    for (const sourceNode of Array.from(template.content.childNodes)) {
-        const node = sourceNode.cloneNode(true);
-        measurer.appendChild(node);
-
-        if (measurer.scrollHeight > measurer.clientHeight && currentNodes.length > 0) {
-            measurer.removeChild(node);
-            publishPage();
-            measurer.appendChild(node);
-        }
-
-        currentNodes.push(node);
+export function measurePagination(container) {
+    if (!container) {
+        return 1;
     }
 
-    if (currentNodes.length > 0 || pages.length === 0) {
-        publishPage();
+    const { pageWidth, pageStride } = getPageMetrics(container);
+    container.scrollLeft = Math.min(container.scrollLeft, Math.max(0, container.scrollWidth - pageWidth));
+
+    return Math.max(1, Math.round((container.scrollWidth + pageStride - pageWidth) / pageStride));
+}
+
+export function goToPage(container, pageIndex) {
+    if (!container) {
+        return;
     }
 
-    measurer.remove();
+    const { pageWidth, pageStride } = getPageMetrics(container);
+    const maxScrollLeft = Math.max(0, container.scrollWidth - pageWidth);
+    container.scrollLeft = Math.min(maxScrollLeft, Math.max(0, pageIndex) * pageStride);
+}
 
-    return pages;
+export function getPageFraction(container) {
+    if (!container) {
+        return 0;
+    }
+
+    const { pageWidth, pageStride } = getPageMetrics(container);
+    const pageCount = Math.max(1, Math.round((container.scrollWidth + pageStride - pageWidth) / pageStride));
+    if (pageCount <= 1) {
+        return 0;
+    }
+
+    return Math.min(1, Math.max(0, Math.round(container.scrollLeft / pageStride) / (pageCount - 1)));
 }

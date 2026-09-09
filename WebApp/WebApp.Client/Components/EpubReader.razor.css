@@ -120,14 +120,25 @@
 
 .epub-reader-content {
     position: relative;
+    --epub-reader-page-gap: clamp(2rem, 6vw, 5rem);
     touch-action: pan-y;
     user-select: text;
+    scrollbar-width: none;
+}
+
+.epub-reader-content::-webkit-scrollbar {
+    display: none;
 }
 
 .epub-chapter {
     height: 100%;
     max-height: 100%;
-    overflow: hidden;
+    column-fill: auto;
+    column-gap: var(--epub-reader-page-gap);
+    column-width: var(--epub-reader-page-width, 100%);
+    overflow: visible;
+    orphans: 2;
+    widows: 2;
 }
 
 .epub-reader-page-button {
