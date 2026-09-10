@@ -22,6 +22,17 @@ public sealed class ThemeBootstrapTests
     }
 
     [Fact]
+    public void Desktop_sidebar_declares_the_Perenetech_copyright_credit()
+    {
+        var sidebarPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../WebApp/WebApp.Client/Layout/Sidebar.razor"));
+        var markup = File.ReadAllText(sidebarPath);
+
+        Assert.Contains("Copyright © 2026 PereneTech.", markup);
+    }
+
+    [Fact]
     public async Task Root_document_loads_design_assets_in_required_order()
     {
         using var root = new TemporaryDirectory();
