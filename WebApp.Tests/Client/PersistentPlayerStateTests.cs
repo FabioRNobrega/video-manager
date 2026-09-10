@@ -234,6 +234,83 @@ public sealed class PersistentPlayerStateTests
     }
 
     [Fact]
+    public void Update_playback_progress_stores_time_and_playing_state_without_notifying()
+    {
+        var state = new PersistentPlayerState();
+        state.SelectVideo(CreateVideo("video-one"));
+        var notifications = 0;
+        state.StateChanged += () => notifications++;
+
+        state.UpdatePlaybackProgress(42.5, isPlaying: true);
+
+        Assert.Equal(42.5, state.LastKnownTime);
+        Assert.True(state.WasPlaying);
+        Assert.Equal(0, notifications);
+    }
+
+    [Fact]
+    public void Update_playback_progress_is_ignored_when_nothing_is_selected()
+    {
+        var state = new PersistentPlayerState();
+
+        state.UpdatePlaybackProgress(42.5, isPlaying: true);
+
+        Assert.Equal(0, state.LastKnownTime);
+        Assert.False(state.WasPlaying);
+    }
+
+    [Fact]
+    public void Selecting_a_new_track_resets_playback_progress()
+    {
+        var state = new PersistentPlayerState();
+        var video = CreateArchiveVideo("clip-one", "clip.mp4");
+        var music = CreateArchiveMusic("song-one", "song.mp3");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [video, music]);
+        state.UpdatePlaybackProgress(30, isPlaying: true);
+
+        Assert.True(state.SelectNextTrack());
+
+        Assert.Equal(0, state.LastKnownTime);
+        Assert.False(state.WasPlaying);
+    }
+
+    [Fact]
+    public void Reentering_the_same_playlist_preserves_selection_and_playback_progress()
+    {
+        var state = new PersistentPlayerState();
+        var first = CreateArchiveVideo("clip-one", "clip.mp4");
+        var second = CreateArchiveVideo("clip-two", "clip2.mp4");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [first, second]);
+        Assert.True(state.SelectNextTrack());
+        state.UpdatePlaybackProgress(87.3, isPlaying: true);
+
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [first, second]);
+
+        Assert.Equal("clip-two", state.SelectedId);
+        Assert.Equal(87.3, state.LastKnownTime);
+        Assert.True(state.WasPlaying);
+        Assert.True(state.PlaylistViewActive);
+    }
+
+    [Fact]
+    public void Entering_a_different_playlist_still_selects_the_first_item()
+    {
+        var state = new PersistentPlayerState();
+        var first = CreateArchiveVideo("clip-one", "clip.mp4");
+        var second = CreateArchiveVideo("clip-two", "clip2.mp4");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [first, second]);
+        Assert.True(state.SelectNextTrack());
+        state.UpdatePlaybackProgress(87.3, isPlaying: true);
+
+        var otherFolderVideo = CreateArchiveVideo("clip-three", "clip3.mp4");
+        state.EnterPlaylistView("videos", "folder-2", "Other Folder", [otherFolderVideo]);
+
+        Assert.Equal("clip-three", state.SelectedId);
+        Assert.Equal(0, state.LastKnownTime);
+        Assert.False(state.WasPlaying);
+    }
+
+    [Fact]
     public void Selecting_a_single_video_clears_any_active_playlist()
     {
         var state = new PersistentPlayerState();

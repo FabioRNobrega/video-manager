@@ -180,6 +180,8 @@
     private bool _abSeekPending;
     private bool _isSavingCut;
     private bool _playAfterSelectionChange;
+    private double _pendingResumeTime;
+    private bool _pendingResumePlaying;
     private bool _disposed;
 
     private VideoItemDto? Selected => PlayerState.Selected;
@@ -321,8 +323,10 @@
         _playerError = null;
         _isSavingCut = false;
         _abSeekPending = false;
+        _pendingResumeTime = PlayerState.LastKnownTime;
+        _pendingResumePlaying = PlayerState.WasPlaying;
         _pendingMediaInitialization = Selected is not null;
-        _playAfterSelectionChange = Selected is not null;
+        _playAfterSelectionChange = Selected is not null && _pendingResumeTime <= 0;
         _controlsVisible = Selected is not null;
         _pendingControlsTimer = Selected is not null;
         _controlInteractionActive = false;
@@ -477,6 +481,22 @@
     {
         _playbackError = false;
         await ApplyPlayerPreferencesAsync();
+
+        if (_pendingResumeTime > 0)
+        {
+            var resumeTime = _pendingResumeTime;
+            var resumePlaying = _pendingResumePlaying;
+            _pendingResumeTime = 0;
+            _pendingResumePlaying = false;
+
+            await ExecuteMediaCommandAsync("seekVideo", resumeTime);
+            if (resumePlaying)
+            {
+                await ExecuteMediaCommandAsync("playVideo");
+            }
+
+            await SynchronizeMediaStateAsync();
+        }
     }
 
     private async Task ApplyPlayerPreferencesAsync()
@@ -513,6 +533,7 @@
 
         var snapshot = await _module.InvokeAsync<MediaSnapshot>("readMediaSnapshot", _video);
         _player.Synchronize(snapshot);
+        PlayerState.UpdatePlaybackProgress(_player.CurrentTime, _player.IsPlaying);
     }
 
     private async Task HandleTimeUpdateAsync()

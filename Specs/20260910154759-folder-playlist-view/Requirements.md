@@ -20,7 +20,8 @@
 - Given the playlist view is open and the current item finishes playing, when a next item exists in the queue, then playback automatically advances to it and the queue panel highlights the new current item.
 - Given the playlist view is open, when I click a different item in the queue panel, then the player switches to that item without leaving the playlist view.
 - Given the playlist view is open, when I activate the fit/expand control on the player, then the player fills the whole tab exactly like today's Fill-tab mode and the queue panel is no longer visible; activating it again (or Escape) returns to the split playlist layout.
-- Given I navigate away from the playlist view to another page, when the currently playing item is still eligible for the footer mini-player, then the footer mini-player reappears and keeps playing the same selection without the browser reloading the page.
+- Given I navigate away from the playlist view to another page, when the currently playing item is still eligible for the footer mini-player, then the footer mini-player reappears and keeps playing the same selection, at the same playback position and playing/paused state, without the browser reloading the page.
+- Given I am several tracks into a playlist and navigate away, when I reopen the same folder's "Play as a Playlist" action or use the footer's "Show playlist" control, then the playlist view resumes on the same track at the same playback position instead of restarting from the first item.
 
 ## Functional Requirements
 
@@ -28,7 +29,7 @@
 2. FR2 - `ArchiveBrowser.razor` must show a "Play as a Playlist" action in a folder tile's existing actions dropdown only when that folder's playable-media flag from FR1 is true, and must not show it for folders without any playable media or for file tiles.
 3. FR3 - Activating "Play as a Playlist" must navigate to a new dedicated playlist route scoped to the chosen category and folder, using the same opaque, route-safe category key and item ID tokens already used elsewhere in the archive UI.
 4. FR4 - The playlist route must load a dedicated server-computed queue for the folder, built from every video and music file found by walking the folder and its subfolders (non-playable files and empty folders excluded), ordered deterministically (depth-first, case-insensitive name order within each folder level).
-5. FR5 - On load, the playlist route must select the first queue item into `PersistentPlayerState` and must show an empty/explanatory state instead of a player if the folder no longer has any playable media anywhere inside it (for example, items were moved or deleted after the menu action was shown).
+5. FR5 - On load, the playlist route must select the first queue item into `PersistentPlayerState` (unless FR16 applies) and must show an empty/explanatory state instead of a player if the folder no longer has any playable media anywhere inside it (for example, items were moved or deleted after the menu action was shown).
 6. FR6 - `PersistentPlayerState` must generalize its previous/next-track mechanism so a queue can contain a mix of video and music items, tracking the queue and current index independently of media kind, while preserving today's music-only playlist behavior in `Music.razor`/`ArchiveBrowser.razor` unchanged.
 7. FR7 - The reusable player (`WebApp/WebApp.Client/Components/Player.razor`) must auto-advance to the next queue item and continue playback when the current item ends and a next item exists, for both video and music items, not only music as today.
 8. FR8 - The reusable player must support an in-page "playlist" presentation mode, distinct from the existing fixed-position footer mode, that lays out the player and its now-playing info in normal document flow instead of a fixed viewport-bottom bar.
@@ -39,6 +40,9 @@
 13. FR13 - Leaving the playlist route (internal navigation to another page) must restore the normal footer mini-player for the still-selected item when `PersistentPlayerState.HasSelection` is true, using the existing persistent-footer-player behavior.
 14. FR14 - The playlist queue panel and layout must present loading, empty, and error states consistent with the existing archive/player component conventions.
 15. FR15 - Save Cut and A/B loop controls in the playlist view must follow the same eligibility rules already enforced by `PersistentPlayerState.CanSaveCut` (only for Video Library items), unchanged by this feature.
+16. FR16 - Re-entering "Play as a Playlist" for a folder while the currently selected item is still present in that folder's (re-loaded) queue must resume on that same item instead of restarting at the first queue item; the queue list itself must still refresh to reflect the folder's current contents.
+17. FR17 - `PersistentPlayerState` must track the current playback position and playing/paused state of the active selection, updated continuously while a `Player.razor` instance is mounted and playing, so that a new `Player.razor` instance mounted for the same selection (footer <-> playlist transitions, or re-entering the same playlist) resumes at that position and playing/paused state instead of restarting from zero; selecting a genuinely different item (including next/previous/queue-item clicks) must reset the tracked position to zero.
+18. FR18 - The reusable player controls must expose a "Show playlist" action, positioned beside the Fill-tab "fit" control, that is available whenever the current selection has a returnable playlist route and the user is not already on that playlist route; activating it must navigate back to that folder's `/playlist/{category}/{folderId}` route.
 
 ## Non-Functional Requirements
 
@@ -55,8 +59,8 @@
 - Looping the queue back to the first item after the last item ends.
 - Playing mixed content types beyond video and music (no images, books, or documents in the queue).
 - Changing the existing music-only previous/next behavior surfaced in the footer mini-player outside the new playlist view.
-- Seamless, gapless handoff of in-progress playback time across the exact moment of entering/leaving the playlist route beyond what the shared `Player.razor` instance already preserves.
 - Any new FFmpeg processing, thumbnail styles, or metadata extraction beyond the existing thumbnail/hover-preview/album-cover pipelines.
+- Sample-accurate/gapless resume (the resumed position is last-synced via periodic `timeupdate` events, not the exact frame at the moment of navigation).
 
 ## Open Questions
 

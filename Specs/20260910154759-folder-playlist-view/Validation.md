@@ -24,9 +24,12 @@
 | FR10 | Clicking a non-active queue panel item switches playback to that item and updates the highlighted item, while the route stays `/playlist/{category}/{folderId}`. |
 | FR11 | Activating the fit control while on the playlist route enters the same Fill-tab overlay used elsewhere (full-viewport, `position-fixed`, `z-3`), visually covering the queue panel; exiting via the same control or Escape returns to the split playlist layout with the same selected item, playback position, and playing/paused state. |
 | FR12 | While the playlist route is mounted, exactly one `Player.razor` instance is ever rendered app-wide: `MainLayout.razor` only renders its footer `Player` when `PlayerState.Selected is not null && !PlayerState.PlaylistViewActive`, so it never coexists with the playlist route's own embedded `Player`. |
-| FR13 | Navigating from the playlist route to another page (e.g. the sidebar Home/Videos page) while a selection exists re-shows the fixed footer mini-player for that selection without a full page reload. |
+| FR13 | Navigating from the playlist route to another page (e.g. the sidebar Home/Videos page) while a selection exists re-shows the fixed footer mini-player for that selection, resumed at the same playback position and playing/paused state, without a full page reload. |
 | FR14 | The playlist route/layout shows a loading indicator while the listing request is pending, an empty state when the queue is empty, and a clear error state if the listing request fails. |
 | FR15 | Save Cut/A/B loop controls in the playlist view are enabled only when `PersistentPlayerState.CanSaveCut` is true for the current item, matching existing footer-player behavior for Video Library vs. archive/cut/composition/music items. |
+| FR16 | Re-opening "Play as a Playlist" for a folder while the footer is still playing an item from that folder's queue resumes on that same item (not track 1); `PersistentPlayerStateTests` cover both the resume case (selection still in queue) and the reset case (different folder or no prior selection). |
+| FR17 | `PersistentPlayerState.UpdatePlaybackProgress` is a no-op when nothing is selected and never raises `StateChanged`; any genuinely new selection (next/previous/queue-item click/different playlist/single-item select) resets `LastKnownTime`/`WasPlaying` to `0`/`false`; a `Player.razor` instance mounted while `LastKnownTime > 0` seeks to it and resumes playback only if `WasPlaying` was true. |
+| FR18 | A "Show playlist" icon button appears in the media controls, beside the Fill-tab control, whenever `PersistentPlayerState.CanReturnToPlaylist` is true and the user is not already on that playlist route; activating it navigates to `/playlist/{category}/{folderId}` for the active selection's playlist. |
 
 ## Test Cases
 
@@ -34,7 +37,7 @@
 
 - `WebApp.Tests/Services/ArchiveServiceTests.cs`: folder with a direct video only -> `HasPlayableMedia = true`; folder with a direct music file only -> `true`; folder with both -> `true`; folder with only images/documents -> `false`; folder whose only playable media is in a subfolder -> `true`; empty folder -> `false`; `ListPlaylist` collects direct and nested video/music files in deterministic depth-first order and returns no items for a folder without media.
 - `WebApp.Tests/Endpoints/ArchiveEndpointsTests.cs`: listing response JSON includes `hasPlayableMedia` per the above cases (including a nested-only-media folder) and never includes a configured archive root string or path separator patterns tied to the physical test fixture path; the `/playlist` endpoint response includes nested files and excludes non-media files, again without path leakage.
-- `WebApp.Tests/Client/PersistentPlayerStateTests.cs`: `EnterPlaylistView` sets `PlaylistViewActive`, `Playlist`, and selects the first item; `SelectPlaylistItem` moves selection and index correctly for a mixed video/music queue; `CanSelectPreviousTrack`/`CanSelectNextTrack` respect queue boundaries for mixed queues; `ExitPlaylistView` clears `PlaylistViewActive` without clearing the current selection; existing `SelectMusic`-based previous/next/boundary tests continue to pass unchanged.
+- `WebApp.Tests/Client/PersistentPlayerStateTests.cs`: `EnterPlaylistView` sets `PlaylistViewActive`, `Playlist`, and selects the first item; `SelectPlaylistItem` moves selection and index correctly for a mixed video/music queue; `CanSelectPreviousTrack`/`CanSelectNextTrack` respect queue boundaries for mixed queues; `ExitPlaylistView` clears `PlaylistViewActive` without clearing the current selection; existing `SelectMusic`-based previous/next/boundary tests continue to pass unchanged; `UpdatePlaybackProgress` stores time/playing state without raising `StateChanged` and is a no-op with nothing selected; selecting a new track (next/previous/queue-item click) resets `LastKnownTime`/`WasPlaying`; re-entering `EnterPlaylistView` for the same folder while the current selection is still queued preserves selection and progress, while entering a different folder's playlist still selects the first item and resets progress.
 
 **Integration tests:**
 
@@ -50,10 +53,13 @@
 5. Let a short item play to completion and confirm playback automatically advances to the next queue item and the highlight moves; confirm it stops (no wraparound) after the last item finishes.
 6. Click a non-adjacent queue item and confirm playback switches to it immediately while staying on the playlist route.
 7. Click the fit/expand control and confirm the player covers the full tab and the queue panel is no longer visible; press Escape and confirm the split layout returns with the same item, time position, and playing/paused state.
-8. While the playlist is playing, navigate to another sidebar page (e.g. Photos) and confirm the footer mini-player appears at the bottom, still playing the same item without a visible reload/restart of the media element's network request in browser dev tools.
-9. Repeat steps 2-7 on a mobile-width browser window and confirm the queue panel stacks below the player without overlapping controls (page-level scrolling is acceptable at this width).
-10. Confirm Save Cut appears only for items that came from the Video Library category, matching current footer-player behavior, when testing a folder under Videos.
-11. `make test` and confirm all existing and new xUnit tests pass in the isolated Docker Compose test stack.
+8. While the playlist is playing, navigate to another sidebar page (e.g. Photos) and confirm the footer mini-player appears at the bottom, resumed at roughly the same playback position and playing/paused state, without a visible reload/restart of the media element's network request in browser dev tools.
+9. From that footer mini-player, click the new "Show playlist" button (beside the Fill-tab control) and confirm it returns to the same `/playlist/<category>/<folderId>` route, resumed on the same item and position (not restarted at track 1).
+10. Skip or advance a few tracks into the queue, navigate away, then re-open "Play as a Playlist" on the same folder directly from the archive dropdown (not via the footer button) and confirm it also resumes on the same item and position rather than restarting at track 1.
+11. Pause a track, navigate away, and confirm the footer mini-player (and, on returning, the playlist view) stays paused at the saved position rather than auto-resuming playback.
+12. Repeat steps 2-7 on a mobile-width browser window and confirm the queue panel stacks below the player without overlapping controls (page-level scrolling is acceptable at this width).
+13. Confirm Save Cut appears only for items that came from the Video Library category, matching current footer-player behavior, when testing a folder under Videos.
+14. `make test` and confirm all existing and new xUnit tests pass in the isolated Docker Compose test stack.
 
 ## Definition of Done
 

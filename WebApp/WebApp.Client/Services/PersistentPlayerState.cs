@@ -28,6 +28,8 @@ public sealed class PersistentPlayerState
     public bool CanReturnToPlaylist => HasPlaylist &&
         !string.IsNullOrWhiteSpace(PlaylistCategory) &&
         !string.IsNullOrWhiteSpace(PlaylistFolderId);
+    public double LastKnownTime { get; private set; }
+    public bool WasPlaying { get; private set; }
     public bool CanSelectPreviousTrack => HasPlaylist && CurrentPlaylistIndex > 0;
     public bool CanSelectNextTrack => HasPlaylist &&
         CurrentPlaylistIndex >= 0 &&
@@ -112,6 +114,18 @@ public sealed class PersistentPlayerState
             Selected = null;
             Playlist = [];
             AlbumCoverUrl = null;
+            LastKnownTime = 0;
+            WasPlaying = false;
+            NotifyStateChanged();
+            return;
+        }
+
+        var resumingSameSelection = Selected is not null &&
+            playlist.Any(track => string.Equals(track.Id, Selected.Id, StringComparison.Ordinal));
+
+        if (resumingSameSelection)
+        {
+            Playlist = playlist;
             NotifyStateChanged();
             return;
         }
@@ -181,6 +195,8 @@ public sealed class PersistentPlayerState
         PlaylistCategory = null;
         PlaylistFolderId = null;
         PlaylistFolderName = null;
+        LastKnownTime = 0;
+        WasPlaying = false;
         NotifyStateChanged();
     }
 
@@ -206,10 +222,23 @@ public sealed class PersistentPlayerState
         PlaylistCategory = null;
         PlaylistFolderId = null;
         PlaylistFolderName = null;
+        LastKnownTime = 0;
+        WasPlaying = false;
         NotifyStateChanged();
     }
 
     public void NotifyCutQueued() => CutQueued?.Invoke();
+
+    public void UpdatePlaybackProgress(double currentTime, bool isPlaying)
+    {
+        if (Selected is null)
+        {
+            return;
+        }
+
+        LastKnownTime = double.IsFinite(currentTime) ? Math.Max(0, currentTime) : 0;
+        WasPlaying = isPlaying;
+    }
 
     private void NotifyStateChanged() => StateChanged?.Invoke();
 
@@ -233,6 +262,8 @@ public sealed class PersistentPlayerState
         MediaKind = track.MediaKind;
         Playlist = playlist.ToList();
         AlbumCoverUrl = track.AlbumCoverUrl;
+        LastKnownTime = 0;
+        WasPlaying = false;
         NotifyStateChanged();
     }
 
