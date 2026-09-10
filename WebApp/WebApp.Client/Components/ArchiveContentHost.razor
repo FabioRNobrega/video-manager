@@ -12,10 +12,19 @@ else
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
     [Parameter] public EventCallback<ArchiveItemDto> OnBookSelected { get; set; }
+    [Parameter] public EventCallback<bool> EditorOpenChanged { get; set; }
 
     private ArchiveItemDto? _openTextDocument;
 
-    private void OpenTextDocument(ArchiveItemDto item) => _openTextDocument = item;
+    private void OpenTextDocument(ArchiveItemDto item)
+    {
+        _openTextDocument = item;
+        _ = EditorOpenChanged.InvokeAsync(true);
+    }
 
-    private void CloseTextDocument() => _openTextDocument = null;
+    private void CloseTextDocument()
+    {
+        _openTextDocument = null;
+        _ = EditorOpenChanged.InvokeAsync(false);
+    }
 }

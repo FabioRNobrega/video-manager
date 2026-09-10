@@ -2,8 +2,15 @@
 
 <PageTitle>Documents · PereneArchive</PageTitle>
 
-<header class="mb-4">
-    <h1 class="h3 mb-0">Documents</h1>
-</header>
+@if (!_editorOpen)
+{
+    <header class="mb-4">
+        <h1 class="h3 mb-0">Documents</h1>
+    </header>
+}
 
-<ArchiveContentHost Category="documents" Title="Documents" Icon="bi-file-earmark-text" />
+<ArchiveContentHost Category="documents" Title="Documents" Icon="bi-file-earmark-text" EditorOpenChanged="@(open => _editorOpen = open)" />
+
+@code {
+    private bool _editorOpen;
+}
