@@ -4,6 +4,8 @@ using WebApp.Configuration;
 using WebApp.Endpoints;
 using WebApp.Services;
 
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -103,6 +105,7 @@ builder.Services.AddSingleton<IEpubNoteService, EpubNoteService>();
 builder.Services.AddSingleton<IEpubProgressService, EpubProgressService>();
 builder.Services.AddSingleton<IEpubHighlightService, EpubHighlightService>();
 builder.Services.AddSingleton<ITextDocumentService, TextDocumentService>();
+builder.Services.AddSingleton<ITextDocumentPdfExporter, TextDocumentPdfExporter>();
 
 var app = builder.Build();
 var configuredAllowedHosts = builder.Configuration["AllowedNetworkHosts:Hosts"]?

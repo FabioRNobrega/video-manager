@@ -10,6 +10,8 @@ internal interface ITextDocumentService
     string RenderPreview(ArchiveItemEntry item, string source);
 
     TextDocumentSaveResult Save(ArchiveItemEntry item, string source, string revision);
+
+    string SavePdfExport(ArchiveItemEntry item, byte[] pdfBytes);
 }
 
 internal sealed record TextDocumentLoadResult(string Source, string Revision, string PreviewHtml, TextDocumentKind DocumentKind);

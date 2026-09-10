@@ -27,6 +27,13 @@
                     <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Reload
                 </button>
             }
+            <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                    type="button"
+                    disabled="@(_busy || _conflict)"
+                    @onclick="ExportPdfAsync">
+                <i class="bi bi-file-earmark-arrow-up-fill" aria-hidden="true"></i>
+                Export to PDF
+            </button>
             <button class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
                     type="button"
                     disabled="@(_busy || !_dirty || _conflict)"
@@ -85,6 +92,8 @@
     private bool _loading = true;
     private bool _busy;
     private bool _saving;
+    private bool _exporting;
+    private string? _exportedFileName;
     private bool _conflict;
     private string? _error;
     private ElementReference _sourceElement;
@@ -109,6 +118,16 @@
             if (_saving)
             {
                 return "Saving...";
+            }
+
+            if (_exporting)
+            {
+                return "Exporting to PDF...";
+            }
+
+            if (_exportedFileName is not null)
+            {
+                return $"Exported to {_exportedFileName}";
             }
 
             return _dirty ? "Unsaved changes" : "Saved";
@@ -186,6 +205,7 @@
     private void HandleSourceChanged(ChangeEventArgs args)
     {
         _source = args.Value?.ToString() ?? string.Empty;
+        _exportedFileName = null;
         SchedulePreview();
     }
 
@@ -314,6 +334,52 @@
             // Ctrl+S reaches this method via a [JSInvokable] call from JS, which bypasses Blazor's
             // automatic post-event re-render (that only happens for @onclick/@oninput-style handlers),
             // so without this the UI stays stuck showing "Saving..." until something else re-renders it.
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ExportPdfAsync()
+    {
+        if (_busy || _conflict)
+        {
+            return;
+        }
+
+        if (_dirty)
+        {
+            await SaveAsync();
+            if (_conflict || _error is not null || _dirty)
+            {
+                return;
+            }
+        }
+
+        _busy = true;
+        _exporting = true;
+        _exportedFileName = null;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            var url = $"api/archive/{Uri.EscapeDataString(Category)}/items/{Uri.EscapeDataString(ItemId)}/text/export-pdf";
+            using var response = await Http.PostAsync(url, content: null);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "The document could not be exported to PDF.";
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<TextDocumentExportPdfDto>();
+            _exportedFileName = result?.FileName;
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The document could not reach the server.";
+        }
+        finally
+        {
+            _busy = false;
+            _exporting = false;
             await InvokeAsync(StateHasChanged);
         }
     }

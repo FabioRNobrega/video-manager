@@ -20,6 +20,7 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/text", GetTextDocument);
         endpoints.MapPost("/api/archive/{category}/items/{id}/text/preview", PreviewTextDocument);
         endpoints.MapPut("/api/archive/{category}/items/{id}/text", SaveTextDocument);
+        endpoints.MapPost("/api/archive/{category}/items/{id}/text/export-pdf", ExportTextDocumentPdf);
         endpoints.MapGet("/api/archive/{category}/items/{id}/pdf", GetPdfDocument);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book", GetBookAsync);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/cover", GetBookCover);
@@ -391,6 +392,34 @@ internal static class ArchiveEndpoints
             return Results.Problem(
                 title: "The document could not be saved.",
                 detail: "The document could not be written.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private static IResult ExportTextDocumentPdf(
+        string category, string id, IArchiveService archive, ITextDocumentService textDocuments, ITextDocumentPdfExporter pdfExporter)
+    {
+        if (!archive.TryResolveTextDocument(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var loaded = textDocuments.Load(item);
+            var pdfBytes = pdfExporter.Export(item.Name, loaded.PreviewHtml);
+            var fileName = textDocuments.SavePdfExport(item, pdfBytes);
+            return Results.Ok(new TextDocumentExportPdfDto(fileName));
+        }
+        catch (TextDocumentValidationException exception)
+        {
+            return Results.BadRequest(new { error = exception.Message });
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Results.Problem(
+                title: "The document could not be exported.",
+                detail: "The PDF file could not be written.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }

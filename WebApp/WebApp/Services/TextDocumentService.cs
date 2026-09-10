@@ -91,6 +91,29 @@ internal sealed class TextDocumentService : ITextDocumentService
         return new TextDocumentSaveResult(newRevision, preview, kind);
     }
 
+    public string SavePdfExport(ArchiveItemEntry item, byte[] pdfBytes)
+    {
+        var directory = Path.GetDirectoryName(item.PhysicalPath)
+            ?? throw new TextDocumentValidationException("The document location is invalid.");
+        var fileName = $"{Path.GetFileNameWithoutExtension(item.PhysicalPath)}.pdf";
+        var targetPath = Path.Combine(directory, fileName);
+        var tempPath = Path.Combine(directory, $".{fileName}.tmp-{Guid.NewGuid():N}");
+        try
+        {
+            File.WriteAllBytes(tempPath, pdfBytes);
+            File.Move(tempPath, targetPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
+
+        return fileName;
+    }
+
     private static (string Source, long SizeBytes, DateTime LastWriteTimeUtc) ReadSource(string physicalPath)
     {
         var info = new FileInfo(physicalPath);
