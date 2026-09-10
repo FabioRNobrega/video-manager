@@ -53,7 +53,20 @@
          role="toolbar"
          aria-label="Video player controls">
         <div class="btn-group" role="group" aria-label="Playback">
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
+        @if (IsMusicMode)
+        {
+        <button class="btn @ActionCssClass"
+                type="button"
+                disabled="@(!CanSelectPreviousTrack)"
+                aria-label="Previous track"
+                title="Previous track"
+                data-bs-toggle="tooltip"
+                data-bs-title="Previous track"
+                @onclick="HandleSelectPreviousTrackAsync">
+            <i class="bi bi-chevron-compact-left" aria-hidden="true"></i>
+        </button>
+        }
+        <button class="btn @ToggleCssClass(State.IsPlaying)"
                 type="button"
                 aria-label="@(State.IsPlaying ? "Pause" : "Play")"
                 title="@(State.IsPlaying ? "Pause" : "Play")"
@@ -74,10 +87,23 @@
                 @onclick="HandleToggleStandardLoopAsync">
             <i class="bi bi-repeat-1" aria-hidden="true"></i>
         </button>
+        @if (IsMusicMode)
+        {
+        <button class="btn @ActionCssClass"
+                type="button"
+                disabled="@(!CanSelectNextTrack)"
+                aria-label="Next track"
+                title="Next track"
+                data-bs-toggle="tooltip"
+                data-bs-title="Next track"
+                @onclick="HandleSelectNextTrackAsync">
+            <i class="bi bi-chevron-compact-right" aria-hidden="true"></i>
+        </button>
+        }
         </div>
 
         <div class="btn-group" role="group" aria-label="Skip">
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
+        <button class="btn @ActionCssClass"
                 type="button"
                 disabled="@(!State.HasDuration)"
                 aria-label="Back 10 seconds"
@@ -87,7 +113,7 @@
                 @onclick="HandleSkipBackwardAsync">
             <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
         </button>
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
+        <button class="btn @ActionCssClass"
                 type="button"
                 disabled="@(!State.HasDuration)"
                 aria-label="Forward 10 seconds"
@@ -101,7 +127,7 @@
 
         <div class="audio-controls d-flex align-items-center gap-2">
         <div class="btn-group" role="group" aria-label="Audio">
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
+        <button class="btn @ToggleCssClass(State.IsMuted)"
                 type="button"
                 aria-label="@(State.IsMuted ? "Unmute" : "Mute")"
                 title="@(State.IsMuted ? "Unmute" : "Mute")"
@@ -141,8 +167,10 @@
             </select>
         </label>
 
-        <div class="btn-group ms-sm-auto" role="group" aria-label="Loop points">
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
+        @if (!IsMusicMode)
+        {
+        <div class="btn-group" role="group" aria-label="Loop points">
+        <button class="btn @ActionCssClass" type="button"
                 disabled="@(!State.HasDuration)"
                 aria-label="Set point A"
                 title="Set point A"
@@ -151,7 +179,7 @@
                 @onclick="HandleSetMarkerAAsync">
             <i class="bi bi-chevron-bar-left" aria-hidden="true"></i>
         </button>
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
+        <button class="btn @ActionCssClass" type="button"
                 disabled="@(!State.HasDuration)"
                 aria-label="Set point B"
                 title="Set point B"
@@ -169,12 +197,12 @@
                 data-bs-title="Loop A–B"
                 aria-pressed="@BooleanValue(State.IsAbLoop)"
                 @onclick="HandleToggleAbLoopAsync"><i class="bi bi-infinity" aria-hidden="true"></i></button>
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
-                disabled="@(!State.HasValidAbRange || IsSavingCut)"
+        <button class="btn @ActionCssClass" type="button"
+                disabled="@(!CanSaveCut || !State.HasValidAbRange || IsSavingCut)"
                 aria-label="Save Cut"
-                title="Save Cut"
+                title="@SaveCutTitle"
                 data-bs-toggle="tooltip"
-                data-bs-title="Save Cut"
+                data-bs-title="@SaveCutTitle"
                 @onclick="HandleSaveCutAsync">
             @if (IsSavingCut)
             {
@@ -185,7 +213,7 @@
                 <i class="bi bi-download" aria-hidden="true"></i>
             }
         </button>
-        <button class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2" type="button"
+        <button class="btn @ActionCssClass" type="button"
                 disabled="@(State.MarkerA is null && State.MarkerB is null)"
                 aria-label="Clear loop points"
                 title="Clear loop points"
@@ -195,18 +223,33 @@
             <i class="bi bi-x-circle" aria-hidden="true"></i>
         </button>
         </div>
+        }
 
-        <div class="btn-group" role="group" aria-label="Video actions">
+        <div class="btn-group ms-auto" role="group" aria-label="Player view">
+        @if (!IsMusicMode)
+        {
+        <button class="btn @ToggleCssClass(State.IsSubtitlesEnabled)"
+                type="button"
+                disabled="@(!HasSubtitles)"
+                aria-label="@(State.IsSubtitlesEnabled ? "Hide subtitles" : "Show subtitles")"
+                title="@(State.IsSubtitlesEnabled ? "Hide subtitles" : "Show subtitles")"
+                data-bs-toggle="tooltip"
+                data-bs-title="@(State.IsSubtitlesEnabled ? "Hide subtitles" : "Show subtitles")"
+                aria-pressed="@BooleanValue(State.IsSubtitlesEnabled)"
+                @onclick="HandleToggleSubtitlesAsync">
+            <i class="bi bi-card-text" aria-hidden="true"></i>
+        </button>
+        }
         <button @ref="_fillTabButton"
-                class="btn btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2"
+                class="btn @ToggleCssClass(IsFillTabActive)"
                 type="button"
                 aria-label="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
-                title="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
+                title="@FillTabTitle"
                 data-bs-toggle="tooltip"
-                data-bs-title="@(IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab")"
+                data-bs-title="@FillTabTitle"
                 aria-pressed="@BooleanValue(IsFillTabActive)"
                 @onclick="HandleEnterFillTabAsync">
-            <i class="bi @(IsFillTabActive ? "bi-fullscreen-exit" : "bi-fullscreen")" aria-hidden="true"></i>
+            <i class="bi @FillTabIcon" aria-hidden="true"></i>
         </button>
         </div>
     </div>
@@ -246,6 +289,15 @@
     [Parameter] public EventCallback EnterFillTab { get; set; }
     [Parameter] public bool IsFillTabActive { get; set; }
     [Parameter] public int FillTabFocusRequest { get; set; }
+    [Parameter] public bool HasSubtitles { get; set; }
+    [Parameter] public EventCallback ToggleSubtitles { get; set; }
+    [Parameter] public bool CanSaveCut { get; set; } = true;
+    [Parameter] public bool IsMusicMode { get; set; }
+    [Parameter] public EventCallback SelectPreviousTrack { get; set; }
+    [Parameter] public EventCallback SelectNextTrack { get; set; }
+    [Parameter] public bool CanSelectPreviousTrack { get; set; }
+    [Parameter] public bool CanSelectNextTrack { get; set; }
+    [Parameter] public bool IsFooterMode { get; set; }
 
     private ElementReference _controlsRoot;
     private ElementReference _fillTabButton;
@@ -258,13 +310,16 @@
     private bool _disposed;
 
     private string RootCssClass =>
-        $"media-controls position-absolute bottom-0 start-0 end-0 z-3 d-flex flex-column gap-2 text-white user-select-none {(IsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}{(IsFillTabActive ? " fill-tab-controls" : string.Empty)}";
+        $"media-controls {(IsFooterMode ? "footer-controls" : "position-absolute bottom-0 start-0 end-0 z-3")} d-flex flex-column gap-2 text-white user-select-none {(IsVisible ? "is-visible visible opacity-100 pe-auto" : "invisible opacity-0 pe-none")}{(IsFillTabActive ? " fill-tab-controls" : string.Empty)}";
     private double TimelineValue => _timelineActive ? _timelinePreview : State.CurrentTime;
     private double VolumeValue => _volumeActive ? _volumePreview : State.Volume;
     private string DisplayedCurrentTime => MediaPlayerState.FormatTime(TimelineValue);
     private string DurationValue => Invariant(State.Duration ?? 0);
     private string ProgressStyle => $"width: {Invariant(State.Duration is > 0 ? Math.Clamp(TimelineValue / State.Duration.Value * 100, 0, 100) : 0)}%";
     private string VolumeProgressStyle => $"--volume-progress: {Invariant(Math.Clamp(VolumeValue * 100, 0, 100))}%";
+    private string SaveCutTitle => CanSaveCut ? "Save Cut" : "Save Cut is available for library videos";
+    private string FillTabTitle => IsFillTabActive ? "Exit fill browser tab" : "Fill browser tab";
+    private string FillTabIcon => IsFillTabActive ? "bi-arrow-bar-down" : IsFooterMode ? "bi-arrow-bar-up" : "bi-fullscreen";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -362,8 +417,11 @@
     private Task HandleTogglePlaybackAsync() => TogglePlayback.InvokeAsync();
     private Task HandleToggleMuteAsync() => ToggleMute.InvokeAsync();
     private Task HandleToggleStandardLoopAsync() => ToggleStandardLoop.InvokeAsync();
+    private Task HandleToggleSubtitlesAsync() => ToggleSubtitles.InvokeAsync();
     private Task HandleSkipBackwardAsync() => SkipBackward.InvokeAsync();
     private Task HandleSkipForwardAsync() => SkipForward.InvokeAsync();
+    private Task HandleSelectPreviousTrackAsync() => SelectPreviousTrack.InvokeAsync();
+    private Task HandleSelectNextTrackAsync() => SelectNextTrack.InvokeAsync();
     private Task HandleEnterFillTabAsync() => EnterFillTab.InvokeAsync();
     private Task HandleSetMarkerAAsync() => SetMarkerA.InvokeAsync();
     private Task HandleSetMarkerBAsync() => SetMarkerB.InvokeAsync();
@@ -377,9 +435,11 @@
         return $"left: {Invariant(percentage)}%";
     }
 
+    private const string ActionCssClass = "btn-outline-primary d-inline-flex align-items-center justify-content-center p-2";
+
     private static string ToggleCssClass(bool active) => active
-        ? "btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2 active"
-        : "btn-player btn-outline-light d-inline-flex align-items-center justify-content-center p-2";
+        ? "btn-primary d-inline-flex align-items-center justify-content-center p-2"
+        : ActionCssClass;
 
     private static string BooleanValue(bool value) => value ? "true" : "false";
     private static string Invariant(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);

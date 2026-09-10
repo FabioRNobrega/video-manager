@@ -13,6 +13,29 @@
     transform: translateY(0);
 }
 
+.media-controls.footer-controls {
+    position: static;
+    padding: 0;
+    background: transparent;
+    color: var(--bs-body-color) !important;
+    transform: none;
+}
+
+.footer-controls .btn-toolbar {
+    border-top-color: var(--bs-border-color) !important;
+}
+
+.footer-controls .time-readout {
+    color: var(--bs-body-color) !important;
+}
+
+.footer-controls .rate-control select {
+    color-scheme: normal;
+    background: var(--bs-body-bg) !important;
+    color: var(--bs-body-color) !important;
+    border-color: var(--bs-border-color) !important;
+}
+
 .timeline-track {
     min-width: 0;
     height: 1.25rem;
@@ -69,40 +92,6 @@
 .time-readout {
     font-family: var(--font-family-meta);
     font-variant-numeric: tabular-nums;
-}
-
-.btn-player {
-    --bs-btn-color: rgba(255, 255, 255, .9);
-    --bs-btn-border-color: rgba(255, 255, 255, .42);
-    --bs-btn-hover-color: #fff;
-    --bs-btn-hover-bg: var(--bs-secondary);
-    --bs-btn-hover-border-color: var(--bs-secondary);
-    --bs-btn-active-color: #16211b;
-    --bs-btn-active-bg: var(--bs-primary);
-    --bs-btn-active-border-color: var(--bs-primary);
-    --bs-btn-focus-shadow-rgb: 185, 138, 46;
-    background: rgba(255, 255, 255, .08);
-}
-
-.btn-player:hover:not(:disabled),
-.btn-player:focus-visible {
-    color: #fff;
-    background: var(--bs-secondary);
-    border-color: var(--bs-secondary);
-}
-
-.btn-player[aria-pressed="true"],
-.btn-player.is-active {
-    color: #16211b;
-    background: var(--bs-primary);
-    border-color: var(--bs-primary);
-}
-
-.btn-player:disabled {
-    color: rgba(255, 255, 255, .72);
-    background: rgba(255, 255, 255, .06);
-    border-color: rgba(255, 255, 255, .24);
-    opacity: .5;
 }
 
 .audio-controls {
@@ -188,6 +177,18 @@
 
     .volume-control > .bi {
         display: none;
+    }
+}
+
+@media (max-width: 62rem) {
+    .media-controls.footer-controls .btn-toolbar {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        padding-bottom: .25rem;
+    }
+
+    .media-controls.footer-controls .audio-controls {
+        flex: 0 0 8rem;
     }
 }
 

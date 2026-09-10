@@ -1,0 +1,29 @@
+.archive-cover-tile {
+    overflow: hidden;
+}
+
+.archive-cover-overlay {
+    top: 50%;
+    color: var(--text-strong);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--hover-border);
+    opacity: 0;
+    transform: translateY(100%);
+    transition: opacity .18s ease, transform .18s ease;
+}
+
+.archive-cover-overlay .small {
+    color: var(--text-muted);
+}
+
+.archive-cover-card:hover .archive-cover-overlay,
+.archive-cover-card:focus-visible .archive-cover-overlay {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .archive-cover-overlay {
+        transition: none;
+    }
+}

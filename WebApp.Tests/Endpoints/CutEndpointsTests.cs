@@ -33,11 +33,13 @@ public sealed class CutEndpointsTests
         using var document = JsonDocument.Parse(json);
         var item = Assert.Single(document.RootElement.EnumerateArray());
         Assert.Equal(
-            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl", "width"],
+            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "subtitleState", "subtitleUrl", "thumbnailState", "thumbnailUrl", "width"],
             item.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
         Assert.Equal("Jennifer White 0001.mp4", item.GetProperty("name").GetString());
         Assert.Equal((int)ThumbnailState.Pending, item.GetProperty("thumbnailState").GetInt32());
         Assert.Equal((int)HoverPreviewState.Pending, item.GetProperty("hoverPreviewState").GetInt32());
+        Assert.Equal((int)SubtitleState.Unavailable, item.GetProperty("subtitleState").GetInt32());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("subtitleUrl").ValueKind);
 
         var cut = Assert.Single((await response.Content.ReadFromJsonAsync<List<VideoItemDto>>())!);
         using var fullResponse = await client.GetAsync($"/api/cuts/{cut.Id}/stream");
@@ -151,6 +153,7 @@ public sealed class CutEndpointsTests
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
+                    ["ArchiveRoot:Path"] = _rootPath,
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = _previewPath,
                     ["VideoCut:Path"] = _cutPath,

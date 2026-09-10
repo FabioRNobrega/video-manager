@@ -1,0 +1,17 @@
+.utility-tile {
+    width: 160px;
+    aspect-ratio: 1 / 1;
+    color: var(--bs-body-color);
+    transition: color .15s ease, border-color .15s ease;
+}
+
+.utility-tile:hover,
+.utility-tile:focus-visible {
+    color: var(--bs-primary) !important;
+    border-color: var(--bs-primary);
+}
+
+.utility-tile:hover .card-body,
+.utility-tile:focus-visible .card-body {
+    color: var(--bs-primary) !important;
+}

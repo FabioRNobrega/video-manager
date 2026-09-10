@@ -1,0 +1,47 @@
+@if (_openTextDocument is not null)
+{
+    <TextDocumentEditor Category="@Category" ItemId="@_openTextDocument.Id" OnClose="CloseTextDocument" />
+}
+else if (_openPdfDocument is not null)
+{
+    <PdfDocumentViewer Name="@_openPdfDocument.Name" PdfUrl="@(_openPdfDocument.PdfUrl ?? string.Empty)" OnClose="ClosePdfDocument" />
+}
+else
+{
+    <ArchiveBrowser Category="@Category" Title="@Title" Icon="@Icon" OnBookSelected="OnBookSelected" OnTextDocumentSelected="OpenTextDocument" OnPdfDocumentSelected="OpenPdfDocument" />
+}
+
+@code {
+    [Parameter, EditorRequired] public string Category { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public EventCallback<ArchiveItemDto> OnBookSelected { get; set; }
+    [Parameter] public EventCallback<bool> EditorOpenChanged { get; set; }
+
+    private ArchiveItemDto? _openTextDocument;
+    private ArchiveItemDto? _openPdfDocument;
+
+    private void OpenTextDocument(ArchiveItemDto item)
+    {
+        _openTextDocument = item;
+        _ = EditorOpenChanged.InvokeAsync(true);
+    }
+
+    private void CloseTextDocument()
+    {
+        _openTextDocument = null;
+        _ = EditorOpenChanged.InvokeAsync(false);
+    }
+
+    private void OpenPdfDocument(ArchiveItemDto item)
+    {
+        _openPdfDocument = item;
+        _ = EditorOpenChanged.InvokeAsync(true);
+    }
+
+    private void ClosePdfDocument()
+    {
+        _openPdfDocument = null;
+        _ = EditorOpenChanged.InvokeAsync(false);
+    }
+}

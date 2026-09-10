@@ -1,0 +1,274 @@
+@page "/utilities/video-cut"
+@inject HttpClient Http
+@inject PersistentPlayerState PlayerState
+@implements IDisposable
+
+<PageTitle>Video Cut · PereneArchive</PageTitle>
+
+<header class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item"><a href="/utilities">Utilities</a></li>
+            <li class="breadcrumb-item active" aria-current="page">VideoCut</li>
+        </ol>
+    </nav>
+    <h1 class="h3 mb-0"><i class="bi bi-braces-asterisk me-2" aria-hidden="true"></i>VideoCut</h1>
+</header>
+
+<div class="alert alert-info d-flex align-items-center gap-2" role="note">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    <div>
+        Cuts are created from the video player: set an A and a B point on a library video, then save the cut.
+        Once saved, it will appear here automatically.
+    </div>
+</div>
+
+<div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
+    <div class="d-flex align-items-center gap-2">
+        <h2 class="h5 mb-0">Cuts</h2>
+        @if (_isPollingCuts)
+        {
+            <span class="spinner-border spinner-border-sm text-primary" role="status" aria-label="Saving cut"></span>
+        }
+    </div>
+    <div class="ms-auto" style="max-width: 320px; width: 100%;">
+        <input type="search"
+               class="form-control form-control-sm"
+               placeholder="Filter cuts by name"
+               aria-label="Filter cuts by name"
+               value="@_filterText"
+               @oninput="OnFilterChanged" />
+    </div>
+</div>
+
+<VideoGrid Items="_filteredCuts"
+           HasLoaded="_cutsLoaded"
+           IsLoading="_cutsLoading"
+           Error="@_cutError"
+           SelectedId="@(PlayerState.StreamBasePath == PersistentPlayerState.CutStreamBasePath ? PlayerState.SelectedId : null)"
+           PreviewingVideoId="@_previewingCutId"
+           OnSelect="SelectCut"
+           OnCardMouseEnter="OnCutMouseEnter"
+           OnCardMouseLeave="OnCutMouseLeave"
+           GridLabel="Saved cuts"
+           SingularLabel="cut"
+           PluralLabel="cuts"
+           LoadingTitle="Loading cuts..."
+           LoadingMessage="Reading saved cuts."
+           ErrorTitle="Cuts failed"
+           NotLoadedIcon="bi-scissors"
+           NotLoadedTitle="Loading saved cuts"
+           NotLoadedMessage="Saved cuts will appear here."
+           EmptyIcon="bi-scissors"
+           EmptyTitle="No cuts saved yet"
+           EmptyMessage="Set A and B points on a library video, then save a cut." />
+
+@code {
+    private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(2);
+    private IReadOnlyList<VideoItemDto> _cuts = Array.Empty<VideoItemDto>();
+    private bool _cutsLoaded;
+    private bool _cutsLoading = true;
+    private bool _isPollingCuts;
+    private string? _cutError;
+    private string? _previewingCutId;
+    private string _filterText = string.Empty;
+    private CancellationTokenSource? _cutPollingCts;
+    private CancellationTokenSource? _cutHoverDelayCts;
+    private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(300);
+
+    private IReadOnlyList<VideoItemDto> _filteredCuts =>
+        string.IsNullOrWhiteSpace(_filterText)
+            ? _cuts
+            : _cuts.Where(cut => cut.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private void OnFilterChanged(ChangeEventArgs args) => _filterText = args.Value?.ToString() ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PlayerState.CutQueued += HandleCutQueued;
+        await LoadCutsAsync();
+    }
+
+    private void SelectCut(VideoItemDto cut)
+    {
+        PlayerState.SelectCut(cut);
+    }
+
+    private async Task LoadCutsAsync()
+    {
+        _cutsLoading = true;
+        _cutError = null;
+
+        try
+        {
+            _cuts = await Http.GetFromJsonAsync<List<VideoItemDto>>("api/cuts") ?? [];
+            StartCutPollingIfPending();
+        }
+        catch (HttpRequestException)
+        {
+            _cutError = "The saved cuts could not be loaded.";
+        }
+        catch (TaskCanceledException)
+        {
+            _cutError = "Loading saved cuts was interrupted.";
+        }
+        finally
+        {
+            _cutsLoaded = true;
+            _cutsLoading = false;
+        }
+    }
+
+    private void HandleCutQueued()
+    {
+        StartCutPolling(_cuts.Count);
+    }
+
+    private void OnCutMouseEnter(VideoItemDto item)
+    {
+        _cutHoverDelayCts?.Cancel();
+        _cutHoverDelayCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _cutHoverDelayCts = cts;
+
+        _ = ActivateCutPreviewAfterDelayAsync(item, cts);
+    }
+
+    private void OnCutMouseLeave()
+    {
+        _cutHoverDelayCts?.Cancel();
+        _cutHoverDelayCts?.Dispose();
+        _cutHoverDelayCts = null;
+
+        if (_previewingCutId is not null)
+        {
+            _previewingCutId = null;
+            StateHasChanged();
+        }
+    }
+
+    private void StartCutPolling(int previousCount)
+    {
+        CancelCutPolling();
+        _isPollingCuts = true;
+        var cts = new CancellationTokenSource();
+        _cutPollingCts = cts;
+        _ = PollCutsAsync(previousCount, cts.Token);
+    }
+
+    private void StartCutPollingIfPending()
+    {
+        if (!HasPendingGeneratedAssets(_cuts))
+        {
+            return;
+        }
+
+        StartCutPolling(_cuts.Count);
+    }
+
+    private async Task PollCutsAsync(int previousCount, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(PollingInterval, cancellationToken);
+
+                List<VideoItemDto>? updated;
+                try
+                {
+                    updated = await Http.GetFromJsonAsync<List<VideoItemDto>>("api/cuts", cancellationToken);
+                }
+                catch (HttpRequestException)
+                {
+                    _isPollingCuts = false;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                if (cancellationToken.IsCancellationRequested || updated is null)
+                {
+                    return;
+                }
+
+                _cuts = updated;
+                _cutsLoaded = true;
+
+                if (PlayerState.Selected is not null && PlayerState.StreamBasePath == PersistentPlayerState.CutStreamBasePath)
+                {
+                    var selected = updated.FirstOrDefault(video => video.Id == PlayerState.Selected.Id);
+                    if (selected is not null)
+                    {
+                        PlayerState.UpdateSelected(selected);
+                    }
+                }
+
+                if (updated.Count > previousCount)
+                {
+                    previousCount = updated.Count;
+                }
+
+                if (!HasPendingGeneratedAssets(updated))
+                {
+                    _isPollingCuts = false;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task ActivateCutPreviewAfterDelayAsync(VideoItemDto item, CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(HoverDelay, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (cts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (item.HoverPreviewState != HoverPreviewState.Ready || string.IsNullOrEmpty(item.HoverPreviewUrl))
+        {
+            return;
+        }
+
+        _previewingCutId = item.Id;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool HasPendingGeneratedAssets(IReadOnlyList<VideoItemDto> items) =>
+        items.Any(item => item.ThumbnailState == ThumbnailState.Pending || item.HoverPreviewState == HoverPreviewState.Pending);
+
+    private void CancelCutPolling()
+    {
+        _cutPollingCts?.Cancel();
+        _cutPollingCts?.Dispose();
+        _cutPollingCts = null;
+    }
+
+    private void CancelCutHover()
+    {
+        _cutHoverDelayCts?.Cancel();
+        _cutHoverDelayCts?.Dispose();
+        _cutHoverDelayCts = null;
+    }
+
+    public void Dispose()
+    {
+        PlayerState.CutQueued -= HandleCutQueued;
+        CancelCutPolling();
+        CancelCutHover();
+    }
+}

@@ -4,6 +4,8 @@ using WebApp.Configuration;
 using WebApp.Endpoints;
 using WebApp.Services;
 
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -15,6 +17,15 @@ builder.Services.AddOptions<VideoLibraryOptions>()
     .Validate(VideoLibraryOptions.HasAbsolutePath, "VideoLibrary:Path must be absolute.")
     .Validate(VideoLibraryOptions.DirectoryExists, "VideoLibrary:Path must identify an existing directory.")
     .Validate(VideoLibraryOptions.DirectoryIsReadable, "VideoLibrary:Path must identify a readable directory.")
+    .ValidateOnStart();
+builder.Services.AddOptions<ArchiveRootOptions>()
+    .Bind(builder.Configuration.GetSection(ArchiveRootOptions.SectionName))
+    .Validate(ArchiveRootOptions.HasConfiguredPath, "ArchiveRoot:Path is required.")
+    .Validate(ArchiveRootOptions.HasAbsolutePath, "ArchiveRoot:Path must be absolute.")
+    .Validate(ArchiveRootOptions.DirectoryExists, "ArchiveRoot:Path must identify an existing directory.")
+    .Validate(ArchiveRootOptions.DirectoryIsReadable, "ArchiveRoot:Path must identify a readable directory.")
+    .Validate(ArchiveRootOptions.DirectoryIsWritable, "ArchiveRoot:Path must identify a writable directory.")
+    .Validate(ArchiveRootOptions.DefaultCategoriesExistOrCanBeCreated, "ArchiveRoot:Path must contain or allow creation of default category folders.")
     .ValidateOnStart();
 builder.Services.AddOptions<ThumbnailCacheOptions>()
     .Bind(builder.Configuration.GetSection(ThumbnailCacheOptions.SectionName))
@@ -65,6 +76,12 @@ builder.Services.AddSingleton<HoverPreviewCoordinator>();
 builder.Services.AddSingleton<IHoverPreviewJobQueue, HoverPreviewJobQueue>();
 builder.Services.AddSingleton<IHoverPreviewGenerator, FfmpegHoverPreviewGenerator>();
 builder.Services.AddHostedService<HoverPreviewBackgroundWorker>();
+builder.Services.AddSingleton<SubtitleMatcher>();
+builder.Services.AddSingleton<SubtitleCache>();
+builder.Services.AddSingleton<SubtitleCoordinator>();
+builder.Services.AddSingleton<ISubtitleJobQueue, SubtitleJobQueue>();
+builder.Services.AddSingleton<ISubtitleGenerator, FfmpegSubtitleGenerator>();
+builder.Services.AddHostedService<SubtitleBackgroundWorker>();
 builder.Services.AddSingleton<IVideoCutService, VideoCutService>();
 builder.Services.AddSingleton<CutNamingService>();
 builder.Services.AddSingleton<ICutJobQueue, CutJobQueue>();
@@ -78,8 +95,28 @@ builder.Services.AddSingleton<IVideoCompositionProbe, FfprobeCompositionProbe>()
 builder.Services.AddSingleton<ICompositionGenerator, FfmpegCompositionGenerator>();
 builder.Services.AddHostedService<CompositionBackgroundWorker>();
 builder.Services.AddSingleton<IStorageUsageService, StorageUsageService>();
+builder.Services.AddSingleton<IArchiveService, ArchiveService>();
+builder.Services.AddSingleton<ImageCropNamingService>();
+builder.Services.AddSingleton<IImageCropGenerator, ImageSharpCropGenerator>();
+builder.Services.AddSingleton<IImageCropService, ImageCropService>();
+builder.Services.AddSingleton<IEpubContentSanitizer, EpubContentSanitizer>();
+builder.Services.AddSingleton<IEpubBookService, EpubBookService>();
+builder.Services.AddSingleton<IEpubNoteService, EpubNoteService>();
+builder.Services.AddSingleton<IEpubProgressService, EpubProgressService>();
+builder.Services.AddSingleton<IEpubHighlightService, EpubHighlightService>();
+builder.Services.AddSingleton<ITextDocumentService, TextDocumentService>();
+builder.Services.AddSingleton<ITextDocumentPdfExporter, TextDocumentPdfExporter>();
 
 var app = builder.Build();
+var configuredAllowedHosts = builder.Configuration["AllowedNetworkHosts:Hosts"]?
+    .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) ?? [];
+var allowedHostSet = new HashSet<string>(configuredAllowedHosts, StringComparer.OrdinalIgnoreCase)
+{
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "[::1]"
+};
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -97,6 +134,18 @@ app.UseWhen(
     branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
+app.Use(async (context, next) =>
+{
+    var host = context.Request.Host.Host;
+    if (!string.IsNullOrWhiteSpace(host) && !allowedHostSet.Contains(host))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    await next();
+});
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
@@ -104,6 +153,7 @@ app.MapVideoEndpoints();
 app.MapCutEndpoints();
 app.MapCompositionEndpoints();
 app.MapStorageEndpoints();
+app.MapArchiveEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(WebApp.Client._Imports).Assembly);

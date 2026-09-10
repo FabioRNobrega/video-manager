@@ -32,7 +32,7 @@ public sealed class VideoEndpointsTests
         using var document = JsonDocument.Parse(json);
         var item = Assert.Single(document.RootElement.EnumerateArray());
         Assert.Equal(
-            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "thumbnailState", "thumbnailUrl", "width"],
+            ["durationSeconds", "extension", "height", "hoverPreviewState", "hoverPreviewUrl", "id", "name", "sizeBytes", "subtitleState", "subtitleUrl", "thumbnailState", "thumbnailUrl", "width"],
             item.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
         Assert.Equal("clip.MP4", item.GetProperty("name").GetString());
         Assert.Equal(".mp4", item.GetProperty("extension").GetString());
@@ -42,6 +42,56 @@ public sealed class VideoEndpointsTests
         Assert.Equal(JsonValueKind.Null, item.GetProperty("thumbnailUrl").ValueKind);
         Assert.Equal((int)HoverPreviewState.Pending, item.GetProperty("hoverPreviewState").GetInt32());
         Assert.Equal(JsonValueKind.Null, item.GetProperty("hoverPreviewUrl").ValueKind);
+        Assert.Equal((int)SubtitleState.Unavailable, item.GetProperty("subtitleState").GetInt32());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("subtitleUrl").ValueKind);
+    }
+
+    [Fact]
+    public async Task Subtitle_endpoint_serves_ready_vtt_and_scan_reports_state()
+    {
+        using var root = new TemporaryDirectory();
+        var videoPath = Path.Combine(root.Path, "clip.mp4");
+        var subtitlePath = Path.Combine(root.Path, "clip.srt");
+        await File.WriteAllBytesAsync(videoPath, [1, 2, 3]);
+        await File.WriteAllTextAsync(subtitlePath, "subtitle");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        var pending = await ScanSingleAsync(client);
+
+        Assert.Equal(SubtitleState.Pending, pending.SubtitleState);
+        Assert.Null(pending.SubtitleUrl);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{pending.Id}/subtitle")).StatusCode);
+
+        var cache = new SubtitleCache(Options.Create(new ThumbnailCacheOptions { Path = factory.PreviewPath }));
+        var entry = new WebApp.Models.VideoFileEntry(
+            pending.Id,
+            videoPath,
+            "clip.mp4",
+            "clip.mp4",
+            ".mp4",
+            3,
+            File.GetLastWriteTimeUtc(videoPath));
+        var subtitle = new WebApp.Models.SubtitleFileInfo(
+            subtitlePath,
+            new FileInfo(subtitlePath).Length,
+            File.GetLastWriteTimeUtc(subtitlePath));
+        await File.WriteAllTextAsync(cache.GetFinalPath(cache.ComputeKey(entry, subtitle)), "WEBVTT\n\n");
+
+        var ready = Assert.Single((await client.GetFromJsonAsync<List<VideoItemDto>>("/api/videos"))!);
+        Assert.Equal(SubtitleState.Ready, ready.SubtitleState);
+        Assert.NotNull(ready.SubtitleUrl);
+
+        using var subtitleResponse = await client.GetAsync(ready.SubtitleUrl);
+        Assert.Equal(HttpStatusCode.OK, subtitleResponse.StatusCode);
+        Assert.Equal("text/vtt", subtitleResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("WEBVTT\n\n", await subtitleResponse.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/videos/not-an-id/subtitle")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/videos/{Guid.NewGuid():N}/subtitle")).StatusCode);
     }
 
     [Fact]
@@ -95,9 +145,7 @@ public sealed class VideoEndpointsTests
             (await client.GetAsync("/api/videos/%2Fetc%2Fpasswd/thumbnail")).StatusCode);
 
         var rescanned = await ScanSingleAsync(client);
-        Assert.NotEqual(video.Id, rescanned.Id);
-        Assert.Equal(HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/videos/{video.Id}/thumbnail")).StatusCode);
+        Assert.Equal(video.Id, rescanned.Id);
 
         File.Delete(file);
         using var deletedScan = await client.PostAsync("/api/videos/scan", null);
@@ -148,9 +196,7 @@ public sealed class VideoEndpointsTests
             (await client.GetAsync("/api/videos/%2Fetc%2Fpasswd/preview")).StatusCode);
 
         var rescanned = await ScanSingleAsync(client);
-        Assert.NotEqual(video.Id, rescanned.Id);
-        Assert.Equal(HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/videos/{video.Id}/preview")).StatusCode);
+        Assert.Equal(video.Id, rescanned.Id);
 
         File.Delete(file);
         using var deletedScan = await client.PostAsync("/api/videos/scan", null);
@@ -235,9 +281,7 @@ public sealed class VideoEndpointsTests
             (await client.GetAsync("/api/videos/%2Fetc%2Fpasswd/stream")).StatusCode);
 
         var second = await ScanSingleAsync(client);
-        Assert.NotEqual(first.Id, second.Id);
-        Assert.Equal(HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/videos/{first.Id}/stream")).StatusCode);
+        Assert.Equal(first.Id, second.Id);
 
         File.Delete(file);
         Assert.Equal(HttpStatusCode.NotFound,
@@ -289,6 +333,20 @@ public sealed class VideoEndpointsTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Configured_lan_host_header_is_allowed()
+    {
+        using var root = new TemporaryDirectory();
+        using var factory = new VideoManagerFactory(root.Path, allowedNetworkHosts: "192.168.0.147");
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/videos/scan");
+        request.Headers.Host = "192.168.0.147:8080";
+
+        using var response = await client.SendAsync(request);
+
+        Assert.NotEqual(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private static async Task<VideoItemDto> ScanSingleAsync(HttpClient client)
     {
         using var response = await client.PostAsync("/api/videos/scan", null);
@@ -302,11 +360,13 @@ public sealed class VideoEndpointsTests
         private readonly bool _hoverPreviewEnabled;
         private readonly string _cutPath;
         private readonly string _compositionPath;
+        private readonly string _allowedNetworkHosts;
 
-        public VideoManagerFactory(string rootPath, bool hoverPreviewEnabled = true)
+        public VideoManagerFactory(string rootPath, bool hoverPreviewEnabled = true, string allowedNetworkHosts = "")
         {
             _rootPath = rootPath;
             _hoverPreviewEnabled = hoverPreviewEnabled;
+            _allowedNetworkHosts = allowedNetworkHosts;
             PreviewPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-preview-{Guid.NewGuid():N}");
             _cutPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-cuts-{Guid.NewGuid():N}");
             _compositionPath = Path.Combine(Path.GetTempPath(), $"video-manager-api-tests-composition-{Guid.NewGuid():N}");
@@ -322,11 +382,13 @@ public sealed class VideoEndpointsTests
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
+                    ["ArchiveRoot:Path"] = Path.GetDirectoryName(_rootPath),
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = PreviewPath,
                     ["VideoCut:Path"] = _cutPath,
                     ["VideoComposition:Path"] = _compositionPath,
                     ["HoverPreview:Enabled"] = _hoverPreviewEnabled.ToString(),
+                    ["AllowedNetworkHosts:Hosts"] = _allowedNetworkHosts,
                 }));
         }
 

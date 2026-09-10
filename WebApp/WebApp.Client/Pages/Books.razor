@@ -6,6 +6,17 @@
     <h1 class="h3 mb-0">Books</h1>
 </header>
 
-<ComingSoonSection Icon="bi-journal-bookmark-fill"
-                    Title="Books are coming soon"
-                    Message="Browsing and reading books from your PereneArchive will live here." />
+<ArchiveContentHost Category="books" Title="Books" Icon="bi-journal-bookmark-fill" OnBookSelected="OpenBook" />
+
+@if (_openBookId is not null)
+{
+    <EpubReader Category="books" ItemId="@_openBookId" OnClose="CloseBook" />
+}
+
+@code {
+    private string? _openBookId;
+
+    private void OpenBook(ArchiveItemDto item) => _openBookId = item.Id;
+
+    private void CloseBook() => _openBookId = null;
+}

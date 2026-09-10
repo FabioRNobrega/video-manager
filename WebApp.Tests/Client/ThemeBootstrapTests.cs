@@ -73,7 +73,7 @@ public sealed class ThemeBootstrapTests
             Assert.DoesNotContain(cookies, cookie =>
                 cookie.Contains("theme", StringComparison.OrdinalIgnoreCase));
         }
-        Assert.DoesNotContain("video-manager-theme", html);
+        Assert.DoesNotContain("perenearchive-theme", html);
         Assert.Equal(HttpStatusCode.NotFound, endpointResponse.StatusCode);
     }
 
@@ -100,6 +100,7 @@ public sealed class ThemeBootstrapTests
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
+                    ["ArchiveRoot:Path"] = _rootPath,
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = _previewPath,
                     ["VideoCut:Path"] = _cutPath,

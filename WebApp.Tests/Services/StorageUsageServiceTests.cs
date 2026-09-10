@@ -10,7 +10,7 @@ public sealed class StorageUsageServiceTests
     public void Existing_path_returns_non_negative_usage_with_used_not_exceeding_total()
     {
         using var directory = new TemporaryDirectory();
-        var service = new StorageUsageService(Options.Create(new VideoLibraryOptions { Path = directory.Path }));
+        var service = new StorageUsageService(Options.Create(new ArchiveRootOptions { Path = directory.Path }));
 
         var usage = service.GetUsage();
 
@@ -22,7 +22,7 @@ public sealed class StorageUsageServiceTests
     [Fact]
     public void Invalid_path_returns_safe_fallback_instead_of_throwing()
     {
-        var service = new StorageUsageService(Options.Create(new VideoLibraryOptions { Path = string.Empty }));
+        var service = new StorageUsageService(Options.Create(new ArchiveRootOptions { Path = string.Empty }));
 
         var usage = service.GetUsage();
 

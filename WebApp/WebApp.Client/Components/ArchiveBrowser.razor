@@ -1,0 +1,906 @@
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject PersistentPlayerState PlayerState
+@implements IDisposable
+
+<section class="card overflow-hidden" aria-labelledby="@HeadingId">
+    <div class="card-header d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <nav id="@HeadingId" aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                @if (_listing is null || _listing.Breadcrumbs.Count == 0)
+                {
+                    <li class="breadcrumb-item active" aria-current="page">@Title</li>
+                }
+                else
+                {
+                    <li class="breadcrumb-item">
+                        <button class="btn btn-link p-0 align-baseline" type="button" disabled="@_operationPending" @onclick="() => LoadAsync(null)">
+                            @_listing.DisplayName
+                        </button>
+                    </li>
+                    @foreach (var breadcrumb in _listing.Breadcrumbs)
+                    {
+                        var isCurrent = breadcrumb == _listing.Breadcrumbs[^1];
+                        if (isCurrent)
+                        {
+                            <li class="breadcrumb-item active text-break" aria-current="page">@breadcrumb.Name</li>
+                        }
+                        else
+                        {
+                            <li class="breadcrumb-item">
+                                <button class="btn btn-link p-0 align-baseline text-break"
+                                        type="button"
+                                        disabled="@_operationPending"
+                                        @onclick="() => LoadAsync(breadcrumb.FolderId)">
+                                    @breadcrumb.Name
+                                </button>
+                            </li>
+                        }
+                    }
+                }
+            </ol>
+        </nav>
+        @if (_listing?.CanCreateFolder == true)
+        {
+            <button class="btn btn-primary rounded-circle d-inline-flex align-items-center justify-content-center"
+                    style="width:44px;height:44px;"
+                    type="button"
+                    disabled="@_operationPending"
+                    data-bs-toggle="modal"
+                    data-bs-target="#@CreateModalId"
+                    aria-label="Create folder">
+                <i class="bi bi-plus fs-4 lh-1" aria-hidden="true"></i>
+            </button>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger m-3" role="alert">@_error</div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary" role="status" aria-live="polite">
+            <span class="spinner-border text-primary" aria-hidden="true"></span>
+            <strong class="fs-5 text-body">Loading @Title</strong>
+            <span>Reading the local archive.</span>
+        </div>
+    }
+    else if (_listing is null || _listing.Items.Count == 0)
+    {
+        <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary" role="status" aria-live="polite">
+            <i class="bi @Icon fs-2 text-primary" aria-hidden="true"></i>
+            <strong class="fs-5 text-body">No items here</strong>
+            <span>This folder is empty.</span>
+        </div>
+    }
+    else
+    {
+        <p class="small text-body-secondary border-bottom mb-0 px-3 py-2" role="status">
+            @_listing.Items.Count @(_listing.Items.Count == 1 ? "item" : "items")
+        </p>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 p-3" aria-label="@Title">
+            @foreach (var item in _listing.Items)
+            {
+                var selected = IsSelected(item);
+                <div class="col">
+                    <div class="card h-100 position-relative overflow-hidden @(selected ? "border-primary border-2" : null)"
+                         @onmouseenter="() => StartPreview(item)"
+                         @onmouseleave="ClearPreview">
+                        @if (selected)
+                        {
+                            <span class="badge text-bg-primary position-absolute top-0 start-0 z-1 m-2">
+                                <i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Selected
+                            </span>
+                        }
+                        <div class="dropdown position-absolute top-0 end-0 z-2 m-2" @onclick:stopPropagation="true">
+                            <button class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center bg-body bg-opacity-75"
+                                    style="width:40px;height:40px;"
+                                    type="button"
+                                    disabled="@_operationPending"
+                                    data-bs-toggle="dropdown"
+                                    aria-expanded="false"
+                                    aria-label="Actions for @item.Name">
+                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <button class="dropdown-item d-flex align-items-center"
+                                            type="button"
+                                            disabled="@_operationPending"
+                                            @onclick="() => StartRename(item)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi bi-pencil me-2" aria-hidden="true"></i>
+                                        Rename
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item d-flex align-items-center"
+                                            type="button"
+                                            disabled="@(_operationPending || _folderChoices.Count == 0)"
+                                            @onclick="() => StartMove(item)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi bi-folder-symlink me-2" aria-hidden="true"></i>
+                                        Move
+                                    </button>
+                                </li>
+                                @if (Category != "trash")
+                                {
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <button class="dropdown-item text-danger d-flex align-items-center"
+                                                type="button"
+                                                disabled="@_operationPending"
+                                                @onclick="() => DeleteAsync(item)"
+                                                @onclick:stopPropagation="true">
+                                            <i class="bi bi-trash3 me-2" aria-hidden="true"></i>
+                                            Move to Trash
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                        <button class="@CardButtonCssClass(item)"
+                                type="button"
+                                aria-pressed="@((item.IsVideo || item.IsMusic) ? selected : null)"
+                                @onclick="() => ActivateAsync(item)">
+                            @if (item.IsMusic)
+                            {
+                                <span class="archive-cover-tile ratio ratio-1x1 bg-body-tertiary w-100" aria-hidden="true">
+                                    @if (!string.IsNullOrWhiteSpace(item.AlbumCoverUrl))
+                                    {
+                                        <img src="@item.AlbumCoverUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                    }
+                                    else
+                                    {
+                                        <span class="d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-music-note-beamed display-1 lh-1 text-primary" aria-hidden="true"></i>
+                                        </span>
+                                    }
+                                    <span class="archive-cover-overlay position-absolute start-0 end-0 bottom-0 d-flex flex-column gap-1 text-start p-3">
+                                        <span class="fw-semibold text-truncate">@FormatDisplayName(item)</span>
+                                        <span class="small d-flex gap-2 flex-wrap">
+                                            <span class="text-nowrap">@FormatDuration(item.DurationSeconds)</span>
+                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                        </span>
+                                    </span>
+                                </span>
+                            }
+                            else if (item.IsImage)
+                            {
+                                <span class="archive-cover-tile ratio ratio-1x1 bg-body-tertiary w-100" aria-hidden="true">
+                                    @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                                    {
+                                        <img src="@item.ImageUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                    }
+                                    else
+                                    {
+                                        <span class="d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-image display-1 lh-1 text-primary" aria-hidden="true"></i>
+                                        </span>
+                                    }
+                                    <span class="archive-cover-overlay position-absolute start-0 end-0 bottom-0 d-flex flex-column gap-1 text-start p-3">
+                                        <span class="fw-semibold text-truncate">@FormatDisplayName(item)</span>
+                                        <span class="small d-flex gap-2 flex-wrap">
+                                            <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                        </span>
+                                    </span>
+                                </span>
+                            }
+                            else if (item.IsBook)
+                            {
+                                <span class="archive-cover-tile book-cover-tile ratio w-100" style="--bs-aspect-ratio: 150%;" aria-hidden="true">
+                                    @if (!string.IsNullOrWhiteSpace(item.BookCoverUrl))
+                                    {
+                                        <img src="@item.BookCoverUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                    }
+                                    else
+                                    {
+                                        <span class="d-flex align-items-center justify-content-center h-100">
+                                            <i class="bi bi-book display-1 lh-1 text-primary" aria-hidden="true"></i>
+                                        </span>
+                                    }
+                                    <span class="archive-cover-overlay position-absolute start-0 end-0 bottom-0 d-flex flex-column gap-1 text-start p-3">
+                                        <span class="fw-semibold text-truncate">@(item.BookTitle ?? FormatDisplayName(item))</span>
+                                        <span class="small d-flex gap-2 flex-wrap">
+                                            @if (!string.IsNullOrWhiteSpace(item.BookAuthor))
+                                            {
+                                                <span class="text-truncate">@item.BookAuthor</span>
+                                            }
+                                            <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                        </span>
+                                    </span>
+                                </span>
+                            }
+                            else if (item.IsVideo)
+                            {
+                                <span class="ratio ratio-16x9 bg-body-tertiary border-bottom w-100" aria-hidden="true">
+                                    @if (item.Id == _previewingVideoId && item.HoverPreviewState == HoverPreviewState.Ready && !string.IsNullOrEmpty(item.HoverPreviewUrl))
+                                    {
+                                        <video src="@item.HoverPreviewUrl"
+                                               poster="@item.ThumbnailUrl"
+                                               class="w-100 h-100 object-fit-cover"
+                                               autoplay
+                                               muted
+                                               loop
+                                               playsinline>
+                                        </video>
+                                    }
+                                    else if (item.ThumbnailState == ThumbnailState.Ready && !string.IsNullOrEmpty(item.ThumbnailUrl))
+                                    {
+                                        <img src="@item.ThumbnailUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                    }
+                                    else
+                                    {
+                                        <span class="d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-film display-1 lh-1 text-body-secondary" aria-hidden="true"></i>
+                                        </span>
+                                    }
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="ratio ratio-16x9 bg-body-tertiary border-bottom w-100" aria-hidden="true">
+                                    <span class="d-flex align-items-center justify-content-center">
+                                    <i class="bi @(item.Kind == ArchiveItemKind.Folder ? "bi-folder-fill text-primary" : FileIcon(item)) display-5" aria-hidden="true"></i>
+                                    </span>
+                                </span>
+                            }
+                            @if (!item.IsMusic && !item.IsImage && !item.IsBook)
+                            {
+                                <span class="card-body d-flex flex-column w-100 text-center">
+                                    <span class="fw-semibold text-break">@item.Name</span>
+                                    @if (item.Kind == ArchiveItemKind.File)
+                                    {
+                                        <span class="card-text d-flex justify-content-center gap-2 text-body-secondary mt-2 flex-wrap" style="font-size: 0.7rem;">
+                                            @if (item.IsVideo)
+                                            {
+                                                <span class="text-nowrap">@FormatDuration(item.DurationSeconds)</span>
+                                                <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                                                <span class="text-nowrap">@FormatResolution(item.Width, item.Height)</span>
+                                                <span class="text-nowrap">@FormatDimensions(item.Width, item.Height)</span>
+                                                <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-nowrap">@FormatSize(item.SizeBytes)</span>
+                                                <span class="text-nowrap">@FormatExtension(item.Extension)</span>
+                                            }
+                                        </span>
+                                    }
+                                </span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>
+
+@if (_imageViewerStartId is not null)
+{
+    <ImageCarouselViewer Images="_imageViewerImages" Category="@Category" StartId="_imageViewerStartId" OnExit="CloseImageViewer" />
+}
+
+@if (_listing?.CanCreateFolder == true)
+{
+    <div class="modal fade" id="@CreateModalId" tabindex="-1" aria-labelledby="@CreateModalLabelId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <EditForm Model="_createFolder" OnValidSubmit="CreateFolderAsync">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="@CreateModalLabelId">New folder</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" disabled="@_operationPending"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label" for="@CreateInputId">Folder name</label>
+                        <InputText id="@CreateInputId" class="form-control" @bind-Value="_createFolder.Name" />
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal" disabled="@_operationPending">Cancel</button>
+                        <button class="btn btn-primary d-inline-flex align-items-center" type="submit" disabled="@_operationPending">
+                            <i class="bi bi-folder-plus me-2" aria-hidden="true"></i>
+                            Create
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_moving is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" aria-labelledby="@MoveModalLabelId" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="@MoveModalLabelId">Move @_moving.Name</h1>
+                    <button type="button" class="btn-close" aria-label="Close" disabled="@_operationPending" @onclick="CancelDialogs"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label" for="@MoveInputId">Move to</label>
+                    <select id="@MoveInputId" class="form-select" @bind="_moveDestinationId">
+                        <option value="">@Title root</option>
+                        @foreach (var folder in _folderChoices)
+                        {
+                            <option value="@folder.Id">@folder.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" disabled="@_operationPending" @onclick="CancelDialogs">Cancel</button>
+                    <button class="btn btn-primary" type="button" disabled="@_operationPending" @onclick="MoveAsync">Move</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (_renaming is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" aria-labelledby="@RenameModalLabelId" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="@RenameModalLabelId">Rename @_renaming.Name</h1>
+                    <button type="button" class="btn-close" aria-label="Close" disabled="@_operationPending" @onclick="CancelDialogs"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label" for="@RenameInputId">Name</label>
+                    <InputText id="@RenameInputId" class="form-control" @bind-Value="_renameName" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" disabled="@_operationPending" @onclick="CancelDialogs">Cancel</button>
+                    <button class="btn btn-primary" type="button" disabled="@_operationPending" @onclick="RenameAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Category { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public EventCallback<ArchiveItemDto> OnVideoSelected { get; set; }
+    [Parameter] public EventCallback<ArchiveItemDto> OnBookSelected { get; set; }
+    [Parameter] public EventCallback<ArchiveItemDto> OnTextDocumentSelected { get; set; }
+    [Parameter] public EventCallback<ArchiveItemDto> OnPdfDocumentSelected { get; set; }
+
+    private readonly FolderForm _createFolder = new();
+    private ArchiveListingDto? _listing;
+    private ArchiveItemDto? _renaming;
+    private ArchiveItemDto? _moving;
+    private List<ArchiveItemDto> _folderChoices = [];
+    private string _renameName = string.Empty;
+    private string? _moveDestinationId;
+    private string? _error;
+    private IJSObjectReference? _bootstrapModule;
+    private string? _previewingVideoId;
+    private List<ArchiveItemDto> _imageViewerImages = [];
+    private string? _imageViewerStartId;
+    private CancellationTokenSource? _mediaPollingCts;
+    private bool _isLoading = true;
+    private bool _operationPending;
+    private string HeadingId => $"archive-{Category}-heading";
+    private string CreateModalId => $"archive-{Category}-create-modal";
+    private string CreateModalLabelId => $"archive-{Category}-create-modal-label";
+    private string CreateInputId => $"archive-{Category}-create-folder";
+    private string MoveModalLabelId => $"archive-{Category}-move-modal-label";
+    private string RenameModalLabelId => $"archive-{Category}-rename-modal-label";
+    private string RenameInputId => $"archive-{Category}-rename";
+    private string MoveInputId => $"archive-{Category}-move";
+    private string ArchiveStreamBasePath => $"api/archive/{Uri.EscapeDataString(Category)}/items";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync(null);
+    }
+
+    protected override void OnInitialized()
+    {
+        PlayerState.StateChanged += HandlePlayerStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            _bootstrapModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bootstrapInterop.js");
+        }
+        catch (JSException)
+        {
+            // The modal remains usable with Bootstrap's data attributes if JS interop import fails.
+        }
+    }
+
+    private async Task LoadAsync(string? folderId, bool restartPolling = true, bool showLoading = true)
+    {
+        _isLoading = showLoading;
+        _error = null;
+        try
+        {
+            var url = $"api/archive/{Category}/items";
+            if (!string.IsNullOrWhiteSpace(folderId))
+            {
+                url += $"?folderId={Uri.EscapeDataString(folderId)}";
+            }
+
+            _listing = await Http.GetFromJsonAsync<ArchiveListingDto>(url);
+            _folderChoices = _listing?.Items.Where(item => item.Kind == ArchiveItemKind.Folder).ToList() ?? [];
+            if (restartPolling)
+            {
+                RestartMediaPollingIfNeeded();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The archive folder could not be loaded.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ActivateAsync(ArchiveItemDto item)
+    {
+        if (item.Kind == ArchiveItemKind.Folder)
+        {
+            await LoadAsync(item.Id);
+            return;
+        }
+
+        if (item.IsVideo && OnVideoSelected.HasDelegate)
+        {
+            await OnVideoSelected.InvokeAsync(item);
+            return;
+        }
+
+        if (item.IsBook)
+        {
+            if (OnBookSelected.HasDelegate)
+            {
+                await OnBookSelected.InvokeAsync(item);
+            }
+
+            return;
+        }
+
+        if (item.IsTextDocument)
+        {
+            if (OnTextDocumentSelected.HasDelegate)
+            {
+                await OnTextDocumentSelected.InvokeAsync(item);
+            }
+
+            return;
+        }
+
+        if (item.IsPdfDocument)
+        {
+            if (OnPdfDocumentSelected.HasDelegate)
+            {
+                await OnPdfDocumentSelected.InvokeAsync(item);
+            }
+
+            return;
+        }
+
+        if (item.IsVideo)
+        {
+            await SelectVideoAsync(item);
+        }
+        else if (item.IsMusic)
+        {
+            PlayerState.SelectMusic(item, _listing?.Items ?? []);
+        }
+        else if (item.IsImage)
+        {
+            OpenImageViewer(item);
+        }
+    }
+
+    private void OpenImageViewer(ArchiveItemDto item)
+    {
+        _imageViewerImages = (_listing?.Items ?? [])
+            .Where(candidate => candidate.IsImage)
+            .ToList();
+        _imageViewerStartId = item.Id;
+    }
+
+    private void CloseImageViewer()
+    {
+        _imageViewerImages = [];
+        _imageViewerStartId = null;
+    }
+
+    private async Task SelectVideoAsync(ArchiveItemDto item)
+    {
+        if (!string.Equals(Category, "videos", StringComparison.OrdinalIgnoreCase))
+        {
+            PlayerState.SelectArchiveVideo(Category, item);
+            return;
+        }
+
+        _error = null;
+
+        try
+        {
+            using var response = await Http.PostAsync("api/videos/scan", content: null);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "The video could not be prepared for playback.";
+                return;
+            }
+
+            var videos = await response.Content.ReadFromJsonAsync<List<VideoItemDto>>() ?? [];
+            var video = videos.FirstOrDefault(video => video.Id == item.Id);
+            if (video is null)
+            {
+                _error = "The selected file is not available to the video player yet.";
+                return;
+            }
+
+            PlayerState.SelectVideo(video);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The video could not be reached.";
+        }
+    }
+
+    private bool IsSelected(ArchiveItemDto item)
+    {
+        if (!(item.IsVideo || item.IsMusic) || !string.Equals(PlayerState.SelectedId, item.Id, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var expectedStreamBasePath = string.Equals(Category, "videos", StringComparison.OrdinalIgnoreCase)
+            ? PersistentPlayerState.VideoStreamBasePath
+            : item.IsMusic
+                ? GetStreamBasePath(item.AudioUrl)
+            : ArchiveStreamBasePath;
+        return string.Equals(PlayerState.StreamBasePath, expectedStreamBasePath, StringComparison.Ordinal);
+    }
+
+    private void HandlePlayerStateChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CreateFolderAsync()
+    {
+        var folderName = _createFolder.Name.Trim();
+        var listing = await SendMutationAsync(() => Http.PostAsJsonAsync(
+            $"api/archive/{Category}/folders",
+            new CreateFolderRequest(_listing?.CurrentFolderId, _createFolder.Name)));
+        _createFolder.Name = string.Empty;
+
+        var createdFolder = listing?.Items.FirstOrDefault(item =>
+            item.Kind == ArchiveItemKind.Folder &&
+            string.Equals(item.Name, folderName, StringComparison.OrdinalIgnoreCase));
+        if (createdFolder is null)
+        {
+            return;
+        }
+
+        await HideCreateModalAsync();
+        await LoadAsync(createdFolder.Id);
+    }
+
+    private void StartRename(ArchiveItemDto item)
+    {
+        _renaming = item;
+        _renameName = item.Name;
+        _moving = null;
+    }
+
+    private void StartMove(ArchiveItemDto item)
+    {
+        _moving = item;
+        _moveDestinationId = null;
+        _renaming = null;
+    }
+
+    private async Task RenameAsync()
+    {
+        if (_renaming is null)
+        {
+            return;
+        }
+
+        var id = _renaming.Id;
+        _ = await SendMutationAsync(() => Http.PatchAsJsonAsync(
+            $"api/archive/{Category}/items/{Uri.EscapeDataString(id)}/name",
+            new RenameArchiveItemRequest(_renameName)));
+        CancelDialogs();
+    }
+
+    private async Task MoveAsync()
+    {
+        if (_moving is null)
+        {
+            return;
+        }
+
+        var id = _moving.Id;
+        _ = await SendMutationAsync(() => Http.PatchAsJsonAsync(
+            $"api/archive/{Category}/items/{Uri.EscapeDataString(id)}/location",
+            new MoveArchiveItemRequest(string.IsNullOrWhiteSpace(_moveDestinationId) ? null : _moveDestinationId)));
+        CancelDialogs();
+    }
+
+    private async Task DeleteAsync(ArchiveItemDto item) =>
+        _ = await SendMutationAsync(() => Http.DeleteAsync($"api/archive/{Category}/items/{Uri.EscapeDataString(item.Id)}"));
+
+    private void StartPreview(ArchiveItemDto item)
+    {
+        _previewingVideoId = item.IsVideo &&
+            item.HoverPreviewState == HoverPreviewState.Ready &&
+            !string.IsNullOrEmpty(item.HoverPreviewUrl)
+                ? item.Id
+                : null;
+    }
+
+    private void ClearPreview() => _previewingVideoId = null;
+
+    private static string CardButtonCssClass(ArchiveItemDto item) =>
+        item.IsMusic || item.IsImage || item.IsBook
+            ? "archive-cover-card card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center p-0 overflow-hidden"
+            : "card-body btn btn-link text-decoration-none text-body d-flex flex-column align-items-center gap-2 p-0";
+
+    private async Task<ArchiveListingDto?> SendMutationAsync(Func<Task<HttpResponseMessage>> action)
+    {
+        _operationPending = true;
+        _error = null;
+        try
+        {
+            using var response = await action();
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = response.StatusCode == System.Net.HttpStatusCode.Conflict
+                    ? "That change conflicts with an existing item."
+                    : "The archive change could not be saved.";
+                return null;
+            }
+
+            _listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
+            _folderChoices = _listing?.Items.Where(item => item.Kind == ArchiveItemKind.Folder).ToList() ?? [];
+            RestartMediaPollingIfNeeded();
+            return _listing;
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The archive change could not reach the server.";
+            return null;
+        }
+        finally
+        {
+            _operationPending = false;
+        }
+    }
+
+    private async Task HideCreateModalAsync()
+    {
+        if (_bootstrapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _bootstrapModule.InvokeVoidAsync("hideModal", CreateModalId);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private void CancelDialogs()
+    {
+        _renaming = null;
+        _moving = null;
+        _renameName = string.Empty;
+        _moveDestinationId = null;
+    }
+
+    private static string FileIcon(ArchiveItemDto item) =>
+        FileTypeIcon(item.Extension) ?? "bi-file-earmark text-body-secondary";
+
+    private static string? FileTypeIcon(string? extension)
+    {
+        var type = extension?.TrimStart('.').ToLowerInvariant();
+        return type is
+            "aac" or
+            "ai" or
+            "bmp" or
+            "cs" or
+            "css" or
+            "csv" or
+            "doc" or
+            "docx" or
+            "exe" or
+            "gif" or
+            "heic" or
+            "html" or
+            "java" or
+            "jpg" or
+            "js" or
+            "json" or
+            "jsx" or
+            "key" or
+            "m4p" or
+            "md" or
+            "mdx" or
+            "mov" or
+            "mp3" or
+            "mp4" or
+            "otf" or
+            "pdf" or
+            "php" or
+            "png" or
+            "ppt" or
+            "pptx" or
+            "psd" or
+            "py" or
+            "raw" or
+            "rb" or
+            "sass" or
+            "scss" or
+            "sh" or
+            "sql" or
+            "svg" or
+            "tiff" or
+            "tsx" or
+            "ttf" or
+            "txt" or
+            "wav" or
+            "woff" or
+            "xls" or
+            "xlsx" or
+            "xml" or
+            "yml"
+                ? $"bi-filetype-{type} text-body-secondary"
+                : null;
+    }
+
+    private static string FormatExtension(string? extension) =>
+        string.IsNullOrWhiteSpace(extension) ? "FILE" : extension.TrimStart('.').ToUpperInvariant();
+
+    private static string FormatDisplayName(ArchiveItemDto item) =>
+        !string.IsNullOrWhiteSpace(item.Extension) && item.Name.EndsWith(item.Extension, StringComparison.OrdinalIgnoreCase)
+            ? item.Name[..^item.Extension.Length]
+            : item.Name;
+
+    private static string FormatDuration(double? durationSeconds)
+    {
+        if (durationSeconds is not > 0)
+        {
+            return "--:--";
+        }
+
+        var duration = TimeSpan.FromSeconds(durationSeconds.Value);
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{duration.Minutes}:{duration.Seconds:00}";
+    }
+
+    private static string FormatDimensions(int? width, int? height) =>
+        width is > 0 && height is > 0 ? $"{width} x {height}" : string.Empty;
+
+    private static string FormatResolution(int? width, int? height)
+    {
+        if (height is not > 0)
+        {
+            return "--";
+        }
+
+        return height switch
+        {
+            >= 2160 => "4K",
+            >= 1440 => "1440p",
+            >= 1080 => "1080p",
+            >= 720 => "720p",
+            >= 480 => "480p",
+            >= 360 => "360p",
+            _ => $"{width}x{height}"
+        };
+    }
+
+    private static string FormatSize(long? bytes)
+    {
+        if (bytes is null)
+        {
+            return string.Empty;
+        }
+
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var size = (double)Math.Max(0, bytes.Value);
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
+    }
+
+    private string GetStreamBasePath(string? audioUrl)
+    {
+        const string audioSuffix = "/audio";
+        if (string.IsNullOrWhiteSpace(audioUrl))
+        {
+            return ArchiveStreamBasePath;
+        }
+
+        var path = audioUrl.StartsWith("/", StringComparison.Ordinal) ? audioUrl[1..] : audioUrl;
+        return path.EndsWith(audioSuffix, StringComparison.OrdinalIgnoreCase)
+            ? path[..^audioSuffix.Length]
+            : path;
+    }
+
+    public void Dispose()
+    {
+        PlayerState.StateChanged -= HandlePlayerStateChanged;
+        _mediaPollingCts?.Cancel();
+        _mediaPollingCts?.Dispose();
+    }
+
+    private void RestartMediaPollingIfNeeded()
+    {
+        _mediaPollingCts?.Cancel();
+        _mediaPollingCts?.Dispose();
+        _mediaPollingCts = null;
+
+        if (_listing?.Items.Any(item =>
+                item.IsVideo &&
+                (item.ThumbnailState == ThumbnailState.Pending || item.HoverPreviewState == HoverPreviewState.Pending)) != true)
+        {
+            return;
+        }
+
+        var currentFolderId = _listing.CurrentFolderId;
+        _mediaPollingCts = new CancellationTokenSource();
+        _ = PollMediaAsync(currentFolderId, _mediaPollingCts.Token);
+    }
+
+    private async Task PollMediaAsync(string? folderId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await LoadAsync(folderId, restartPolling: false, showLoading: false);
+                if (_listing?.Items.Any(item =>
+                        item.IsVideo &&
+                        (item.ThumbnailState == ThumbnailState.Pending || item.HoverPreviewState == HoverPreviewState.Pending)) != true)
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private sealed class FolderForm
+    {
+        public string Name { get; set; } = string.Empty;
+    }
+}

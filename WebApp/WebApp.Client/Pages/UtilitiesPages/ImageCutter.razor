@@ -1,0 +1,126 @@
+@page "/utilities/image-cutter"
+@inject HttpClient Http
+
+<PageTitle>ImageCutter · PereneArchive</PageTitle>
+
+<header class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item"><a href="/utilities">Utilities</a></li>
+            <li class="breadcrumb-item active" aria-current="page">ImageCutter</li>
+        </ol>
+    </nav>
+    <h1 class="h3 mb-0"><i class="bi bi-bounding-box-circles me-2" aria-hidden="true"></i>ImageCutter</h1>
+</header>
+
+<div class="alert alert-info d-flex align-items-center gap-2" role="note">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    <div>
+        Crops are created from the image viewer: open a photo, click the scissors button, size a rectangle, then confirm.
+        Once saved, it will appear here automatically.
+    </div>
+</div>
+
+<div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
+    <h2 class="h5 mb-0">Crops</h2>
+    <button class="btn btn-outline-primary btn-sm" type="button" @onclick="LoadCropsAsync">
+        <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Refresh
+    </button>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center text-body-secondary py-5">
+        <div class="spinner-border text-primary mb-2" role="status" aria-label="Loading crops"></div>
+        <p class="mb-0">Reading saved crops.</p>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+else if (_crops.Count == 0)
+{
+    <div class="text-center text-body-secondary py-5">
+        <i class="bi bi-bounding-box-circles fs-1 d-block mb-2" aria-hidden="true"></i>
+        <p class="mb-0">No crops saved yet. Open a photo and use the scissors tool to create one.</p>
+    </div>
+}
+else
+{
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3" role="list" aria-label="Saved crops">
+        @foreach (var crop in _crops)
+        {
+            <div class="col" role="listitem">
+                <button type="button" class="card w-100 h-100 border-0 p-0 text-start overflow-hidden" @onclick="() => OpenImageViewer(crop)">
+                    <div class="ratio ratio-1x1 bg-body-tertiary">
+                        <img src="@crop.ImageUrl" alt="@crop.Name" class="w-100 h-100 object-fit-cover" />
+                    </div>
+                    <div class="card-body p-2">
+                        <p class="small text-truncate mb-0" title="@crop.Name">@crop.Name</p>
+                    </div>
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@if (_imageViewerStartId is not null)
+{
+    <ImageCarouselViewer Images="_crops" Category="photos" StartId="_imageViewerStartId" OnExit="CloseImageViewer" />
+}
+
+@code {
+    private const string Category = "photos";
+    private const string CutsFolderName = "cuts";
+
+    private List<ArchiveItemDto> _crops = [];
+    private bool _loading = true;
+    private string? _error;
+    private string? _imageViewerStartId;
+
+    protected override async Task OnInitializedAsync() => await LoadCropsAsync();
+
+    private async Task LoadCropsAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var rootListing = await Http.GetFromJsonAsync<ArchiveListingDto>($"api/archive/{Category}/items");
+            var cutsFolder = rootListing?.Items.FirstOrDefault(item =>
+                item.Kind == ArchiveItemKind.Folder && string.Equals(item.Name, CutsFolderName, StringComparison.OrdinalIgnoreCase));
+
+            if (cutsFolder is null)
+            {
+                _crops = [];
+                return;
+            }
+
+            var cutsListing = await Http.GetFromJsonAsync<ArchiveListingDto>($"api/archive/{Category}/items?folderId={cutsFolder.Id}");
+            _crops = cutsListing?.Items.Where(item => item.IsImage).ToList() ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The saved crops could not be loaded.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Loading saved crops was interrupted.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenImageViewer(ArchiveItemDto crop) => _imageViewerStartId = crop.Id;
+
+    private async Task CloseImageViewer()
+    {
+        _imageViewerStartId = null;
+        await LoadCropsAsync();
+    }
+}

@@ -105,6 +105,7 @@ public sealed class CompositionEndpointsTests
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
+                    ["ArchiveRoot:Path"] = rootPath,
                     ["VideoLibrary:Path"] = rootPath,
                     ["ThumbnailCache:Path"] = previewPath,
                     ["VideoCut:Path"] = cutPath,

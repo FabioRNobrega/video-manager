@@ -1,4 +1,5 @@
 let fillTabEscapeHandler;
+let arrowKeyNavigationHandler;
 
 export function measureAndCapture(viewport, video, pointerId) {
     if (video.setPointerCapture) {
@@ -11,6 +12,41 @@ export function measureAndCapture(viewport, video, pointerId) {
         viewportHeight: viewportBounds.height,
         videoWidth: video.videoWidth,
         videoHeight: video.videoHeight
+    };
+}
+
+export function measureAndCaptureElement(element, pointerId) {
+    if (element.setPointerCapture) {
+        element.setPointerCapture(pointerId);
+    }
+
+    const bounds = element.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height };
+}
+
+export function measureRenderedImage(viewportElement) {
+    const img = viewportElement.querySelector(".carousel-item.active img");
+    if (!img) {
+        return null;
+    }
+
+    const bounds = img.getBoundingClientRect();
+    const naturalWidth = img.naturalWidth;
+    const naturalHeight = img.naturalHeight;
+    if (!naturalWidth || !naturalHeight) {
+        return { offsetX: 0, offsetY: 0, renderedWidth: bounds.width, renderedHeight: bounds.height, naturalWidth, naturalHeight };
+    }
+
+    const scale = Math.min(bounds.width / naturalWidth, bounds.height / naturalHeight);
+    const renderedWidth = naturalWidth * scale;
+    const renderedHeight = naturalHeight * scale;
+    return {
+        offsetX: (bounds.width - renderedWidth) / 2,
+        offsetY: (bounds.height - renderedHeight) / 2,
+        renderedWidth,
+        renderedHeight,
+        naturalWidth,
+        naturalHeight
     };
 }
 
@@ -47,6 +83,12 @@ export function setPlaybackRate(video, rate) {
 
 export function setLoop(video, enabled) {
     video.loop = enabled;
+}
+
+export function setSubtitlesEnabled(video, enabled) {
+    for (const track of video.textTracks ?? []) {
+        track.mode = enabled ? "showing" : "hidden";
+    }
 }
 
 export function readMediaSnapshot(video) {
@@ -87,4 +129,27 @@ export function exitFillTab() {
     }
 
     document.body.classList.remove("fill-tab-active");
+}
+
+export function addArrowKeyNavigation(dotNetReference) {
+    removeArrowKeyNavigation();
+
+    arrowKeyNavigationHandler = event => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+            return;
+        }
+
+        event.preventDefault();
+        const method = event.key === "ArrowLeft" ? "SelectPreviousFromKeyboardAsync" : "SelectNextFromKeyboardAsync";
+        dotNetReference.invokeMethodAsync(method).catch(() => { });
+    };
+
+    window.addEventListener("keydown", arrowKeyNavigationHandler);
+}
+
+export function removeArrowKeyNavigation() {
+    if (arrowKeyNavigationHandler) {
+        window.removeEventListener("keydown", arrowKeyNavigationHandler);
+        arrowKeyNavigationHandler = undefined;
+    }
 }

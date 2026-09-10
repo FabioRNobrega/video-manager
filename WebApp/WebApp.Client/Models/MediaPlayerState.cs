@@ -11,10 +11,11 @@ public sealed class MediaPlayerState
     public double CurrentTime { get; private set; }
     public double? Duration { get; private set; }
     public double Volume { get; private set; } = 1;
-    public bool IsMuted { get; private set; } = true;
+    public bool IsMuted { get; private set; }
     public double PlaybackRate { get; private set; } = 1;
     public bool IsStandardLoop { get; private set; }
     public bool IsAbLoop { get; private set; }
+    public bool IsSubtitlesEnabled { get; private set; } = true;
     public double? MarkerA { get; private set; }
     public double? MarkerB { get; private set; }
     public string? ValidationMessage { get; private set; }
@@ -36,6 +37,7 @@ public sealed class MediaPlayerState
         Duration = null;
         IsStandardLoop = false;
         IsAbLoop = false;
+        IsSubtitlesEnabled = true;
         MarkerA = null;
         MarkerB = null;
         ValidationMessage = null;
@@ -141,6 +143,8 @@ public sealed class MediaPlayerState
         IsAbLoop = false;
         ValidationMessage = null;
     }
+
+    public void SetSubtitlesEnabled(bool enabled) => IsSubtitlesEnabled = enabled;
 
     public bool TryMoveToAbStart(out double target)
     {

@@ -175,6 +175,7 @@ internal static class CutEndpoints
         return new VideoItemDto(
             entry.Id, entry.Name, entry.Extension, entry.SizeBytes,
             thumbnailState, thumbnailUrl, hoverPreviewState, hoverPreviewUrl,
+            SubtitleState.Unavailable, null,
             metadata.Duration?.TotalSeconds, metadata.Width, metadata.Height);
     }
 }

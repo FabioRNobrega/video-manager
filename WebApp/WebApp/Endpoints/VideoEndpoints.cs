@@ -22,6 +22,7 @@ internal static class VideoEndpoints
         endpoints.MapGet("/api/videos/{id}/stream", StreamAsync);
         endpoints.MapGet("/api/videos/{id}/thumbnail", GetThumbnail);
         endpoints.MapGet("/api/videos/{id}/preview", GetPreview);
+        endpoints.MapGet("/api/videos/{id}/subtitle", GetSubtitle);
         endpoints.MapPost("/api/videos/{id}/cuts", CreateCutAsync);
         return endpoints;
     }
@@ -30,14 +31,16 @@ internal static class VideoEndpoints
         IVideoLibraryService library,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken)
     {
         try
         {
             var entries = await library.ScanAsync(cancellationToken);
+            subtitleCoordinator.Reconcile(entries);
             var items = await Task.WhenAll(entries.Select(entry =>
-                BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator, metadataCoordinator, cancellationToken)));
+                BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator, subtitleCoordinator, metadataCoordinator, cancellationToken)));
             return Results.Ok(items);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -57,14 +60,16 @@ internal static class VideoEndpoints
         IVideoLibraryService library,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken)
     {
         var entries = library.GetCurrentSnapshot();
         thumbnailCoordinator.Reconcile(entries);
         hoverPreviewCoordinator.Reconcile(entries);
+        subtitleCoordinator.Reconcile(entries);
         var items = await Task.WhenAll(entries.Select(entry =>
-            BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator, metadataCoordinator, cancellationToken)));
+            BuildDto(entry, thumbnailCoordinator, hoverPreviewCoordinator, subtitleCoordinator, metadataCoordinator, cancellationToken)));
         return Results.Ok(items);
     }
 
@@ -162,6 +167,37 @@ internal static class VideoEndpoints
         }
     }
 
+    private static IResult GetSubtitle(string id, IVideoLibraryService library, SubtitleCoordinator coordinator)
+    {
+        if (!library.TryResolve(id, out var entry) || entry is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (coordinator.Resolve(entry) != SubtitleState.Ready)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var stream = new FileStream(
+                coordinator.GetFinalPath(entry),
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+            return Results.Stream(stream, "text/vtt");
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return Results.NotFound();
+        }
+    }
+
     private static async Task<IResult> CreateCutAsync(
         string id,
         VideoCutRequest request,
@@ -214,6 +250,7 @@ internal static class VideoEndpoints
         VideoFileEntry entry,
         ThumbnailCoordinator thumbnailCoordinator,
         HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
         VideoMetadataCoordinator metadataCoordinator,
         CancellationToken cancellationToken)
     {
@@ -221,6 +258,8 @@ internal static class VideoEndpoints
         var thumbnailUrl = thumbnailState == ThumbnailState.Ready ? $"/api/videos/{entry.Id}/thumbnail" : null;
         var hoverPreviewState = hoverPreviewCoordinator.Resolve(entry);
         var hoverPreviewUrl = hoverPreviewState == HoverPreviewState.Ready ? $"/api/videos/{entry.Id}/preview" : null;
+        var subtitleState = subtitleCoordinator.Resolve(entry);
+        var subtitleUrl = subtitleState == SubtitleState.Ready ? $"/api/videos/{entry.Id}/subtitle" : null;
 
         VideoMetadata metadata;
         try
@@ -239,6 +278,7 @@ internal static class VideoEndpoints
         return new VideoItemDto(
             entry.Id, entry.Name, entry.Extension, entry.SizeBytes,
             thumbnailState, thumbnailUrl, hoverPreviewState, hoverPreviewUrl,
+            subtitleState, subtitleUrl,
             metadata.Duration?.TotalSeconds, metadata.Width, metadata.Height);
     }
 

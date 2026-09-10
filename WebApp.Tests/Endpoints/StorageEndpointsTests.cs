@@ -55,6 +55,7 @@ public sealed class StorageEndpointsTests
             builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
+                    ["ArchiveRoot:Path"] = _rootPath,
                     ["VideoLibrary:Path"] = _rootPath,
                     ["ThumbnailCache:Path"] = _previewPath,
                     ["VideoCut:Path"] = _cutPath,
