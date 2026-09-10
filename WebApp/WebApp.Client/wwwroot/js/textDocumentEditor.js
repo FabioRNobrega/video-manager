@@ -10,6 +10,9 @@ export function registerSaveShortcut(element, dotNetRef) {
         if ((event.ctrlKey || event.metaKey) && key === 's') {
             event.preventDefault();
             dotNetRef.invokeMethodAsync('OnSaveShortcut');
+        } else if (key === 'escape') {
+            event.preventDefault();
+            dotNetRef.invokeMethodAsync('OnEscapeShortcut');
         }
     };
 

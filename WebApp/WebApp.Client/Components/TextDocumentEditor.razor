@@ -243,6 +243,29 @@
     [JSInvokable]
     public async Task OnSaveShortcut() => await SaveAsync();
 
+    [JSInvokable]
+    public async Task OnEscapeShortcut()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        if (_dirty && !_conflict)
+        {
+            await SaveAsync();
+            if (_conflict || _error is not null)
+            {
+                return;
+            }
+        }
+
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
     private async Task SaveAsync()
     {
         if (_busy || !_dirty || _conflict)
