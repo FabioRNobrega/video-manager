@@ -3,11 +3,11 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 
-<section class="epub-reader card position-fixed top-0 start-0 w-100 h-100 overflow-hidden border-0 rounded-0 d-flex flex-column @(_isDarkReaderMode ? "reader-dark" : "reader-light")"
+<section class="epub-reader card position-fixed top-0 start-0 w-100 h-100 overflow-hidden border-0 rounded-0 d-flex flex-column"
          aria-label="Book reader">
     @if (_isToolbarCollapsed)
     {
-        <button class="btn btn-outline-secondary epub-reader-toolbar-show-button d-inline-flex align-items-center justify-content-center p-2"
+        <button class="btn btn-secondary shadow epub-reader-toolbar-show-button d-inline-flex align-items-center justify-content-center p-2"
                 type="button"
                 aria-label="Show reader toolbar"
                 title="Show reader toolbar"
@@ -20,6 +20,14 @@
         <header class="epub-reader-toolbar bg-body-tertiary border-bottom d-flex flex-wrap align-items-center gap-2 p-2">
             <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
                     type="button"
+                    aria-label="Back"
+                    title="Close book"
+                    @onclick="CloseAsync">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            </button>
+
+            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+                    type="button"
                     aria-label="@(_showToc ? "Hide table of contents" : "Show table of contents")"
                     title="Table of contents"
                     aria-pressed="@_showToc"
@@ -27,114 +35,120 @@
                 <i class="bi bi-list-ul" aria-hidden="true"></i>
             </button>
 
-            <div class="btn-group" role="group" aria-label="Chapter navigation">
-                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
-                        type="button"
-                        disabled="@(_chapter?.PreviousChapterId is null || _isLoadingChapter)"
-                        aria-label="Previous chapter"
-                        title="Previous chapter"
-                        @onclick="GoToPreviousChapterAsync">
-                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                </button>
-                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
-                        type="button"
-                        disabled="@(_chapter?.NextChapterId is null || _isLoadingChapter)"
-                        aria-label="Next chapter"
-                        title="Next chapter"
-                        @onclick="GoToNextChapterAsync">
-                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                </button>
-            </div>
-
             <span class="fw-semibold text-truncate flex-grow-1 min-w-0" title="@(_book?.Title)">
                 @(_book?.Title ?? "Book")
             </span>
 
-            <div class="btn-group" role="group" aria-label="Font size">
-                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+            <div class="dropdown epub-reader-aa-dropdown">
+                <button id="epub-reader-aa-toggle"
+                        class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
                         type="button"
-                        disabled="@(_fontSizeIndex <= 0)"
-                        aria-label="Decrease text size"
-                        title="Decrease text size"
-                        @onclick="DecreaseFontSize">
-                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                        data-bs-toggle="dropdown"
+                        data-bs-auto-close="outside"
+                        aria-expanded="false"
+                        aria-label="Text settings"
+                        title="Text settings">
+                    <i class="bi bi-type" aria-hidden="true"></i>
                 </button>
-                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
-                        type="button"
-                        disabled="@(_fontSizeIndex >= FontSizesPx.Length - 1)"
-                        aria-label="Increase text size"
-                        title="Increase text size"
-                        @onclick="IncreaseFontSize">
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                </button>
-            </div>
+                <div class="dropdown-menu dropdown-menu-end p-3 epub-reader-aa-panel" aria-labelledby="epub-reader-aa-toggle">
+                    <div class="mb-3">
+                        <div class="small fw-semibold text-body-secondary mb-1">Text size</div>
+                        <div class="btn-group w-100" role="group" aria-label="Font size">
+                            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+                                    type="button"
+                                    disabled="@(_fontSizeIndex <= 0)"
+                                    aria-label="Decrease text size"
+                                    title="Decrease text size"
+                                    @onclick="DecreaseFontSize">
+                                <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                            </button>
+                            <span class="btn btn-outline-secondary disabled flex-grow-0">@(FontSizesPx[_fontSizeIndex])px</span>
+                            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+                                    type="button"
+                                    disabled="@(_fontSizeIndex >= FontSizesPx.Length - 1)"
+                                    aria-label="Increase text size"
+                                    title="Increase text size"
+                                    @onclick="IncreaseFontSize">
+                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
 
-            <label class="visually-hidden" for="epub-reader-font-family">Font family</label>
-            <select id="epub-reader-font-family" class="form-select form-select-sm w-auto" value="@_fontFamily" @onchange="OnFontFamilyChanged">
-                @foreach (var font in FontFamilyKeys)
-                {
-                    <option value="@font">@font</option>
-                }
-            </select>
+                    <div class="mb-3">
+                        <label class="small fw-semibold text-body-secondary mb-1" for="epub-reader-font-family">Font</label>
+                        <select id="epub-reader-font-family" class="form-select form-select-sm" value="@_fontFamily" @onchange="OnFontFamilyChanged">
+                            @foreach (var font in FontFamilyKeys)
+                            {
+                                <option value="@font">@font</option>
+                            }
+                        </select>
+                    </div>
 
-            <label class="visually-hidden" for="epub-reader-line-height">Line spacing</label>
-            <select id="epub-reader-line-height" class="form-select form-select-sm w-auto" value="@_lineHeightIndex" @onchange="OnLineHeightChanged">
-                @for (var index = 0; index < LineHeights.Length; index++)
-                {
-                    <option value="@index">@LineHeights[index].Label</option>
-                }
-            </select>
+                    <div class="mb-3">
+                        <label class="small fw-semibold text-body-secondary mb-1" for="epub-reader-line-height">Line spacing</label>
+                        <select id="epub-reader-line-height" class="form-select form-select-sm" value="@_lineHeightIndex" @onchange="OnLineHeightChanged">
+                            @for (var index = 0; index < LineHeights.Length; index++)
+                            {
+                                <option value="@index">@LineHeights[index].Label</option>
+                            }
+                        </select>
+                    </div>
 
-            <div class="btn-group" role="group" aria-label="Text width">
-                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
-                        type="button"
-                        disabled="@(_contentPaddingPercent >= MaxContentPaddingPercent)"
-                        aria-label="Decrease text width"
-                        title="Decrease text width"
-                        @onclick="DecreaseTextWidth">
-                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
-                </button>
-                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
-                        type="button"
-                        disabled="@(_contentPaddingPercent <= MinContentPaddingPercent)"
-                        aria-label="Increase text width"
-                        title="Increase text width"
-                        @onclick="IncreaseTextWidth">
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                </button>
+                    <div class="mb-3">
+                        <div class="small fw-semibold text-body-secondary mb-1">Margins</div>
+                        <div class="btn-group w-100" role="group" aria-label="Text width">
+                            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+                                    type="button"
+                                    disabled="@(_contentPaddingPercent >= MaxContentPaddingPercent)"
+                                    aria-label="Decrease text width"
+                                    title="Decrease text width"
+                                    @onclick="DecreaseTextWidth">
+                                <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
+                                    type="button"
+                                    disabled="@(_contentPaddingPercent <= MinContentPaddingPercent)"
+                                    aria-label="Increase text width"
+                                    title="Increase text width"
+                                    @onclick="IncreaseTextWidth">
+                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
                     type="button"
-                    aria-label="@(_isDarkReaderMode ? "Switch to light reading mode" : "Switch to dark reading mode")"
-                    title="@(_isDarkReaderMode ? "Light reading mode" : "Dark reading mode")"
-                    aria-pressed="@_isDarkReaderMode"
-                    @onclick="ToggleReaderMode">
-                <i class="bi @(_isDarkReaderMode ? "bi-brightness-high" : "bi-moon-stars")" aria-hidden="true"></i>
+                    disabled="true"
+                    aria-label="Notes and highlights"
+                    title="Notes and highlights (coming soon)">
+                <i class="bi bi-bookmark-star" aria-hidden="true"></i>
             </button>
 
             <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
                     type="button"
-                    aria-label="Close book"
-                    title="Close book"
-                    @onclick="CloseAsync">
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    disabled="true"
+                    aria-label="Search in book"
+                    title="Search (coming soon)">
+                <i class="bi bi-search" aria-hidden="true"></i>
             </button>
-        </header>
 
-        <div class="epub-reader-toolbar bg-body-tertiary border-bottom d-flex flex-wrap align-items-center gap-2 p-2">
-            @if (_statusMessage is not null)
-            {
-                <span class="small text-body-secondary" role="status" aria-live="polite">@_statusMessage</span>
-            }
-            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2 ms-auto"
+            <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center p-2"
                     type="button"
                     aria-label="Hide reader toolbar"
                     title="Hide reader toolbar"
                     @onclick="HideToolbar">
                 <i class="bi bi-arrow-bar-up" aria-hidden="true"></i>
             </button>
-        </div>
+        </header>
+
+        @if (_statusMessage is not null)
+        {
+            <div class="px-2 py-1">
+                <span class="small text-body-secondary" role="status" aria-live="polite">@_statusMessage</span>
+            </div>
+        }
 
         @if (_error is not null)
         {
@@ -261,7 +275,6 @@
     private bool _isSavingNote;
     private bool _showToc;
     private bool _isToolbarCollapsed;
-    private bool _isDarkReaderMode;
     private int _fontSizeIndex = 2;
     private string _fontFamily = "Montserrat";
     private int _lineHeightIndex = 1;
@@ -340,21 +353,7 @@
 
         _loadedItemId = ItemId;
         ResetState();
-        await SyncReaderModeWithAppThemeAsync();
         await LoadBookAsync();
-    }
-
-    private async Task SyncReaderModeWithAppThemeAsync()
-    {
-        try
-        {
-            var theme = await JS.InvokeAsync<string>("videoManagerTheme.getTheme");
-            _isDarkReaderMode = string.Equals(theme, "dark", StringComparison.Ordinal);
-        }
-        catch (JSException)
-        {
-            _isDarkReaderMode = true;
-        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -399,7 +398,7 @@
         _selectionMenuLeft = 0;
         _selectionMenuTop = 0;
         _selectionMenuAbove = false;
-        _isToolbarCollapsed = false;
+        _isToolbarCollapsed = true;
         _fontSizeIndex = 2;
         _fontFamily = "Montserrat";
         _lineHeightIndex = 1;
@@ -532,12 +531,6 @@
         }
     }
 
-    private Task GoToPreviousChapterAsync() =>
-        _chapter?.PreviousChapterId is { } previousId ? JumpToChapterAsync(previousId) : Task.CompletedTask;
-
-    private Task GoToNextChapterAsync() =>
-        _chapter?.NextChapterId is { } nextId ? JumpToChapterAsync(nextId) : Task.CompletedTask;
-
     private async Task JumpToChapterAsync(string chapterId)
     {
         if (_isLoadingChapter || string.Equals(_chapter?.ChapterId, chapterId, StringComparison.Ordinal))
@@ -568,8 +561,6 @@
         _isToolbarCollapsed = false;
         RequestPaginationReflow();
     }
-
-    private void ToggleReaderMode() => _isDarkReaderMode = !_isDarkReaderMode;
 
     private void DecreaseTextWidth()
     {

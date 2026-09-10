@@ -1,56 +1,7 @@
 .epub-reader {
     z-index: 4;
-}
-
-/*
- * The reader's light/dark mode is independent of the app's global data-bs-theme, so Bootstrap
- * classes used inside it (btn-outline-secondary, text-body-secondary, border-*, alert-*) must
- * not inherit the ambient theme's variable values, or text/controls lose contrast whenever the
- * reader mode and app theme disagree. Re-declaring the same Bootstrap custom properties app.css
- * defines per theme keeps every Bootstrap-driven color correct for the reader's own mode.
- */
-.epub-reader.reader-light {
-    background-color: #f8efd9;
-    color: #2b2418;
-    --bs-body-color: #4a4030;
-    --bs-body-color-rgb: 74, 64, 48;
-    --bs-emphasis-color: #2b2418;
-    --bs-emphasis-color-rgb: 43, 36, 24;
-    --bs-secondary-color: #6b6048;
-    --bs-secondary-color-rgb: 107, 96, 72;
-    --bs-border-color: #d2be8d;
-    --bs-border-color-translucent: #d2be8d;
-    --bs-secondary-bg: #e6d6ae;
-    --bs-secondary-bg-rgb: 230, 214, 174;
-    --bs-tertiary-bg: #e6d6ae;
-    --bs-tertiary-bg-rgb: 230, 214, 174;
-    --bs-link-color: #1d3e59;
-    --bs-link-hover-color: #1d3e59;
-    --bs-link-color-rgb: 29, 62, 89;
-    --bs-focus-ring-color: rgba(185, 138, 46, .28);
-    --epub-reader-toc-bg: #f8efd9;
-}
-
-.epub-reader.reader-dark {
-    background-color: #141f19;
-    color: #edeae0;
-    --bs-body-color: #c9d2cb;
-    --bs-body-color-rgb: 201, 210, 203;
-    --bs-emphasis-color: #edeae0;
-    --bs-emphasis-color-rgb: 237, 234, 224;
-    --bs-secondary-color: #8fa398;
-    --bs-secondary-color-rgb: 143, 163, 152;
-    --bs-border-color: #28352d;
-    --bs-border-color-translucent: #28352d;
-    --bs-secondary-bg: #1b2a22;
-    --bs-secondary-bg-rgb: 27, 42, 34;
-    --bs-tertiary-bg: #1b2a22;
-    --bs-tertiary-bg-rgb: 27, 42, 34;
-    --bs-link-color: #85b8d6;
-    --bs-link-hover-color: #85b8d6;
-    --bs-link-color-rgb: 133, 184, 214;
-    --bs-focus-ring-color: rgba(185, 138, 46, .35);
-    --epub-reader-toc-bg: #141f19;
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
 }
 
 .epub-reader-toolbars {
@@ -66,6 +17,11 @@
     z-index: 4;
     min-width: 2.5rem;
     min-height: 2.5rem;
+}
+
+.epub-reader-aa-panel {
+    width: 20rem;
+    max-width: calc(100vw - 1rem);
 }
 
 .epub-reader-selection-menu {
@@ -114,8 +70,13 @@
     width: 18rem;
     max-width: 80vw;
     flex: 0 0 auto;
-    background-color: var(--epub-reader-toc-bg);
+    background-color: var(--bs-body-bg);
     color: var(--bs-body-color);
+    scrollbar-width: none;
+}
+
+.epub-reader-toc::-webkit-scrollbar {
+    display: none;
 }
 
 .epub-reader-toc-button {
@@ -238,5 +199,11 @@
     .epub-reader-progress-value {
         min-width: 0;
         font-size: .75rem;
+    }
+
+    .epub-reader-aa-panel {
+        width: auto;
+        left: .5rem !important;
+        right: .5rem !important;
     }
 }
