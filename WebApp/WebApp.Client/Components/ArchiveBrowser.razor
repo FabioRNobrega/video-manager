@@ -41,6 +41,13 @@
                 }
             </ol>
         </nav>
+        @if (_listing is not null && _listing.Items.Count > 0)
+        {
+            <FolderSearchBar Value="@_filterText"
+                              ValueChanged="OnFilterChanged"
+                              Placeholder="Filter by name"
+                              AriaLabel="Filter items by name" />
+        }
         @if (_listing?.CanCreateFolder == true)
         {
             <button class="btn btn-primary rounded-circle d-inline-flex align-items-center justify-content-center"
@@ -76,13 +83,21 @@
             <span>This folder is empty.</span>
         </div>
     }
+    else if (_filteredItems.Count == 0)
+    {
+        <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary" role="status" aria-live="polite">
+            <i class="bi bi-search fs-2 text-primary" aria-hidden="true"></i>
+            <strong class="fs-5 text-body">No matches</strong>
+            <span>No items match "@_filterText".</span>
+        </div>
+    }
     else
     {
         <p class="small text-body-secondary border-bottom mb-0 px-3 py-2" role="status">
-            @_listing.Items.Count @(_listing.Items.Count == 1 ? "item" : "items")
+            @_filteredItems.Count @(_filteredItems.Count == 1 ? "item" : "items")
         </p>
         <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 p-3" aria-label="@Title">
-            @foreach (var item in _listing.Items)
+            @foreach (var item in _filteredItems)
             {
                 var selected = IsSelected(item);
                 <div class="col">
@@ -403,6 +418,12 @@
     private CancellationTokenSource? _mediaPollingCts;
     private bool _isLoading = true;
     private bool _operationPending;
+    private string _filterText = string.Empty;
+
+    private IReadOnlyList<ArchiveItemDto> _filteredItems =>
+        string.IsNullOrWhiteSpace(_filterText)
+            ? _listing?.Items ?? []
+            : (_listing?.Items ?? []).Where(item => item.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase)).ToList();
     private string HeadingId => $"archive-{Category}-heading";
     private string CreateModalId => $"archive-{Category}-create-modal";
     private string CreateModalLabelId => $"archive-{Category}-create-modal-label";
@@ -440,10 +461,16 @@
         }
     }
 
+    private void OnFilterChanged(string value) => _filterText = value;
+
     private async Task LoadAsync(string? folderId, bool restartPolling = true, bool showLoading = true)
     {
         _isLoading = showLoading;
         _error = null;
+        if (showLoading)
+        {
+            _filterText = string.Empty;
+        }
         try
         {
             var url = $"api/archive/{Category}/items";

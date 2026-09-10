@@ -1,0 +1,18 @@
+
+<div class="ms-auto" style="max-width: 320px; width: 100%;">
+    <input type="search"
+           class="form-control form-control-sm"
+           placeholder="@Placeholder"
+           aria-label="@AriaLabel"
+           value="@Value"
+           @oninput="OnInput" />
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Filter by name";
+    [Parameter] public string AriaLabel { get; set; } = "Filter by name";
+
+    private Task OnInput(ChangeEventArgs args) => ValueChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+}
