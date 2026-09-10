@@ -355,6 +355,23 @@ public sealed class PersistentPlayerStateTests
     }
 
     [Fact]
+    public void Clear_exits_an_active_playlist_view()
+    {
+        var state = new PersistentPlayerState();
+        var video = CreateArchiveVideo("clip-one", "clip.mp4");
+        var music = CreateArchiveMusic("song-one", "song.mp3");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [video, music]);
+
+        state.Clear();
+
+        Assert.False(state.PlaylistViewActive);
+        Assert.False(state.HasPlaylist);
+        Assert.False(state.CanReturnToPlaylist);
+        Assert.Null(state.PlaylistCategory);
+        Assert.Null(state.PlaylistFolderId);
+    }
+
+    [Fact]
     public void Selection_and_clear_raise_state_changed()
     {
         var state = new PersistentPlayerState();

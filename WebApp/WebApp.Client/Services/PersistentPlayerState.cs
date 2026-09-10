@@ -219,6 +219,7 @@ public sealed class PersistentPlayerState
         MediaKind = PersistentMediaKind.Video;
         Playlist = [];
         AlbumCoverUrl = null;
+        PlaylistViewActive = false;
         PlaylistCategory = null;
         PlaylistFolderId = null;
         PlaylistFolderName = null;

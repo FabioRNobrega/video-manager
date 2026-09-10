@@ -664,6 +664,11 @@
 
     private void ClearAbLoop() => _player.ClearAbLoop();
 
+    private static readonly Dictionary<string, string> CategoryRoutes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["history"] = "/",
+    };
+
     private async Task StopAsync()
     {
         await ExecuteMediaCommandAsync("pauseVideo");
@@ -672,7 +677,13 @@
             await ExitFillTabAsync();
         }
 
+        var returnCategory = PlayerState.PlaylistViewActive ? PlayerState.PlaylistCategory : null;
         PlayerState.Clear();
+
+        if (!string.IsNullOrWhiteSpace(returnCategory))
+        {
+            Navigation.NavigateTo(CategoryRoutes.TryGetValue(returnCategory, out var route) ? route : $"/{returnCategory}");
+        }
     }
 
     private async Task SelectPreviousTrackAsync()
