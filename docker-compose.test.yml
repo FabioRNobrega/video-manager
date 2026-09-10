@@ -4,6 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
     working_dir: /workspace
+    # See docker-compose.yml: rootless Podman's auto-detected DNS upstream (the host's
+    # systemd-resolved loopback stub) is unreachable from the container's netns, so hostname
+    # lookups hang. Point at public resolvers directly instead.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
       ASPNETCORE_ENVIRONMENT: Testing
       ThumbnailCache__Path: /previews
