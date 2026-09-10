@@ -29,7 +29,7 @@ services:
       - sh
       - -lc
       - |
-        dotnet restore video-manager.slnx &&
+        dotnet restore PereneArchive.slnx &&
         dotnet test WebApp.Tests/WebApp.Tests.csproj --no-restore --logger "console;verbosity=minimal"
 
 volumes:

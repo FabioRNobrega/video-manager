@@ -24,7 +24,7 @@ Perene Tech Videos is an implemented .NET 10 Blazor Web App (server + Interactiv
 - `WebApp/WebApp/` — ASP.NET Core host with startup composition in `Program.cs`, validated video-library/thumbnail-cache/video-cut/video-composition configuration, the source/cut/composition snapshot services, the thumbnail/hover-preview/subtitle/cut/composition queue/background-worker/FFmpeg-generator services, minimal video/cut/composition/archive endpoints, server-owned root `App.razor` and error component, global `wwwroot/app.css`, and unreferenced legacy vendored Bootstrap assets.
 - `WebApp/WebApp.Client/` — Interactive WebAssembly UI with client-owned `Routes.razor`, `Layout/MainLayout.razor`, `Layout/Sidebar.razor`, `Home.razor`, shared video-grid/library/editor/theme/player components, browser-safe models/state objects (including `ThumbnailState` and `CompositionJobState`), Bootstrap-first static composition, scoped CSS only for behavior-intensive editor/player presentation, and focused `theme.js`, `videoEditor.js`, and `bootstrapInterop.js` browser interop.
 - `WebApp.Tests/` — xUnit tests organized under `Configuration/`, `Services/`, `Endpoints/`, and `Client/`, using `WebApplicationFactory` for host/endpoint/static-root checks and direct tests for C# state models.
-- `video-manager.slnx` — solution file listing the three projects above.
+- `PereneArchive.slnx` — solution file listing the three projects above.
 - `Dockerfile` — `mcr.microsoft.com/dotnet/sdk:10.0` image with an installed `ffmpeg` OS package, running `dotnet watch run` for the web project on port 8080.
 - `docker-compose.yml` — dev stack for the `webapp` service (hot reload, read-only source bind mount defaulting to `/home/PereneArchive/Videos`, read-write `${VIDEO_ROOT}/Videos/Cuts` and `${VIDEO_ROOT}/Videos/VideoComposition` bind mounts, optional private LAN host allowlist via `.env`, NuGet cache volume, and persistent `thumbnail_cache` named volume at `/previews`).
 - `docker-compose.test.yml` — isolated `tests` service that restores and runs `dotnet test` in a throwaway container with its own disposable thumbnail cache volume.
@@ -59,10 +59,10 @@ This project is Docker Compose-only; there is no documented native `dotnet run` 
 - `make docker-build` — build the .NET 10 SDK image.
 - `make docker-run` / `make docker-run-bg` — start the app (hot reload via `dotnet watch`) in foreground/background.
 - `make docker-down` / `make docker-reset` — stop the stack, optionally deleting volumes.
-- `make docker-logs`, `make docker-ps` — follow logs / list containers for the `video-manager` compose project.
+- `make docker-logs`, `make docker-ps` — follow logs / list containers for the `perenearchive` compose project.
 - `make docker-shell` — open a shell in a fresh SDK container; `make docker-exec` — shell into the running `webapp` container.
 - `make dotnet ARGS="build"` — run an arbitrary `dotnet` command inside the SDK image.
-- `make test` (alias `make docker-test`) — run `WebApp.Tests` in the isolated `video-manager-test` compose project (`docker-compose.test.yml`), always tearing down volumes afterward regardless of test outcome.
+- `make test` (alias `make docker-test`) — run `WebApp.Tests` in the isolated `perenearchive-test` compose project (`docker-compose.test.yml`), always tearing down volumes afterward regardless of test outcome.
 - `make docker-test-shell` — shell into the test image without running tests.
 
 `VIDEO_ROOT` is optional and defaults to `/home/PereneArchive` (a repo-root `.env` copied from `.env.example` is only needed to override it, set `WEBAPP_PORT`, or set private `ALLOWED_NETWORK_HOSTS`). Compose mounts `${VIDEO_ROOT}/Videos` read-only at `/videos`, mounts `${VIDEO_ROOT}/Videos/Cuts` read-write at `/videos-cuts` and `${VIDEO_ROOT}/Videos/VideoComposition` read-write at `/videos-composition` (all three must exist under `VIDEO_ROOT` before first run — the operator populates this NAS-style layout by hand), supplies `VideoLibrary__Path`/`VideoCut__Path`/`VideoComposition__Path`, publishes the configured port for local NAS/LAN use, and passes `ALLOWED_NETWORK_HOSTS` into the ASP.NET Core host-header allowlist. `make get-url` reports the LAN URL to open from another device.

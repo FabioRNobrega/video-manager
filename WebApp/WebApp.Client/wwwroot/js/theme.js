@@ -1,7 +1,7 @@
 (function () {
     "use strict";
 
-    const storageKey = "video-manager-theme";
+    const storageKey = "perenearchive-theme";
     const darkTheme = "dark";
     const lightTheme = "light";
 

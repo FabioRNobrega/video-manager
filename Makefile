@@ -1,6 +1,6 @@
 COMPOSE ?= docker compose
-COMPOSE_PROJECT ?= video-manager
-TEST_COMPOSE_PROJECT ?= video-manager-test
+COMPOSE_PROJECT ?= perenearchive
+TEST_COMPOSE_PROJECT ?= perenearchive-test
 ARGS ?=
 
 DOCKER_HOST := $(shell \
@@ -38,10 +38,10 @@ docker-build:
 	$(COMPOSE) -p $(COMPOSE_PROJECT) build
 
 dotnet-new: docker-build
-	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet new sln -n video-manager
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet new sln -n PereneArchive
 	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet new blazor -o WebApp --framework net10.0 --interactivity WebAssembly
 	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet new xunit -o WebApp.Tests --framework net10.0
-	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet sln video-manager.slnx add WebApp/WebApp/WebApp.csproj WebApp/WebApp.Client/WebApp.Client.csproj WebApp.Tests/WebApp.Tests.csproj
+	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet sln PereneArchive.slnx add WebApp/WebApp/WebApp.csproj WebApp/WebApp.Client/WebApp.Client.csproj WebApp.Tests/WebApp.Tests.csproj
 	$(COMPOSE) -p $(COMPOSE_PROJECT) run --rm --no-deps webapp dotnet add WebApp.Tests/WebApp.Tests.csproj reference WebApp/WebApp/WebApp.csproj
 
 docker-run:
@@ -95,4 +95,4 @@ get-url:
 	fi; \
 	port=$$(grep -m1 '^WEBAPP_PORT=' .env 2>/dev/null | cut -d= -f2); \
 	port=$${port:-8080}; \
-	echo "Access Video Manager on http://$$ip:$$port"
+	echo "Access PereneArchive on http://$$ip:$$port"
