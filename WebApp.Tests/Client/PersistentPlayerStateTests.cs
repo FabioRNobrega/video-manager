@@ -87,9 +87,26 @@ public sealed class PersistentPlayerStateTests
         Assert.Equal("api/archive/music/items/song-two", state.StreamBasePath);
         Assert.False(state.CanSaveCut);
         Assert.Equal("/api/archive/music/items/album/cover", state.AlbumCoverUrl);
-        Assert.Equal(["song-one", "song-two"], state.MusicPlaylist.Select(track => track.Id));
+        Assert.Equal(["song-one", "song-two"], state.Playlist.Select(track => track.Id));
         Assert.True(state.CanSelectPreviousTrack);
         Assert.False(state.CanSelectNextTrack);
+        Assert.False(state.CanReturnToPlaylist);
+    }
+
+    [Fact]
+    public void Select_music_clears_a_stale_playlist_route_reference()
+    {
+        var state = new PersistentPlayerState();
+        var video = CreateArchiveVideo("clip-one", "clip.mp4");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [video]);
+        var first = CreateMusic("song-one", "01.mp3");
+        var second = CreateMusic("song-two", "02.wav");
+
+        state.SelectMusic(first, [first, second]);
+
+        Assert.False(state.CanReturnToPlaylist);
+        Assert.Null(state.PlaylistCategory);
+        Assert.Null(state.PlaylistFolderId);
     }
 
     [Fact]
@@ -128,6 +145,110 @@ public sealed class PersistentPlayerStateTests
 
         Assert.True(state.SelectPreviousTrack());
         Assert.Equal("song-one", state.SelectedId);
+    }
+
+    [Fact]
+    public void Enter_playlist_view_selects_first_item_and_builds_mixed_queue()
+    {
+        var state = new PersistentPlayerState();
+        var video = CreateArchiveVideo("clip-one", "clip.mp4");
+        var music = CreateArchiveMusic("song-one", "song.mp3");
+
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [video, music]);
+
+        Assert.True(state.PlaylistViewActive);
+        Assert.Equal("My Folder", state.PlaylistFolderName);
+        Assert.Equal("videos", state.PlaylistCategory);
+        Assert.Equal("folder-1", state.PlaylistFolderId);
+        Assert.True(state.CanReturnToPlaylist);
+        Assert.True(state.HasPlaylist);
+        Assert.Equal("clip-one", state.SelectedId);
+        Assert.Equal(PersistentMediaKind.Video, state.MediaKind);
+        Assert.Equal(["clip-one", "song-one"], state.Playlist.Select(track => track.Id));
+        Assert.False(state.CanSelectPreviousTrack);
+        Assert.True(state.CanSelectNextTrack);
+    }
+
+    [Fact]
+    public void Playlist_view_next_track_advances_across_media_kinds()
+    {
+        var state = new PersistentPlayerState();
+        var video = CreateArchiveVideo("clip-one", "clip.mp4");
+        var music = CreateArchiveMusic("song-one", "song.mp3");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [video, music]);
+
+        Assert.True(state.SelectNextTrack());
+
+        Assert.Equal("song-one", state.SelectedId);
+        Assert.Equal(PersistentMediaKind.Music, state.MediaKind);
+        Assert.True(state.IsMusic);
+        Assert.False(state.CanSelectNextTrack);
+    }
+
+    [Fact]
+    public void Select_playlist_item_jumps_to_the_clicked_queue_entry()
+    {
+        var state = new PersistentPlayerState();
+        var first = CreateArchiveVideo("clip-one", "clip.mp4");
+        var second = CreateArchiveVideo("clip-two", "clip2.mp4");
+        var third = CreateArchiveMusic("song-one", "song.mp3");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [first, second, third]);
+
+        Assert.True(state.SelectPlaylistItem("song-one"));
+
+        Assert.Equal("song-one", state.SelectedId);
+        Assert.False(state.SelectPlaylistItem("missing-id"));
+        Assert.Equal("song-one", state.SelectedId);
+    }
+
+    [Fact]
+    public void Enter_playlist_view_with_no_playable_items_clears_selection()
+    {
+        var state = new PersistentPlayerState();
+        state.SelectVideo(CreateVideo("video-one"));
+
+        state.EnterPlaylistView("videos", "folder-empty", "Empty Folder", []);
+
+        Assert.True(state.PlaylistViewActive);
+        Assert.False(state.HasSelection);
+        Assert.False(state.HasPlaylist);
+    }
+
+    [Fact]
+    public void Exit_playlist_view_clears_flag_but_preserves_selection_and_queue()
+    {
+        var state = new PersistentPlayerState();
+        var video = CreateArchiveVideo("clip-one", "clip.mp4");
+        var music = CreateArchiveMusic("song-one", "song.mp3");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [video, music]);
+
+        state.ExitPlaylistView();
+
+        Assert.False(state.PlaylistViewActive);
+        Assert.True(state.HasSelection);
+        Assert.True(state.HasPlaylist);
+        Assert.Equal("clip-one", state.SelectedId);
+        Assert.True(state.CanReturnToPlaylist);
+        Assert.Equal("videos", state.PlaylistCategory);
+        Assert.Equal("folder-1", state.PlaylistFolderId);
+    }
+
+    [Fact]
+    public void Selecting_a_single_video_clears_any_active_playlist()
+    {
+        var state = new PersistentPlayerState();
+        var video = CreateArchiveVideo("clip-one", "clip.mp4");
+        var music = CreateArchiveMusic("song-one", "song.mp3");
+        state.EnterPlaylistView("videos", "folder-1", "My Folder", [video, music]);
+
+        state.SelectVideo(CreateVideo("other-video"));
+
+        Assert.False(state.HasPlaylist);
+        Assert.False(state.CanSelectPreviousTrack);
+        Assert.False(state.CanSelectNextTrack);
+        Assert.False(state.CanReturnToPlaylist);
+        Assert.Null(state.PlaylistCategory);
+        Assert.Null(state.PlaylistFolderId);
     }
 
     [Fact]
@@ -209,4 +330,18 @@ public sealed class PersistentPlayerStateTests
             IsMusic: true,
             AudioUrl: $"/api/archive/{category}/items/{id}/audio",
             AlbumCoverUrl: $"/api/archive/{category}/items/album/cover");
+
+    private static ArchiveItemDto CreateArchiveVideo(string id, string name) =>
+        new(
+            id,
+            name,
+            ArchiveItemKind.File,
+            Path.GetExtension(name),
+            4096,
+            DateTime.UtcNow,
+            true,
+            ThumbnailUrl: $"/api/archive/videos/items/{id}/thumbnail");
+
+    private static ArchiveItemDto CreateArchiveMusic(string id, string name) =>
+        CreateMusic(id, name, "videos");
 }

@@ -6,6 +6,8 @@ internal interface IArchiveService
 {
     ArchiveListing List(string categoryKey, string? folderId);
 
+    ArchiveListing ListPlaylist(string categoryKey, string? folderId);
+
     ArchiveListing CreateFolder(string categoryKey, string? parentId, string name);
 
     ArchiveListing Rename(string categoryKey, string itemId, string name);

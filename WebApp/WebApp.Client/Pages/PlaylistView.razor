@@ -1,0 +1,70 @@
+@page "/playlist/{Category}/{FolderId}"
+@inject HttpClient Http
+@inject PersistentPlayerState PlayerState
+@implements IDisposable
+
+@if (_isLoading)
+{
+    <div class="d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary" role="status" aria-live="polite">
+        <span class="spinner-border text-primary" aria-hidden="true"></span>
+        <strong class="fs-5 text-body">Loading playlist</strong>
+        <span>Reading the local archive.</span>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+else
+{
+    <PlaylistLayout PlayerState="PlayerState" />
+}
+
+@code {
+    [Parameter] public string Category { get; set; } = string.Empty;
+    [Parameter] public string FolderId { get; set; } = string.Empty;
+
+    private bool _isLoading = true;
+    private string? _error;
+    private string? _loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{Category}/{FolderId}";
+        if (string.Equals(_loadedKey, key, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedKey = key;
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            var listing = await Http.GetFromJsonAsync<ArchiveListingDto>(
+                $"api/archive/{Category}/items/{Uri.EscapeDataString(FolderId)}/playlist");
+
+            if (listing is null)
+            {
+                _error = "The playlist could not be loaded.";
+                return;
+            }
+
+            var folderName = listing.Breadcrumbs.Count > 0
+                ? listing.Breadcrumbs[^1].Name
+                : listing.DisplayName;
+            PlayerState.EnterPlaylistView(Category, FolderId, folderName, listing.Items);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The playlist could not be reached. Try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    public void Dispose() => PlayerState.ExitPlaylistView();
+}

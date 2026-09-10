@@ -1,0 +1,81 @@
+<section class="playlist-root d-flex flex-column flex-lg-row align-items-stretch gap-3 min-h-0" aria-label="Playlist">
+    <div class="playlist-player-column flex-grow-1 min-w-0 min-h-0">
+        @if (PlayerState.HasSelection)
+        {
+            <Player PlayerState="PlayerState" Mode="PlayerPresentationMode.Playlist" />
+        }
+        else
+        {
+            <div class="card border-0 bg-body-tertiary h-100">
+                <div class="card-body d-flex flex-column align-items-center gap-2 py-5 text-center text-body-secondary" role="status">
+                    <i class="bi bi-collection-play display-1 lh-1 text-primary mb-2" aria-hidden="true"></i>
+                    <strong class="fs-5 text-body">This folder has no playable media</strong>
+                    <span>The items in @(PlayerState.PlaylistFolderName ?? "this folder") may have moved or been removed.</span>
+                </div>
+            </div>
+        }
+    </div>
+    <aside class="playlist-queue-panel flex-shrink-0 min-h-0" aria-label="Up next">
+        <div class="card border-0 bg-body-tertiary h-100 min-h-0 d-flex flex-column">
+            <div class="card-header bg-transparent border-0 pb-0 flex-shrink-0">
+                <h2 class="h6 mb-0 text-body">@(PlayerState.PlaylistFolderName ?? "Playlist")</h2>
+                <p class="small text-body-secondary mb-0">@PlayerState.Playlist.Count @(PlayerState.Playlist.Count == 1 ? "item" : "items")</p>
+            </div>
+            <ul class="list-group list-group-flush playlist-queue-list flex-grow-1 min-h-0 overflow-y-auto" aria-label="Queue">
+                @for (var i = 0; i < PlayerState.Playlist.Count; i++)
+                {
+                    var track = PlayerState.Playlist[i];
+                    var position = i + 1;
+                    var isActive = string.Equals(track.Id, PlayerState.SelectedId, StringComparison.Ordinal);
+                    <li class="list-group-item bg-transparent">
+                        <button type="button"
+                                class="btn btn-link text-decoration-none p-0 d-flex align-items-center gap-2 w-100 text-start @(isActive ? "playlist-queue-item-active" : null)"
+                                aria-current="@(isActive ? "true" : null)"
+                                @onclick="() => SelectAsync(track.Id)">
+                            <span class="playlist-queue-position small text-body-secondary text-center flex-shrink-0" aria-hidden="true">
+                                @if (isActive)
+                                {
+                                    <i class="bi bi-play-fill text-primary" aria-hidden="true"></i>
+                                }
+                                else
+                                {
+                                    @position
+                                }
+                            </span>
+                            <span class="playlist-queue-thumbnail ratio ratio-16x9 bg-dark rounded overflow-hidden flex-shrink-0" aria-hidden="true">
+                                @if (track.MediaKind == PersistentMediaKind.Music && !string.IsNullOrWhiteSpace(track.AlbumCoverUrl))
+                                {
+                                    <img src="@track.AlbumCoverUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                }
+                                else if (track.MediaKind == PersistentMediaKind.Video && !string.IsNullOrWhiteSpace(track.ThumbnailUrl))
+                                {
+                                    <img src="@track.ThumbnailUrl" alt="" class="w-100 h-100 object-fit-cover" />
+                                }
+                                else
+                                {
+                                    <span class="d-flex align-items-center justify-content-center h-100">
+                                        <i class="bi @(track.MediaKind == PersistentMediaKind.Music ? "bi-music-note-beamed" : "bi-film") text-body-secondary" aria-hidden="true"></i>
+                                    </span>
+                                }
+                            </span>
+                            <span class="min-w-0 flex-grow-1">
+                                <span class="playlist-queue-title d-block small fw-semibold text-body">@track.Name</span>
+                                <span class="d-block small text-body-secondary">@MediaPlayerState.FormatTime(track.DurationSeconds ?? 0)</span>
+                            </span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        </div>
+    </aside>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public PersistentPlayerState PlayerState { get; set; } = default!;
+
+    private Task SelectAsync(string id)
+    {
+        PlayerState.SelectPlaylistItem(id);
+        return Task.CompletedTask;
+    }
+}

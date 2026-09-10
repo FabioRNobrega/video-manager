@@ -9,6 +9,7 @@ internal static class ArchiveEndpoints
     public static IEndpointRouteBuilder MapArchiveEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/archive/{category}/items", List);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/playlist", GetPlaylist);
         endpoints.MapGet("/api/archive/{category}/items/{id}/stream", StreamVideo);
         endpoints.MapGet("/api/archive/{category}/items/{id}/audio", StreamAudio);
         endpoints.MapGet("/api/archive/{category}/items/{id}/cover", GetAlbumCover);
@@ -48,6 +49,25 @@ internal static class ArchiveEndpoints
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.List(category, folderId),
+            thumbnailCoordinator,
+            hoverPreviewCoordinator,
+            subtitleCoordinator,
+            metadataCoordinator,
+            epubBookService,
+            cancellationToken));
+
+    private static async Task<IResult> GetPlaylist(
+        string category,
+        string id,
+        IArchiveService archive,
+        ThumbnailCoordinator thumbnailCoordinator,
+        HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
+        VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
+        CancellationToken cancellationToken) =>
+        await ExecuteAsync(() => ToDtoAsync(
+            archive.ListPlaylist(category, id),
             thumbnailCoordinator,
             hoverPreviewCoordinator,
             subtitleCoordinator,
@@ -847,7 +867,8 @@ internal static class ArchiveEndpoints
             BookAuthor: bookAuthor,
             IsTextDocument: item.IsTextDocument,
             IsPdfDocument: item.IsPdfDocument,
-            PdfUrl: PdfUrl(item));
+            PdfUrl: PdfUrl(item),
+            HasPlayableMedia: item.HasPlayableMedia);
     }
 
     private static (string? CoverUrl, string? Title, string? Author) ReadBookSummary(
@@ -912,7 +933,8 @@ internal static class ArchiveEndpoints
             subtitleUrl,
             IsMusic: item.IsMusic,
             AudioUrl: AudioUrl(item),
-            AlbumCoverUrl: AlbumCoverUrl(item));
+            AlbumCoverUrl: AlbumCoverUrl(item),
+            HasPlayableMedia: item.HasPlayableMedia);
     }
 
     private static async Task<ArchiveItemDto> ToDtoAsync(
@@ -985,7 +1007,8 @@ internal static class ArchiveEndpoints
             item.IsVideo ? metadata.Height : null,
             item.IsMusic,
             AudioUrl(item),
-            AlbumCoverUrl(item));
+            AlbumCoverUrl(item),
+            HasPlayableMedia: item.HasPlayableMedia);
     }
 
     private static string? AudioUrl(ArchiveItemEntry item) =>

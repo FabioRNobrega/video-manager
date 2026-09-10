@@ -136,6 +136,16 @@ audio {
     }
 }
 
+.playlist-player-preview {
+    min-height: 50vh;
+}
+
+@media (min-width: 62rem) {
+    .playlist-player-preview {
+        min-height: 0;
+    }
+}
+
 @media (max-width: 36rem) {
     .player-footer-preview {
         width: 7rem;

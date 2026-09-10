@@ -47,6 +47,20 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         return BuildListing(category, folder);
     }
 
+    public ArchiveListing ListPlaylist(string categoryKey, string? folderId)
+    {
+        var category = ResolveCategory(categoryKey);
+        var folder = ResolveFolder(category, folderId);
+        var items = new List<ArchiveItemEntry>();
+        CollectPlayableMedia(category, folder, items);
+        return new ArchiveListing(
+            category,
+            folder,
+            TryGetParent(category, folder),
+            BuildBreadcrumbs(category, folder),
+            items);
+    }
+
     public ArchiveListing CreateFolder(string categoryKey, string? parentId, string name)
     {
         var category = ResolveCategory(categoryKey);
@@ -377,7 +391,8 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
                     extension is not null && ImageExtensions.Contains(extension),
                     IsBook(category, extension),
                     IsTextDocument(extension),
-                    IsPdfDocument(extension)));
+                    IsPdfDocument(extension),
+                    HasPlayableMedia: isDirectory && HasPlayableMediaRecursive(canonicalPath)));
             }
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
@@ -513,6 +528,89 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
 
     private static bool IsPdfDocument(string? extension) =>
         extension is not null && PdfDocumentExtensions.Contains(extension);
+
+    private static bool HasPlayableMediaRecursive(string folderPath)
+    {
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories))
+            {
+                var extension = Path.GetExtension(path).ToLowerInvariant();
+                if (VideoExtensions.Contains(extension) || MusicExtensions.Contains(extension))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+        }
+
+        return false;
+    }
+
+    private void CollectPlayableMedia(ArchiveCategory category, ArchiveItemEntry folder, List<ArchiveItemEntry> results)
+    {
+        IEnumerable<string> paths;
+        try
+        {
+            paths = Directory.EnumerateFileSystemEntries(folder.PhysicalPath).ToArray();
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            return;
+        }
+
+        var albumCover = FindAlbumCover(category, folder);
+
+        foreach (var path in paths.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    continue;
+                }
+
+                var canonicalPath = ContainedPath(category, path);
+                var isDirectory = (attributes & FileAttributes.Directory) != 0;
+                if (isDirectory)
+                {
+                    CollectPlayableMedia(category, CreateEntry(category, canonicalPath), results);
+                    continue;
+                }
+
+                var extension = Path.GetExtension(canonicalPath).ToLowerInvariant();
+                var isVideo = VideoExtensions.Contains(extension);
+                var isMusic = MusicExtensions.Contains(extension);
+                if (!isVideo && !isMusic)
+                {
+                    continue;
+                }
+
+                var info = new FileInfo(canonicalPath);
+                results.Add(new ArchiveItemEntry(
+                    ComputeId(category, canonicalPath),
+                    category,
+                    canonicalPath,
+                    Path.GetFileName(canonicalPath),
+                    ArchiveItemKind.File,
+                    extension,
+                    info.Length,
+                    info.LastWriteTimeUtc,
+                    isVideo,
+                    isMusic,
+                    AlbumCoverId: isMusic ? albumCover?.FolderId : null));
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+            {
+            }
+        }
+    }
 
     private ArchiveAlbumCoverInfo? FindAlbumCover(ArchiveCategory category, ArchiveItemEntry folder)
     {

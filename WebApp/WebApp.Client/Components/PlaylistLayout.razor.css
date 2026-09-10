@@ -1,0 +1,46 @@
+.playlist-queue-panel {
+    width: min(24rem, 100%);
+}
+
+.playlist-queue-list {
+    overflow-x: hidden;
+}
+
+.playlist-queue-position {
+    width: 2.5rem;
+    white-space: nowrap;
+}
+
+.playlist-queue-thumbnail {
+    width: 6rem;
+}
+
+.playlist-queue-title {
+    overflow-wrap: anywhere;
+}
+
+.playlist-queue-item-active {
+    background: var(--bs-primary-bg-subtle, rgba(var(--bs-primary-rgb), .12));
+    border-radius: .5rem;
+}
+
+@media (min-width: 62rem) {
+    .playlist-root {
+        height: 100%;
+    }
+
+    .playlist-player-column,
+    .playlist-queue-panel {
+        height: 100%;
+    }
+}
+
+@media (max-width: 62rem) {
+    .playlist-queue-panel {
+        width: 100%;
+    }
+
+    .playlist-queue-list {
+        max-height: 24rem;
+    }
+}

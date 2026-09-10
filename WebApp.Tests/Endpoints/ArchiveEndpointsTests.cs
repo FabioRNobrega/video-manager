@@ -37,6 +37,50 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task Listing_marks_folders_with_nested_playable_media_without_exposing_paths()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Videos", "Trip", "Raw"));
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Videos", "Trip", "Raw", "clip.mp4"), "content");
+        Directory.CreateDirectory(Path.Combine(root.Path, "Videos", "Documents Only"));
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Videos", "Documents Only", "notes.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/archive/videos/items");
+        var json = await response.Content.ReadAsStringAsync();
+        var listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(root.Path, json);
+        Assert.True(listing!.Items.Single(item => item.Name == "Trip").HasPlayableMedia);
+        Assert.False(listing.Items.Single(item => item.Name == "Documents Only").HasPlayableMedia);
+    }
+
+    [Fact]
+    public async Task Playlist_endpoint_returns_nested_media_without_exposing_paths()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Videos", "Trip", "Raw"));
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Videos", "Trip", "intro.mp4"), "content");
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Videos", "Trip", "Raw", "clip.mp4"), "content");
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Videos", "Trip", "notes.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var rootListing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/videos/items"))!;
+        var folder = rootListing.Items.Single(item => item.Name == "Trip");
+
+        using var response = await client.GetAsync($"/api/archive/videos/items/{folder.Id}/playlist");
+        var json = await response.Content.ReadAsStringAsync();
+        var playlist = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(root.Path, json);
+        Assert.Equal(["intro.mp4", "clip.mp4"], playlist!.Items.Select(item => item.Name));
+        Assert.All(playlist.Items, item => Assert.True(item.IsVideo));
+    }
+
+    [Fact]
     public async Task Listing_returns_archive_video_preview_contract_for_all_categories()
     {
         using var root = CreateArchive();

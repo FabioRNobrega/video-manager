@@ -12,7 +12,7 @@ public sealed class PersistentPlayerState
 
     public VideoItemDto? Selected { get; private set; }
     public PersistentMediaKind MediaKind { get; private set; }
-    public IReadOnlyList<MusicTrackDto> MusicPlaylist { get; private set; } = [];
+    public IReadOnlyList<PlaylistTrackDto> Playlist { get; private set; } = [];
     public string? AlbumCoverUrl { get; private set; }
     public string StreamBasePath { get; private set; } = VideoStreamBasePath;
     public bool HasSelection => Selected is not null;
@@ -20,14 +20,22 @@ public sealed class PersistentPlayerState
         string.Equals(StreamBasePath, VideoStreamBasePath, StringComparison.Ordinal);
     public string? SelectedId => Selected?.Id;
     public bool IsMusic => MediaKind == PersistentMediaKind.Music;
-    public bool CanSelectPreviousTrack => IsMusic && CurrentMusicIndex > 0;
-    public bool CanSelectNextTrack => IsMusic &&
-        CurrentMusicIndex >= 0 &&
-        CurrentMusicIndex < MusicPlaylist.Count - 1;
+    public bool HasPlaylist => Playlist.Count > 0;
+    public bool PlaylistViewActive { get; private set; }
+    public string? PlaylistFolderName { get; private set; }
+    public string? PlaylistCategory { get; private set; }
+    public string? PlaylistFolderId { get; private set; }
+    public bool CanReturnToPlaylist => HasPlaylist &&
+        !string.IsNullOrWhiteSpace(PlaylistCategory) &&
+        !string.IsNullOrWhiteSpace(PlaylistFolderId);
+    public bool CanSelectPreviousTrack => HasPlaylist && CurrentPlaylistIndex > 0;
+    public bool CanSelectNextTrack => HasPlaylist &&
+        CurrentPlaylistIndex >= 0 &&
+        CurrentPlaylistIndex < Playlist.Count - 1;
 
-    private int CurrentMusicIndex => SelectedId is null
+    private int CurrentPlaylistIndex => SelectedId is null
         ? -1
-        : MusicPlaylist.ToList().FindIndex(track => string.Equals(track.Id, SelectedId, StringComparison.Ordinal));
+        : Playlist.ToList().FindIndex(track => string.Equals(track.Id, SelectedId, StringComparison.Ordinal));
 
     public void SelectVideo(VideoItemDto video) => Select(video, VideoStreamBasePath);
 
@@ -69,14 +77,70 @@ public sealed class PersistentPlayerState
 
         var playlist = currentFolderItems
             .Where(track => track.IsMusic && !string.IsNullOrWhiteSpace(track.AudioUrl))
-            .Select(ToMusicTrack)
+            .Select(ToMusicPlaylistTrack)
             .ToList();
         if (!playlist.Any(track => string.Equals(track.Id, item.Id, StringComparison.Ordinal)))
         {
-            playlist.Add(ToMusicTrack(item));
+            playlist.Add(ToMusicPlaylistTrack(item));
         }
 
-        SelectMusic(ToMusicTrack(item), playlist);
+        PlaylistCategory = null;
+        PlaylistFolderId = null;
+        PlaylistFolderName = null;
+        SelectPlaylistTrack(ToMusicPlaylistTrack(item), playlist);
+    }
+
+    public void EnterPlaylistView(string category, string folderId, string folderName, IReadOnlyList<ArchiveItemDto> items)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(category);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderName);
+        ArgumentNullException.ThrowIfNull(items);
+
+        var playlist = items
+            .Where(item => item.IsVideo || (item.IsMusic && !string.IsNullOrWhiteSpace(item.AudioUrl)))
+            .Select(item => ToPlaylistTrack(category, item))
+            .ToList();
+
+        PlaylistViewActive = true;
+        PlaylistFolderName = folderName;
+        PlaylistCategory = category;
+        PlaylistFolderId = folderId;
+
+        if (playlist.Count == 0)
+        {
+            Selected = null;
+            Playlist = [];
+            AlbumCoverUrl = null;
+            NotifyStateChanged();
+            return;
+        }
+
+        SelectPlaylistTrack(playlist[0], playlist);
+    }
+
+    public void ExitPlaylistView()
+    {
+        if (!PlaylistViewActive)
+        {
+            return;
+        }
+
+        PlaylistViewActive = false;
+        NotifyStateChanged();
+    }
+
+    public bool SelectPlaylistItem(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        var index = Playlist.ToList().FindIndex(track => string.Equals(track.Id, id, StringComparison.Ordinal));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        SelectPlaylistTrack(Playlist[index], Playlist);
+        return true;
     }
 
     public bool SelectPreviousTrack()
@@ -86,7 +150,7 @@ public sealed class PersistentPlayerState
             return false;
         }
 
-        SelectMusic(MusicPlaylist[CurrentMusicIndex - 1], MusicPlaylist);
+        SelectPlaylistTrack(Playlist[CurrentPlaylistIndex - 1], Playlist);
         return true;
     }
 
@@ -97,7 +161,7 @@ public sealed class PersistentPlayerState
             return false;
         }
 
-        SelectMusic(MusicPlaylist[CurrentMusicIndex + 1], MusicPlaylist);
+        SelectPlaylistTrack(Playlist[CurrentPlaylistIndex + 1], Playlist);
         return true;
     }
 
@@ -112,8 +176,11 @@ public sealed class PersistentPlayerState
         Selected = item;
         StreamBasePath = streamBasePath;
         MediaKind = PersistentMediaKind.Video;
-        MusicPlaylist = [];
+        Playlist = [];
         AlbumCoverUrl = null;
+        PlaylistCategory = null;
+        PlaylistFolderId = null;
+        PlaylistFolderName = null;
         NotifyStateChanged();
     }
 
@@ -134,8 +201,11 @@ public sealed class PersistentPlayerState
         Selected = null;
         StreamBasePath = VideoStreamBasePath;
         MediaKind = PersistentMediaKind.Video;
-        MusicPlaylist = [];
+        Playlist = [];
         AlbumCoverUrl = null;
+        PlaylistCategory = null;
+        PlaylistFolderId = null;
+        PlaylistFolderName = null;
         NotifyStateChanged();
     }
 
@@ -143,7 +213,7 @@ public sealed class PersistentPlayerState
 
     private void NotifyStateChanged() => StateChanged?.Invoke();
 
-    private void SelectMusic(MusicTrackDto track, IReadOnlyList<MusicTrackDto> playlist)
+    private void SelectPlaylistTrack(PlaylistTrackDto track, IReadOnlyList<PlaylistTrackDto> playlist)
     {
         Selected = new VideoItemDto(
             track.Id,
@@ -160,22 +230,42 @@ public sealed class PersistentPlayerState
             null,
             null);
         StreamBasePath = track.StreamBasePath;
-        MediaKind = PersistentMediaKind.Music;
-        MusicPlaylist = playlist.ToList();
+        MediaKind = track.MediaKind;
+        Playlist = playlist.ToList();
         AlbumCoverUrl = track.AlbumCoverUrl;
         NotifyStateChanged();
     }
 
-    private static MusicTrackDto ToMusicTrack(ArchiveItemDto item) =>
-        new(
+    private static PlaylistTrackDto ToMusicPlaylistTrack(ArchiveItemDto item)
+    {
+        var streamBasePath = GetStreamBasePath(item.AudioUrl);
+        return new PlaylistTrackDto(
             item.Id,
             item.Name,
             item.Extension ?? string.Empty,
             item.SizeBytes ?? 0,
+            PersistentMediaKind.Music,
             item.AudioUrl ?? string.Empty,
+            streamBasePath,
+            null,
             item.AlbumCoverUrl,
-            item.DurationSeconds,
-            GetStreamBasePath(item.AudioUrl));
+            item.DurationSeconds);
+    }
+
+    private static PlaylistTrackDto ToPlaylistTrack(string category, ArchiveItemDto item) =>
+        item.IsMusic
+            ? ToMusicPlaylistTrack(item)
+            : new PlaylistTrackDto(
+                item.Id,
+                item.Name,
+                item.Extension ?? string.Empty,
+                item.SizeBytes ?? 0,
+                PersistentMediaKind.Video,
+                $"api/archive/{Uri.EscapeDataString(category)}/items/{Uri.EscapeDataString(item.Id)}/stream",
+                $"api/archive/{Uri.EscapeDataString(category)}/items",
+                item.ThumbnailUrl,
+                null,
+                item.DurationSeconds);
 
     private static string GetStreamBasePath(string? audioUrl)
     {

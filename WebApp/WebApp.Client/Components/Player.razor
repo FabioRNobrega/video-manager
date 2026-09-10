@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <section class="@EditorCssClass" aria-label="Video player">
     @if (Selected is null)
@@ -57,7 +58,7 @@
                     <video @key="Selected.Id"
                            @ref="_video"
                            class="position-absolute top-0 start-0 w-100 h-100 object-fit-cover user-select-none"
-                           src="@($"{StreamBasePath}/{Selected.Id}/stream")"
+                           src="@VideoSource"
                            preload="metadata"
                            aria-label="Vertical preview of @Selected.Name"
                            style="@VideoStyle"
@@ -77,7 +78,7 @@
                            @onratechange="SynchronizeMediaStateAsync"
                            @onseeking="SynchronizeMediaStateAsync"
                            @onseeked="HandleSeekedAsync"
-                           @onended="SynchronizeMediaStateAsync">
+                           @onended="HandleEndedAsync">
                         @if (HasSubtitles)
                         {
                             <track kind="subtitles"
@@ -142,7 +143,7 @@
             }
             @if (!_fillTab.IsActive)
             {
-                <div class="player-footer-controls flex-grow-1 w-100 min-w-0">
+                <div class="@PlayerControlsWrapperCssClass">
                     @PlayerControls
                 </div>
             }
@@ -152,6 +153,7 @@
 
 @code {
     [Parameter, EditorRequired] public PersistentPlayerState PlayerState { get; set; } = default!;
+    [Parameter] public PlayerPresentationMode Mode { get; set; } = PlayerPresentationMode.Footer;
 
     private const double DragThreshold = 6;
     private static readonly TimeSpan ControlHideDelay = TimeSpan.FromSeconds(1);
@@ -211,6 +213,9 @@
                                                                    ToggleSubtitles="ToggleSubtitlesAsync"
                                                                    CanSaveCut="PlayerState.CanSaveCut"
                                                                    IsMusicMode="PlayerState.IsMusic"
+                                                                   HasPlaylist="PlayerState.HasPlaylist"
+                                                                   ShowPlaylistButton="ShowPlaylistButton"
+                                                                   OpenPlaylist="OpenPlaylist"
                                                                    SelectPreviousTrack="SelectPreviousTrackAsync"
                                                                    SelectNextTrack="SelectNextTrackAsync"
                                                                    CanSelectPreviousTrack="PlayerState.CanSelectPreviousTrack"
@@ -219,39 +224,73 @@
 
     private bool HasSubtitles => Selected?.SubtitleState == SubtitleState.Ready;
     private string SubtitleSource => Selected?.SubtitleUrl ?? $"{StreamBasePath}/{Selected?.Id}/subtitle";
-    private string MusicSource => PlayerState.MusicPlaylist.FirstOrDefault(track => track.Id == Selected?.Id)?.AudioUrl
+    private string VideoSource => PlayerState.Playlist.FirstOrDefault(track => track.Id == Selected?.Id)?.SourceUrl
+        ?? $"{StreamBasePath}/{Selected?.Id}/stream";
+
+    private string MusicSource => PlayerState.Playlist.FirstOrDefault(track => track.Id == Selected?.Id)?.SourceUrl
         ?? $"{StreamBasePath}/{Selected?.Id}/audio";
+
+    private bool IsPlaylistMode => Mode == PlayerPresentationMode.Playlist;
+
+    private bool ShowPlaylistButton => PlayerState.CanReturnToPlaylist && !PlayerState.PlaylistViewActive;
+
+    private void OpenPlaylist()
+    {
+        if (!PlayerState.CanReturnToPlaylist)
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(
+            $"/playlist/{Uri.EscapeDataString(PlayerState.PlaylistCategory!)}/{Uri.EscapeDataString(PlayerState.PlaylistFolderId!)}");
+    }
 
     private string EditorCssClass => _fillTab.IsActive
         ? "card position-fixed top-0 start-0 z-3 w-100 h-100 overflow-hidden border-0 rounded-0"
-        : "player-footer position-fixed start-0 end-0 bottom-0 z-3 bg-body border-top shadow-lg rounded-top-4 overflow-hidden";
+        : IsPlaylistMode
+            ? "card w-100 h-100 min-h-0 overflow-hidden border-0 bg-body-tertiary"
+            : "player-footer position-fixed start-0 end-0 bottom-0 z-3 bg-body border-top shadow-lg rounded-top-4 overflow-hidden";
 
     private string PreviewStageCssClass => _fillTab.IsActive
         ? "w-100 h-100 p-0 bg-dark"
-        : "d-flex flex-column flex-lg-row align-items-stretch gap-3 px-3 py-2";
+        : IsPlaylistMode
+            ? "d-flex flex-column align-items-stretch gap-2 p-0 w-100 h-100 min-h-0"
+            : "d-flex flex-column flex-lg-row align-items-stretch gap-3 px-3 py-2";
 
     private string MediaRowCssClass => _fillTab.IsActive
         ? "w-100 h-100"
-        : "player-footer-media d-flex flex-row align-items-stretch gap-3 flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0";
+        : IsPlaylistMode
+            ? "playlist-player-media d-flex flex-column w-100 flex-grow-1 min-h-0"
+            : "player-footer-media d-flex flex-row align-items-stretch gap-3 flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0";
 
     private string VideoViewportCssClass => _fillTab.IsActive
         ? "position-relative w-100 h-100 overflow-hidden bg-dark"
-        : "player-footer-preview ratio position-relative overflow-hidden bg-dark border rounded-3 flex-shrink-0";
+        : IsPlaylistMode
+            ? "playlist-player-preview position-relative w-100 flex-grow-1 min-h-0 overflow-hidden bg-dark"
+            : "player-footer-preview ratio position-relative overflow-hidden bg-dark border rounded-3 flex-shrink-0";
 
-    private string? VideoViewportStyle => _fillTab.IsActive
+    private string? VideoViewportStyle => _fillTab.IsActive || IsPlaylistMode
         ? null
         : "--bs-aspect-ratio: 56.25%";
+
+    private string PlayerControlsWrapperCssClass => IsPlaylistMode
+        ? "player-footer-controls w-100 min-w-0 flex-shrink-0 px-3 pb-3"
+        : "player-footer-controls flex-grow-1 w-100 min-w-0";
 
     private string VideoStyle => FormattableString.Invariant(
         $"object-position: {_frame.PositionX:0.##}% {_frame.PositionY:0.##}%; touch-action: none; filter: saturate({_saturation.Value:0}%)");
 
     private string MusicCoverCssClass => _fillTab.IsActive
         ? "music-cover-image music-cover-fill object-fit-contain"
-        : "music-cover-image w-100 h-100 object-fit-cover";
+        : IsPlaylistMode
+            ? "music-cover-image w-100 h-100 object-fit-contain"
+            : "music-cover-image w-100 h-100 object-fit-cover";
 
-    private string FooterCopyCssClass => PlayerState.IsMusic
-        ? "player-footer-copy player-footer-copy-music flex-grow-1 flex-shrink-0 min-w-0"
-        : "player-footer-copy flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0";
+    private string FooterCopyCssClass => IsPlaylistMode
+        ? "w-100 px-3 pt-2 pb-2 min-w-0 flex-shrink-0"
+        : PlayerState.IsMusic
+            ? "player-footer-copy player-footer-copy-music flex-grow-1 flex-shrink-0 min-w-0"
+            : "player-footer-copy flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0";
 
     private string NowPlayingNameCssClass => PlayerState.IsMusic
         ? "fw-semibold text-nowrap mb-1"
@@ -497,7 +536,7 @@
     private async Task HandleEndedAsync()
     {
         await SynchronizeMediaStateAsync();
-        if (PlayerState.IsMusic && PlayerState.CanSelectNextTrack)
+        if (PlayerState.HasPlaylist && PlayerState.CanSelectNextTrack)
         {
             await SelectNextTrackAsync();
         }

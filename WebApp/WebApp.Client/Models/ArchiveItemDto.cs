@@ -28,4 +28,5 @@ public sealed record ArchiveItemDto(
     string? BookAuthor = null,
     bool IsTextDocument = false,
     bool IsPdfDocument = false,
-    string? PdfUrl = null);
+    string? PdfUrl = null,
+    bool HasPlayableMedia = false);

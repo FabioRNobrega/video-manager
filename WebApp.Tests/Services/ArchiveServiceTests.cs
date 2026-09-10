@@ -100,6 +100,117 @@ public sealed class ArchiveServiceTests
     }
 
     [Fact]
+    public void Folder_with_direct_video_reports_playable_media()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Videos", "Trip"));
+        awaitFile(Path.Combine(root.Path, "Videos", "Trip", "clip.mp4"));
+        var service = CreateService(root.Path);
+
+        var folder = Assert.Single(service.List("videos", null).Items);
+
+        Assert.True(folder.HasPlayableMedia);
+    }
+
+    [Fact]
+    public void Folder_with_direct_music_reports_playable_media()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Music", "Album"));
+        awaitFile(Path.Combine(root.Path, "Music", "Album", "song.mp3"));
+        var service = CreateService(root.Path);
+
+        var folder = Assert.Single(service.List("music", null).Items);
+
+        Assert.True(folder.HasPlayableMedia);
+    }
+
+    [Fact]
+    public void Folder_without_direct_media_does_not_report_playable_media()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Documents", "Reports"));
+        awaitFile(Path.Combine(root.Path, "Documents", "Reports", "notes.txt"));
+        var service = CreateService(root.Path);
+
+        var folder = Assert.Single(service.List("documents", null).Items);
+
+        Assert.False(folder.HasPlayableMedia);
+    }
+
+    [Fact]
+    public void Folder_with_media_only_in_a_subfolder_reports_playable_media()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Videos", "Trip", "Raw"));
+        awaitFile(Path.Combine(root.Path, "Videos", "Trip", "Raw", "clip.mp4"));
+        var service = CreateService(root.Path);
+
+        var folder = Assert.Single(service.List("videos", null).Items);
+
+        Assert.True(folder.HasPlayableMedia);
+    }
+
+    [Fact]
+    public void Empty_folder_does_not_report_playable_media()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Videos", "Empty"));
+        var service = CreateService(root.Path);
+
+        var folder = Assert.Single(service.List("videos", null).Items);
+
+        Assert.False(folder.HasPlayableMedia);
+    }
+
+    [Fact]
+    public void File_items_do_not_report_playable_media()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Videos", "clip.mp4"));
+        var service = CreateService(root.Path);
+
+        var file = Assert.Single(service.List("videos", null).Items);
+
+        Assert.False(file.HasPlayableMedia);
+    }
+
+    [Fact]
+    public void ListPlaylist_collects_direct_and_nested_video_and_music_files()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Videos", "Trip", "Raw"));
+        awaitFile(Path.Combine(root.Path, "Videos", "Trip", "intro.mp4"));
+        awaitFile(Path.Combine(root.Path, "Videos", "Trip", "Raw", "clip.mp4"));
+        awaitFile(Path.Combine(root.Path, "Videos", "Trip", "Raw", "song.mp3"));
+        awaitFile(Path.Combine(root.Path, "Videos", "Trip", "notes.txt"));
+        var service = CreateService(root.Path);
+        var folder = Assert.Single(service.List("videos", null).Items);
+
+        var playlist = service.ListPlaylist("videos", folder.Id);
+
+        Assert.Equal(3, playlist.Items.Count);
+        Assert.Equal(["intro.mp4", "clip.mp4", "song.mp3"], playlist.Items.Select(item => item.Name));
+        Assert.All(playlist.Items, item => Assert.Equal(ArchiveItemKind.File, item.Kind));
+        Assert.Equal(2, playlist.Items.Count(item => item.IsVideo));
+        Assert.Equal(1, playlist.Items.Count(item => item.IsMusic));
+    }
+
+    [Fact]
+    public void ListPlaylist_returns_no_items_for_a_folder_without_media()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Documents", "Reports"));
+        awaitFile(Path.Combine(root.Path, "Documents", "Reports", "notes.txt"));
+        var service = CreateService(root.Path);
+        var folder = Assert.Single(service.List("documents", null).Items);
+
+        var playlist = service.ListPlaylist("documents", folder.Id);
+
+        Assert.Empty(playlist.Items);
+    }
+
+    [Fact]
     public void Audio_files_are_marked_in_any_category()
     {
         using var root = CreateArchive();
