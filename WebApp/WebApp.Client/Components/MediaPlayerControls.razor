@@ -77,6 +77,16 @@
             <i class="bi @(State.IsPlaying ? "bi-pause-fill" : "bi-play-fill")" aria-hidden="true"></i>
         </button>
 
+        <button class="btn @ActionCssClass"
+                type="button"
+                aria-label="Stop"
+                title="Stop"
+                data-bs-toggle="tooltip"
+                data-bs-title="Stop"
+                @onclick="HandleStopAsync">
+            <i class="bi bi-stop-fill" aria-hidden="true"></i>
+        </button>
+
         <button class="btn @ToggleCssClass(State.IsStandardLoop)"
                 type="button"
                 aria-label="Repeat current video"
@@ -282,6 +292,7 @@
     [Parameter] public EventCallback SaveCut { get; set; }
     [Parameter] public bool IsSavingCut { get; set; }
     [Parameter] public EventCallback ClearAbLoop { get; set; }
+    [Parameter] public EventCallback Stop { get; set; }
     [Parameter] public EventCallback InteractionStarted { get; set; }
     [Parameter] public EventCallback InteractionEnded { get; set; }
     [Parameter] public EventCallback HoverStarted { get; set; }
@@ -428,6 +439,7 @@
     private Task HandleToggleAbLoopAsync() => ToggleAbLoop.InvokeAsync();
     private Task HandleSaveCutAsync() => SaveCut.InvokeAsync();
     private Task HandleClearAbLoopAsync() => ClearAbLoop.InvokeAsync();
+    private Task HandleStopAsync() => Stop.InvokeAsync();
 
     private string MarkerStyle(double marker)
     {

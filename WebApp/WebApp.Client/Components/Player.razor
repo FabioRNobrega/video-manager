@@ -199,6 +199,7 @@
                                                                    SaveCut="SaveCutAsync"
                                                                    IsSavingCut="_isSavingCut"
                                                                    ClearAbLoop="ClearAbLoop"
+                                                                   Stop="StopAsync"
                                                                    InteractionStarted="HandleControlInteractionStarted"
                                                                    InteractionEnded="HandleControlInteractionEnded"
                                                                    HoverStarted="HandleControlHoverStarted"
@@ -602,6 +603,17 @@
     }
 
     private void ClearAbLoop() => _player.ClearAbLoop();
+
+    private async Task StopAsync()
+    {
+        await ExecuteMediaCommandAsync("pauseVideo");
+        if (_fillTab.IsActive)
+        {
+            await ExitFillTabAsync();
+        }
+
+        PlayerState.Clear();
+    }
 
     private async Task SelectPreviousTrackAsync()
     {
