@@ -609,6 +609,65 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task Pdf_listing_and_endpoint_work_in_any_category_without_exposing_paths()
+    {
+        using var root = CreateArchive();
+        byte[] pdfFixture = [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34];
+        await File.WriteAllBytesAsync(Path.Combine(root.Path, "Documents", "report.pdf"), pdfFixture);
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "note.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/archive/documents/items");
+        var json = await response.Content.ReadAsStringAsync();
+        var listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
+        var pdf = listing!.Items.Single(item => item.Name == "report.pdf");
+        var note = listing.Items.Single(item => item.Name == "note.txt");
+
+        Assert.DoesNotContain(root.Path, json);
+        Assert.True(pdf.IsPdfDocument);
+        Assert.False(pdf.IsVideo);
+        Assert.False(pdf.IsImage);
+        Assert.StartsWith("/api/archive/documents/items/", pdf.PdfUrl);
+        Assert.EndsWith("/pdf", pdf.PdfUrl);
+        Assert.False(note.IsPdfDocument);
+        Assert.Null(note.PdfUrl);
+
+        using var pdfResponse = await client.GetAsync(pdf.PdfUrl);
+        Assert.Equal(HttpStatusCode.OK, pdfResponse.StatusCode);
+        Assert.Equal("application/pdf", pdfResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(pdfFixture, await pdfResponse.Content.ReadAsByteArrayAsync());
+
+        using var rangeRequest = new HttpRequestMessage(HttpMethod.Get, pdf.PdfUrl);
+        rangeRequest.Headers.Range = new RangeHeaderValue(1, 3);
+        using var rangeResponse = await client.SendAsync(rangeRequest);
+        Assert.Equal(HttpStatusCode.PartialContent, rangeResponse.StatusCode);
+        Assert.Equal(pdfFixture[1..4], await rangeResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Pdf_endpoint_returns_not_found_for_non_pdf_folder_and_unknown_ids()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Documents", "Folder"));
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "notes.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var folder = listing.Items.Single(item => item.Name == "Folder");
+        var textFile = listing.Items.Single(item => item.Name == "notes.txt");
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{folder.Id}/pdf")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{textFile.Id}/pdf")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{Guid.NewGuid():N}/pdf")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/archive/documents/items/%2Fetc%2Fpasswd/pdf")).StatusCode);
+    }
+
+    [Fact]
     public async Task Text_document_endpoint_loads_source_and_sanitized_markdown_preview_without_leaking_paths()
     {
         using var root = CreateArchive();

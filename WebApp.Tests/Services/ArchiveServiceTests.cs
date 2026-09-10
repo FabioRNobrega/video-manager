@@ -287,6 +287,52 @@ public sealed class ArchiveServiceTests
     }
 
     [Fact]
+    public void Pdf_files_are_marked_in_any_category_and_nested_folders()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Documents", "report.pdf"));
+        awaitFile(Path.Combine(root.Path, "Documents", "photo.jpg"));
+        Directory.CreateDirectory(Path.Combine(root.Path, "Downloads", "Nested"));
+        awaitFile(Path.Combine(root.Path, "Downloads", "Nested", "manual.pdf"));
+        var service = CreateService(root.Path);
+
+        var documents = service.List("documents", null).Items;
+        var nestedFolder = service.List("downloads", null).Items.Single(item => item.Name == "Nested");
+        var nestedFile = service.List("downloads", nestedFolder.Id).Items.Single(item => item.Name == "manual.pdf");
+
+        Assert.True(documents.Single(item => item.Name == "report.pdf").IsPdfDocument);
+        Assert.False(documents.Single(item => item.Name == "photo.jpg").IsPdfDocument);
+        Assert.True(nestedFile.IsPdfDocument);
+    }
+
+    [Fact]
+    public void TryResolvePdfDocument_returns_false_for_folders_and_unsupported_files()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Documents", "Folder"));
+        awaitFile(Path.Combine(root.Path, "Documents", "photo.jpg"));
+        var service = CreateService(root.Path);
+        var folder = service.List("documents", null).Items.Single(item => item.Name == "Folder");
+        var image = service.List("documents", null).Items.Single(item => item.Name == "photo.jpg");
+
+        Assert.False(service.TryResolvePdfDocument("documents", folder.Id, out _));
+        Assert.False(service.TryResolvePdfDocument("documents", image.Id, out _));
+        Assert.False(service.TryResolvePdfDocument("documents", "unknown-id", out _));
+    }
+
+    [Fact]
+    public void TryResolvePdfDocument_resolves_a_valid_pdf_item_in_any_category()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Books", "report.pdf"));
+        var service = CreateService(root.Path);
+        var item = Assert.Single(service.List("books", null).Items);
+
+        Assert.True(service.TryResolvePdfDocument("books", item.Id, out var resolved));
+        Assert.Equal(Path.Combine(root.Path, "Books", "report.pdf"), resolved!.PhysicalPath);
+    }
+
+    [Fact]
     public void TryResolveBook_returns_false_for_folders_and_non_epub_files()
     {
         using var root = CreateArchive();

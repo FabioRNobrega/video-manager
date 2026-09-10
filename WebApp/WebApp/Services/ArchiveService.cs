@@ -22,6 +22,9 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
     private static readonly HashSet<string> TextDocumentExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".md", ".markdown", ".txt" };
 
+    private static readonly HashSet<string> PdfDocumentExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".pdf" };
+
     private const string BooksCategoryKey = "books";
 
     private static readonly HashSet<string> AlbumCoverExtensions =
@@ -253,6 +256,32 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         }
     }
 
+    public bool TryResolvePdfDocument(string categoryKey, string itemId, out ArchiveItemEntry? item)
+    {
+        item = null;
+        try
+        {
+            var category = ResolveCategory(categoryKey);
+            var resolved = ResolveItem(category, itemId);
+            if (resolved.Kind != ArchiveItemKind.File || !resolved.IsPdfDocument)
+            {
+                return false;
+            }
+
+            item = resolved;
+            return true;
+        }
+        catch (ArchiveException)
+        {
+            return false;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
+
     public bool TryResolveAlbumCover(string categoryKey, string folderId, out ArchiveAlbumCoverInfo? cover)
     {
         cover = null;
@@ -347,7 +376,8 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
                     extension is not null && MusicExtensions.Contains(extension),
                     extension is not null && ImageExtensions.Contains(extension),
                     IsBook(category, extension),
-                    IsTextDocument(extension)));
+                    IsTextDocument(extension),
+                    IsPdfDocument(extension)));
             }
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or FileNotFoundException or DirectoryNotFoundException)
@@ -469,7 +499,8 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
             extension is not null && MusicExtensions.Contains(extension),
             extension is not null && ImageExtensions.Contains(extension),
             IsBook(category, extension),
-            IsTextDocument(extension));
+            IsTextDocument(extension),
+            IsPdfDocument(extension));
     }
 
     private static bool IsBook(ArchiveCategory category, string? extension) =>
@@ -479,6 +510,9 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
 
     private static bool IsTextDocument(string? extension) =>
         extension is not null && TextDocumentExtensions.Contains(extension);
+
+    private static bool IsPdfDocument(string? extension) =>
+        extension is not null && PdfDocumentExtensions.Contains(extension);
 
     private ArchiveAlbumCoverInfo? FindAlbumCover(ArchiveCategory category, ArchiveItemEntry folder)
     {

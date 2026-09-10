@@ -26,4 +26,6 @@ public sealed record ArchiveItemDto(
     string? BookCoverUrl = null,
     string? BookTitle = null,
     string? BookAuthor = null,
-    bool IsTextDocument = false);
+    bool IsTextDocument = false,
+    bool IsPdfDocument = false,
+    string? PdfUrl = null);

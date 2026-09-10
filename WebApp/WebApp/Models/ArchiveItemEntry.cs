@@ -16,4 +16,5 @@ internal sealed record ArchiveItemEntry(
     bool IsImage = false,
     bool IsBook = false,
     bool IsTextDocument = false,
+    bool IsPdfDocument = false,
     string? AlbumCoverId = null);

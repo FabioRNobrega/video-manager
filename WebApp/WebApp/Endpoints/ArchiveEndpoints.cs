@@ -20,6 +20,7 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/text", GetTextDocument);
         endpoints.MapPost("/api/archive/{category}/items/{id}/text/preview", PreviewTextDocument);
         endpoints.MapPut("/api/archive/{category}/items/{id}/text", SaveTextDocument);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/pdf", GetPdfDocument);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book", GetBookAsync);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/cover", GetBookCover);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/chapters/{chapterId}", GetBookChapter);
@@ -392,6 +393,16 @@ internal static class ArchiveEndpoints
                 detail: "The document could not be written.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
+    }
+
+    private static IResult GetPdfDocument(string category, string id, IArchiveService archive)
+    {
+        if (!archive.TryResolvePdfDocument(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(item.PhysicalPath, "application/pdf", lastModified: item.LastWriteTimeUtc, enableRangeProcessing: true);
     }
 
     private static async Task<IResult> GetBookAsync(
@@ -805,7 +816,9 @@ internal static class ArchiveEndpoints
             BookCoverUrl: bookCoverUrl,
             BookTitle: bookTitle,
             BookAuthor: bookAuthor,
-            IsTextDocument: item.IsTextDocument);
+            IsTextDocument: item.IsTextDocument,
+            IsPdfDocument: item.IsPdfDocument,
+            PdfUrl: PdfUrl(item));
     }
 
     private static (string? CoverUrl, string? Title, string? Author) ReadBookSummary(
@@ -954,6 +967,11 @@ internal static class ArchiveEndpoints
     private static string? ImageUrl(ArchiveItemEntry item) =>
         item.IsImage
             ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/image"
+            : null;
+
+    private static string? PdfUrl(ArchiveItemEntry item) =>
+        item.IsPdfDocument
+            ? $"/api/archive/{Uri.EscapeDataString(item.Category.Key)}/items/{Uri.EscapeDataString(item.Id)}/pdf"
             : null;
 
     private static string BookCoverUrl(ArchiveItemEntry item) =>

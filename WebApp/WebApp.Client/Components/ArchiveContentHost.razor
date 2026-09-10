@@ -1,10 +1,14 @@
-@if (_openTextDocument is null)
+@if (_openTextDocument is not null)
 {
-    <ArchiveBrowser Category="@Category" Title="@Title" Icon="@Icon" OnBookSelected="OnBookSelected" OnTextDocumentSelected="OpenTextDocument" />
+    <TextDocumentEditor Category="@Category" ItemId="@_openTextDocument.Id" OnClose="CloseTextDocument" />
+}
+else if (_openPdfDocument is not null)
+{
+    <PdfDocumentViewer Name="@_openPdfDocument.Name" PdfUrl="@(_openPdfDocument.PdfUrl ?? string.Empty)" OnClose="ClosePdfDocument" />
 }
 else
 {
-    <TextDocumentEditor Category="@Category" ItemId="@_openTextDocument.Id" OnClose="CloseTextDocument" />
+    <ArchiveBrowser Category="@Category" Title="@Title" Icon="@Icon" OnBookSelected="OnBookSelected" OnTextDocumentSelected="OpenTextDocument" OnPdfDocumentSelected="OpenPdfDocument" />
 }
 
 @code {
@@ -15,6 +19,7 @@ else
     [Parameter] public EventCallback<bool> EditorOpenChanged { get; set; }
 
     private ArchiveItemDto? _openTextDocument;
+    private ArchiveItemDto? _openPdfDocument;
 
     private void OpenTextDocument(ArchiveItemDto item)
     {
@@ -25,6 +30,18 @@ else
     private void CloseTextDocument()
     {
         _openTextDocument = null;
+        _ = EditorOpenChanged.InvokeAsync(false);
+    }
+
+    private void OpenPdfDocument(ArchiveItemDto item)
+    {
+        _openPdfDocument = item;
+        _ = EditorOpenChanged.InvokeAsync(true);
+    }
+
+    private void ClosePdfDocument()
+    {
+        _openPdfDocument = null;
         _ = EditorOpenChanged.InvokeAsync(false);
     }
 }

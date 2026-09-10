@@ -371,6 +371,7 @@
     [Parameter] public EventCallback<ArchiveItemDto> OnVideoSelected { get; set; }
     [Parameter] public EventCallback<ArchiveItemDto> OnBookSelected { get; set; }
     [Parameter] public EventCallback<ArchiveItemDto> OnTextDocumentSelected { get; set; }
+    [Parameter] public EventCallback<ArchiveItemDto> OnPdfDocumentSelected { get; set; }
 
     private readonly FolderForm _createFolder = new();
     private ArchiveListingDto? _listing;
@@ -482,6 +483,16 @@
             if (OnTextDocumentSelected.HasDelegate)
             {
                 await OnTextDocumentSelected.InvokeAsync(item);
+            }
+
+            return;
+        }
+
+        if (item.IsPdfDocument)
+        {
+            if (OnPdfDocumentSelected.HasDelegate)
+            {
+                await OnPdfDocumentSelected.InvokeAsync(item);
             }
 
             return;
