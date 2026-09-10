@@ -45,6 +45,61 @@ public sealed class EpubBookServiceTests
     }
 
     [Fact]
+    public void TryGetBook_reports_no_first_content_chapter_when_all_chapters_are_below_the_word_count_floor()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = EpubTestFixture.CreateMinimalEpub(Path.Combine(directory.Path, "book.epub"));
+        var service = new EpubBookService(new EpubContentSanitizer());
+        var item = CreateBookEntry(path);
+
+        Assert.True(service.TryGetBook(item, out var book));
+        Assert.Null(book!.FirstContentChapterId);
+    }
+
+    [Fact]
+    public void TryGetBook_skips_blank_front_matter_using_navigation_to_find_the_first_content_chapter()
+    {
+        using var directory = new TemporaryDirectory();
+        var realChapterParagraph = string.Join(' ', Enumerable.Repeat("word", 40));
+        var path = EpubTestFixture.CreateEpub(
+            Path.Combine(directory.Path, "book.epub"),
+            [
+                new EpubTestFixture.SpineEntry("cover.xhtml", "Cover", "Test Book"),
+                new EpubTestFixture.SpineEntry("titlepage.xhtml", "Title Page", "Test Book by Test Author"),
+                new EpubTestFixture.SpineEntry("chapter1.xhtml", "Chapter One", realChapterParagraph, "Chapter One"),
+                new EpubTestFixture.SpineEntry("chapter2.xhtml", "Chapter Two", realChapterParagraph, "Chapter Two")
+            ]);
+        var service = new EpubBookService(new EpubContentSanitizer());
+        var item = CreateBookEntry(path);
+
+        Assert.True(service.TryGetBook(item, out var book));
+        Assert.Equal("0", book!.ChapterIds.First());
+        Assert.Equal("2", book.FirstContentChapterId);
+    }
+
+    [Fact]
+    public void TryGetBook_falls_back_to_word_count_for_first_content_chapter_when_navigation_is_missing()
+    {
+        using var directory = new TemporaryDirectory();
+        var realChapterParagraph = string.Join(' ', Enumerable.Repeat("word", 40));
+        var path = EpubTestFixture.CreateEpub(
+            Path.Combine(directory.Path, "book.epub"),
+            [
+                new EpubTestFixture.SpineEntry("cover.xhtml", "Cover", "Test Book"),
+                new EpubTestFixture.SpineEntry("titlepage.xhtml", "Title Page", "Test Book by Test Author"),
+                new EpubTestFixture.SpineEntry("chapter1.xhtml", "Chapter One", realChapterParagraph),
+                new EpubTestFixture.SpineEntry("chapter2.xhtml", "Chapter Two", realChapterParagraph)
+            ],
+            includeNavigation: false);
+        var service = new EpubBookService(new EpubContentSanitizer());
+        var item = CreateBookEntry(path);
+
+        Assert.True(service.TryGetBook(item, out var book));
+        Assert.Empty(book!.Navigation);
+        Assert.Equal("2", book.FirstContentChapterId);
+    }
+
+    [Fact]
     public void TryGetBook_falls_back_to_file_name_when_title_is_missing()
     {
         using var directory = new TemporaryDirectory();

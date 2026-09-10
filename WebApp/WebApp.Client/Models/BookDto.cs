@@ -10,4 +10,5 @@ public sealed record BookDto(
     IReadOnlyList<string> ChapterIds,
     IReadOnlyList<BookChapterProgressMetadataDto> Chapters,
     int TotalWordCount,
-    BookProgressDto? Progress);
+    BookProgressDto? Progress,
+    string? FirstContentChapterId);

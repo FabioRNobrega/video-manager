@@ -449,7 +449,7 @@
 
             _book = book;
             await LoadHighlightsAsync();
-            var initialChapterId = book.Progress?.ChapterId ?? book.ChapterIds.FirstOrDefault();
+            var initialChapterId = book.Progress?.ChapterId ?? book.FirstContentChapterId ?? book.ChapterIds.FirstOrDefault();
             if (initialChapterId is null)
             {
                 _error = "This book has no readable chapters.";

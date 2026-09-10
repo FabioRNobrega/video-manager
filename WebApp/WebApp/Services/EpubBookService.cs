@@ -9,6 +9,9 @@ namespace WebApp.Services;
 
 internal sealed partial class EpubBookService(IEpubContentSanitizer sanitizer) : IEpubBookService
 {
+    // Cover/title/copyright spine pages typically carry a handful of words; real chapters don't.
+    private const int MinContentWordCount = 30;
+
     public bool TryGetBook(ArchiveItemEntry item, out BookDto? book)
     {
         book = null;
@@ -28,8 +31,10 @@ internal sealed partial class EpubBookService(IEpubContentSanitizer sanitizer) :
         var hasCover = epubBook.CoverImage is { Length: > 0 };
         var title = string.IsNullOrWhiteSpace(epubBook.Title) ? item.Name : epubBook.Title;
         var author = string.IsNullOrWhiteSpace(epubBook.Author) ? null : epubBook.Author;
+        var firstContentChapterId = DetermineFirstContentChapterId(navigation, chapters);
 
-        book = new BookDto(item.Id, title, author, hasCover, null, navigation, chapterIds, chapters, chapters.Sum(chapter => chapter.WordCount), null);
+        book = new BookDto(item.Id, title, author, hasCover, null, navigation, chapterIds, chapters,
+            chapters.Sum(chapter => chapter.WordCount), null, firstContentChapterId);
         return true;
     }
 
@@ -103,6 +108,42 @@ internal sealed partial class EpubBookService(IEpubContentSanitizer sanitizer) :
         }
 
         return chapters;
+    }
+
+    private static string? DetermineFirstContentChapterId(
+        IReadOnlyList<BookNavigationItemDto> navigation, List<BookChapterProgressMetadataDto> chapters)
+    {
+        var wordCountByChapterId = chapters.ToDictionary(chapter => chapter.ChapterId, chapter => chapter.WordCount);
+
+        var fromNavigation = FindFirstContentChapterIdInNavigation(navigation, wordCountByChapterId);
+        if (fromNavigation is not null)
+        {
+            return fromNavigation;
+        }
+
+        return chapters.FirstOrDefault(chapter => chapter.WordCount >= MinContentWordCount)?.ChapterId;
+    }
+
+    private static string? FindFirstContentChapterIdInNavigation(
+        IReadOnlyList<BookNavigationItemDto> items, Dictionary<string, int> wordCountByChapterId)
+    {
+        foreach (var navigationItem in items)
+        {
+            if (navigationItem.ChapterId is not null &&
+                wordCountByChapterId.TryGetValue(navigationItem.ChapterId, out var wordCount) &&
+                wordCount >= MinContentWordCount)
+            {
+                return navigationItem.ChapterId;
+            }
+
+            var fromChildren = FindFirstContentChapterIdInNavigation(navigationItem.Children, wordCountByChapterId);
+            if (fromChildren is not null)
+            {
+                return fromChildren;
+            }
+        }
+
+        return null;
     }
 
     internal static int CountWordsFromHtml(string html)

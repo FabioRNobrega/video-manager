@@ -12,8 +12,30 @@ internal static class EpubTestFixture
     private const string OnePixelPngBase64 =
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
+    public sealed record SpineEntry(string FileName, string Heading, string Paragraph, string? NavTitle = null);
+
     public static string CreateMinimalEpub(
         string filePath,
+        string title = "Test Book",
+        string author = "Test Author",
+        bool includeCover = true,
+        bool includeNavigation = true)
+    {
+        return CreateEpub(
+            filePath,
+            [
+                new SpineEntry("chapter1.xhtml", "Chapter One", "This is the first chapter of the test book.", "Chapter One"),
+                new SpineEntry("chapter2.xhtml", "Chapter Two", "This is the second chapter of the test book.", "Chapter Two")
+            ],
+            title,
+            author,
+            includeCover,
+            includeNavigation);
+    }
+
+    public static string CreateEpub(
+        string filePath,
+        IReadOnlyList<SpineEntry> spineEntries,
         string title = "Test Book",
         string author = "Test Author",
         bool includeCover = true,
@@ -33,14 +55,16 @@ internal static class EpubTestFixture
         }
 
         WriteEntry(archive, "META-INF/container.xml", ContainerXml);
-        WriteEntry(archive, "OEBPS/content.opf", BuildContentOpf(title, author, includeCover));
+        WriteEntry(archive, "OEBPS/content.opf", BuildContentOpf(title, author, includeCover, spineEntries));
         if (includeNavigation)
         {
-            WriteEntry(archive, "OEBPS/nav.xhtml", NavXhtml);
+            WriteEntry(archive, "OEBPS/nav.xhtml", BuildNavXhtml(spineEntries));
         }
 
-        WriteEntry(archive, "OEBPS/chapter1.xhtml", BuildChapterXhtml("Chapter One", "This is the first chapter of the test book."));
-        WriteEntry(archive, "OEBPS/chapter2.xhtml", BuildChapterXhtml("Chapter Two", "This is the second chapter of the test book."));
+        foreach (var entry in spineEntries)
+        {
+            WriteEntry(archive, $"OEBPS/{entry.FileName}", BuildChapterXhtml(entry.Heading, entry.Paragraph));
+        }
 
         if (includeCover)
         {
@@ -86,8 +110,15 @@ internal static class EpubTestFixture
         </container>
         """;
 
-    private const string NavXhtml =
-        """
+    private static string BuildNavXhtml(IReadOnlyList<SpineEntry> spineEntries)
+    {
+        var listItems = string.Join(
+            Environment.NewLine,
+            spineEntries
+                .Where(entry => entry.NavTitle is not null)
+                .Select(entry => $"""    <li><a href="{entry.FileName}">{entry.NavTitle}</a></li>"""));
+
+        return $"""
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE html>
         <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
@@ -95,19 +126,27 @@ internal static class EpubTestFixture
         <body>
         <nav epub:type="toc" id="toc">
           <ol>
-            <li><a href="chapter1.xhtml">Chapter One</a></li>
-            <li><a href="chapter2.xhtml">Chapter Two</a></li>
+        {listItems}
           </ol>
         </nav>
         </body>
         </html>
         """;
+    }
 
-    private static string BuildContentOpf(string title, string author, bool includeCover)
+    private static string BuildContentOpf(string title, string author, bool includeCover, IReadOnlyList<SpineEntry> spineEntries)
     {
         var coverManifestItem = includeCover
             ? """<item id="cover-image" href="cover.png" media-type="image/png" properties="cover-image"/>"""
             : string.Empty;
+
+        var manifestItems = string.Join(
+            Environment.NewLine,
+            spineEntries.Select((entry, index) =>
+                $"""    <item id="chapter{index}" href="{entry.FileName}" media-type="application/xhtml+xml"/>"""));
+        var spineItems = string.Join(
+            Environment.NewLine,
+            spineEntries.Select((_, index) => $"""    <itemref idref="chapter{index}"/>"""));
 
         return $"""
         <?xml version="1.0" encoding="UTF-8"?>
@@ -121,13 +160,11 @@ internal static class EpubTestFixture
           </metadata>
           <manifest>
             <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-            <item id="chapter1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
-            <item id="chapter2" href="chapter2.xhtml" media-type="application/xhtml+xml"/>
+        {manifestItems}
             {coverManifestItem}
           </manifest>
           <spine>
-            <itemref idref="chapter1"/>
-            <itemref idref="chapter2"/>
+        {spineItems}
           </spine>
         </package>
         """;
