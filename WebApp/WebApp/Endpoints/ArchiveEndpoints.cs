@@ -17,6 +17,9 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/preview", GetPreview);
         endpoints.MapGet("/api/archive/{category}/items/{id}/subtitle", GetSubtitle);
         endpoints.MapPost("/api/archive/{category}/items/{id}/crop", CreateCropAsync);
+        endpoints.MapGet("/api/archive/{category}/items/{id}/text", GetTextDocument);
+        endpoints.MapPost("/api/archive/{category}/items/{id}/text/preview", PreviewTextDocument);
+        endpoints.MapPut("/api/archive/{category}/items/{id}/text", SaveTextDocument);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book", GetBookAsync);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/cover", GetBookCover);
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/chapters/{chapterId}", GetBookChapter);
@@ -298,6 +301,97 @@ internal static class ArchiveEndpoints
         }
 
         return Results.File(coordinator.GetFinalPath(entry), "text/vtt");
+    }
+
+    private static IResult GetTextDocument(string category, string id, IArchiveService archive, ITextDocumentService textDocuments)
+    {
+        if (!archive.TryResolveTextDocument(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var result = textDocuments.Load(item);
+            return Results.Ok(new TextDocumentDto(item.Id, item.Name, result.DocumentKind, result.Source, result.Revision, result.PreviewHtml));
+        }
+        catch (TextDocumentValidationException exception)
+        {
+            return Results.BadRequest(new { error = exception.Message });
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or FileNotFoundException)
+        {
+            return Results.NotFound();
+        }
+    }
+
+    private static IResult PreviewTextDocument(
+        string category, string id, TextDocumentPreviewRequest request, IArchiveService archive, ITextDocumentService textDocuments)
+    {
+        if (!archive.TryResolveTextDocument(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (request.Source is null)
+        {
+            return Results.BadRequest(new { error = "Source is required." });
+        }
+
+        if (System.Text.Encoding.UTF8.GetByteCount(request.Source) > TextDocumentService.MaxSourceBytes)
+        {
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
+
+        try
+        {
+            var html = textDocuments.RenderPreview(item, request.Source);
+            return Results.Ok(new TextDocumentPreviewDto(html));
+        }
+        catch (TextDocumentValidationException exception)
+        {
+            return Results.BadRequest(new { error = exception.Message });
+        }
+    }
+
+    private static IResult SaveTextDocument(
+        string category, string id, TextDocumentSaveRequest request, IArchiveService archive, ITextDocumentService textDocuments)
+    {
+        if (!archive.TryResolveTextDocument(category, id, out var item) || item is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (request.Source is null || string.IsNullOrEmpty(request.Revision))
+        {
+            return Results.BadRequest(new { error = "Source and revision are required." });
+        }
+
+        if (System.Text.Encoding.UTF8.GetByteCount(request.Source) > TextDocumentService.MaxSourceBytes)
+        {
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
+
+        try
+        {
+            var result = textDocuments.Save(item, request.Source, request.Revision);
+            return Results.Ok(new TextDocumentDto(item.Id, item.Name, result.DocumentKind, request.Source, result.Revision, result.PreviewHtml));
+        }
+        catch (TextDocumentConflictException exception)
+        {
+            return Results.Conflict(new { error = exception.Message });
+        }
+        catch (TextDocumentValidationException exception)
+        {
+            return Results.BadRequest(new { error = exception.Message });
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Results.Problem(
+                title: "The document could not be saved.",
+                detail: "The document could not be written.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 
     private static async Task<IResult> GetBookAsync(
@@ -710,7 +804,8 @@ internal static class ArchiveEndpoints
             IsBook: item.IsBook,
             BookCoverUrl: bookCoverUrl,
             BookTitle: bookTitle,
-            BookAuthor: bookAuthor);
+            BookAuthor: bookAuthor,
+            IsTextDocument: item.IsTextDocument);
     }
 
     private static (string? CoverUrl, string? Title, string? Author) ReadBookSummary(

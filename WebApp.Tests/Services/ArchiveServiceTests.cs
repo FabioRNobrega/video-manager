@@ -236,6 +236,57 @@ public sealed class ArchiveServiceTests
     }
 
     [Fact]
+    public void TextDocument_files_are_marked_in_any_category_and_nested_folders()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Documents", "notes.md"));
+        awaitFile(Path.Combine(root.Path, "Documents", "readme.markdown"));
+        awaitFile(Path.Combine(root.Path, "Documents", "plain.txt"));
+        awaitFile(Path.Combine(root.Path, "Documents", "photo.jpg"));
+        Directory.CreateDirectory(Path.Combine(root.Path, "Downloads", "Nested"));
+        awaitFile(Path.Combine(root.Path, "Downloads", "Nested", "log.txt"));
+        var service = CreateService(root.Path);
+
+        var documents = service.List("documents", null).Items;
+        var nestedFolder = service.List("downloads", null).Items.Single(item => item.Name == "Nested");
+        var nestedFile = service.List("downloads", nestedFolder.Id).Items.Single(item => item.Name == "log.txt");
+
+        Assert.Equal(3, documents.Count(item => item.IsTextDocument));
+        Assert.True(documents.Single(item => item.Name == "notes.md").IsTextDocument);
+        Assert.True(documents.Single(item => item.Name == "readme.markdown").IsTextDocument);
+        Assert.True(documents.Single(item => item.Name == "plain.txt").IsTextDocument);
+        Assert.False(documents.Single(item => item.Name == "photo.jpg").IsTextDocument);
+        Assert.True(nestedFile.IsTextDocument);
+    }
+
+    [Fact]
+    public void TryResolveTextDocument_returns_false_for_folders_and_unsupported_files()
+    {
+        using var root = CreateArchive();
+        Directory.CreateDirectory(Path.Combine(root.Path, "Documents", "Folder"));
+        awaitFile(Path.Combine(root.Path, "Documents", "photo.jpg"));
+        var service = CreateService(root.Path);
+        var folder = service.List("documents", null).Items.Single(item => item.Name == "Folder");
+        var image = service.List("documents", null).Items.Single(item => item.Name == "photo.jpg");
+
+        Assert.False(service.TryResolveTextDocument("documents", folder.Id, out _));
+        Assert.False(service.TryResolveTextDocument("documents", image.Id, out _));
+        Assert.False(service.TryResolveTextDocument("documents", "unknown-id", out _));
+    }
+
+    [Fact]
+    public void TryResolveTextDocument_resolves_a_valid_markdown_item_in_any_category()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Books", "notes.md"));
+        var service = CreateService(root.Path);
+        var item = Assert.Single(service.List("books", null).Items);
+
+        Assert.True(service.TryResolveTextDocument("books", item.Id, out var resolved));
+        Assert.Equal(Path.Combine(root.Path, "Books", "notes.md"), resolved!.PhysicalPath);
+    }
+
+    [Fact]
     public void TryResolveBook_returns_false_for_folders_and_non_epub_files()
     {
         using var root = CreateArchive();

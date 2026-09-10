@@ -370,6 +370,7 @@
     [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
     [Parameter] public EventCallback<ArchiveItemDto> OnVideoSelected { get; set; }
     [Parameter] public EventCallback<ArchiveItemDto> OnBookSelected { get; set; }
+    [Parameter] public EventCallback<ArchiveItemDto> OnTextDocumentSelected { get; set; }
 
     private readonly FolderForm _createFolder = new();
     private ArchiveListingDto? _listing;
@@ -471,6 +472,16 @@
             if (OnBookSelected.HasDelegate)
             {
                 await OnBookSelected.InvokeAsync(item);
+            }
+
+            return;
+        }
+
+        if (item.IsTextDocument)
+        {
+            if (OnTextDocumentSelected.HasDelegate)
+            {
+                await OnTextDocumentSelected.InvokeAsync(item);
             }
 
             return;

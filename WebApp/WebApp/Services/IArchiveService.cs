@@ -22,6 +22,8 @@ internal interface IArchiveService
 
     bool TryResolveBook(string categoryKey, string itemId, out ArchiveItemEntry? item);
 
+    bool TryResolveTextDocument(string categoryKey, string itemId, out ArchiveItemEntry? item);
+
     bool TryResolveAlbumCover(string categoryKey, string folderId, out ArchiveAlbumCoverInfo? cover);
 
     string GetCategoryRootPath(string categoryKey);

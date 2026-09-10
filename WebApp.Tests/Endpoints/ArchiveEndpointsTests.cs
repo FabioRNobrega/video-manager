@@ -609,6 +609,120 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task Text_document_endpoint_loads_source_and_sanitized_markdown_preview_without_leaking_paths()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(
+            Path.Combine(root.Path, "Documents", "notes.md"),
+            "# Title\n\n<script>alert(1)</script>\n\n[safe](https://example.com)\n\n![no](https://example.com/pic.png)");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var item = Assert.Single(listing.Items);
+        Assert.True(item.IsTextDocument);
+
+        using var response = await client.GetAsync($"/api/archive/documents/items/{item.Id}/text");
+        var json = await response.Content.ReadAsStringAsync();
+        var document = await response.Content.ReadFromJsonAsync<TextDocumentDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(root.Path, json);
+        Assert.Equal(TextDocumentKind.Markdown, document!.DocumentKind);
+        Assert.Contains("<h1", document.PreviewHtml);
+        Assert.DoesNotContain("<script", document.PreviewHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<img", document.PreviewHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("href=\"https://example.com/\"", document.PreviewHtml);
+        Assert.False(string.IsNullOrWhiteSpace(document.Revision));
+    }
+
+    [Fact]
+    public async Task Text_document_preview_endpoint_renders_bounded_submitted_source()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "notes.md"), "original");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var item = Assert.Single(listing.Items);
+
+        using var response = await client.PostAsJsonAsync(
+            $"/api/archive/documents/items/{item.Id}/text/preview", new TextDocumentPreviewRequest("**bold**"));
+        var preview = await response.Content.ReadFromJsonAsync<TextDocumentPreviewDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("<strong>bold</strong>", preview!.PreviewHtml);
+
+        using var tooLarge = await client.PostAsJsonAsync(
+            $"/api/archive/documents/items/{item.Id}/text/preview",
+            new TextDocumentPreviewRequest(new string('a', TextDocumentService.MaxSourceBytes + 1)));
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, tooLarge.StatusCode);
+    }
+
+    [Fact]
+    public async Task Text_document_save_endpoint_writes_the_file_and_returns_a_new_revision()
+    {
+        using var root = CreateArchive();
+        var path = Path.Combine(root.Path, "Documents", "notes.txt");
+        await File.WriteAllTextAsync(path, "original");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var item = Assert.Single(listing.Items);
+        var loaded = await client.GetFromJsonAsync<TextDocumentDto>($"/api/archive/documents/items/{item.Id}/text");
+
+        using var response = await client.PutAsJsonAsync(
+            $"/api/archive/documents/items/{item.Id}/text", new TextDocumentSaveRequest("updated content", loaded!.Revision));
+        var saved = await response.Content.ReadFromJsonAsync<TextDocumentDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("updated content", await File.ReadAllTextAsync(path));
+        Assert.NotEqual(loaded.Revision, saved!.Revision);
+    }
+
+    [Fact]
+    public async Task Text_document_save_endpoint_returns_conflict_and_preserves_the_disk_file_on_stale_revision()
+    {
+        using var root = CreateArchive();
+        var path = Path.Combine(root.Path, "Documents", "notes.txt");
+        await File.WriteAllTextAsync(path, "original");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var item = Assert.Single(listing.Items);
+        var loaded = await client.GetFromJsonAsync<TextDocumentDto>($"/api/archive/documents/items/{item.Id}/text");
+
+        await Task.Delay(10);
+        await File.WriteAllTextAsync(path, "changed on disk");
+
+        using var response = await client.PutAsJsonAsync(
+            $"/api/archive/documents/items/{item.Id}/text", new TextDocumentSaveRequest("my draft", loaded!.Revision));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("changed on disk", await File.ReadAllTextAsync(path));
+    }
+
+    [Fact]
+    public async Task Text_document_endpoints_reject_non_text_items_and_unknown_ids_without_leaking_paths()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "photo.jpg"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+        var listing = (await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items"))!;
+        var nonText = Assert.Single(listing.Items);
+
+        using var wrongKindResponse = await client.GetAsync($"/api/archive/documents/items/{nonText.Id}/text");
+        var wrongKindJson = await wrongKindResponse.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.NotFound, wrongKindResponse.StatusCode);
+        Assert.DoesNotContain(root.Path, wrongKindJson);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/archive/documents/items/{Guid.NewGuid():N}/text")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/archive/documents/items/%2Fetc%2Fpasswd/text")).StatusCode);
+    }
+
+    [Fact]
     public void Archive_browser_markup_uses_unified_dropdown_cards_and_keeps_video_grid_specialized()
     {
         var archiveBrowser = File.ReadAllText(Path.Combine(

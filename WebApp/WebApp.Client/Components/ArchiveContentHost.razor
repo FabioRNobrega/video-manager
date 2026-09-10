@@ -1,0 +1,21 @@
+@if (_openTextDocument is null)
+{
+    <ArchiveBrowser Category="@Category" Title="@Title" Icon="@Icon" OnBookSelected="OnBookSelected" OnTextDocumentSelected="OpenTextDocument" />
+}
+else
+{
+    <TextDocumentEditor Category="@Category" ItemId="@_openTextDocument.Id" OnClose="CloseTextDocument" />
+}
+
+@code {
+    [Parameter, EditorRequired] public string Category { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public EventCallback<ArchiveItemDto> OnBookSelected { get; set; }
+
+    private ArchiveItemDto? _openTextDocument;
+
+    private void OpenTextDocument(ArchiveItemDto item) => _openTextDocument = item;
+
+    private void CloseTextDocument() => _openTextDocument = null;
+}
