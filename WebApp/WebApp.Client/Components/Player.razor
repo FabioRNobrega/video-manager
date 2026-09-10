@@ -90,7 +90,7 @@
                         Your browser does not support HTML5 video.
                     </video>
                 }
-                @if (_fillTab.IsActive && !PlayerState.IsMusic)
+                @if (ShowOverlayControls && !PlayerState.IsMusic)
                 {
                 <div class="@SaturationRailCssClass"
                      aria-hidden="@(!_controlsVisible)"
@@ -120,12 +120,12 @@
                     <output class="small text-white saturation-output" aria-hidden="true">@Math.Round(_saturation.Value)%</output>
                 </div>
                 }
-                @if (_fillTab.IsActive)
+                @if (ShowOverlayControls)
                 {
                     @PlayerControls
                 }
             </div>
-            @if (!_fillTab.IsActive)
+            @if (!ShowOverlayControls)
             {
                 <div class="@FooterCopyCssClass">
                     <p class="small fw-bold text-uppercase text-body-secondary mb-1">Now playing</p>
@@ -134,14 +134,14 @@
                 </div>
             }
             </div>
-            @if (_playbackError && !_fillTab.IsActive)
+            @if (_playbackError && !ShowOverlayControls)
             {
                 <div class="alert alert-danger w-100 mt-3 mb-0 text-center" role="alert" aria-live="assertive">
                     <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
                     This browser can’t play the selected media. You can still select another item.
                 </div>
             }
-            @if (!_fillTab.IsActive)
+            @if (!ShowOverlayControls)
             {
                 <div class="@PlayerControlsWrapperCssClass">
                     @PlayerControls
@@ -182,6 +182,7 @@
     private bool _playAfterSelectionChange;
     private double _pendingResumeTime;
     private bool _pendingResumePlaying;
+    private bool _isFullscreen;
     private bool _disposed;
 
     private VideoItemDto? Selected => PlayerState.Selected;
@@ -210,6 +211,8 @@
                                                                    HoverEnded="HandleControlHoverEnded"
                                                                    EnterFillTab="EnterFillTabAsync"
                                                                    IsFillTabActive="_fillTab.IsActive"
+                                                                   ToggleFullscreen="ToggleFullscreenAsync"
+                                                                   IsFullscreenActive="_isFullscreen"
                                                                    FillTabFocusRequest="_fillTabFocusRequest"
                                                                    HasSubtitles="HasSubtitles"
                                                                    ToggleSubtitles="ToggleSubtitlesAsync"
@@ -222,7 +225,7 @@
                                                                    SelectNextTrack="SelectNextTrackAsync"
                                                                    CanSelectPreviousTrack="PlayerState.CanSelectPreviousTrack"
                                                                    CanSelectNextTrack="PlayerState.CanSelectNextTrack"
-                                                                   IsFooterMode="@(!_fillTab.IsActive)" />;
+                                                                   IsFooterMode="@(!ShowOverlayControls)" />;
 
     private bool HasSubtitles => Selected?.SubtitleState == SubtitleState.Ready;
     private string SubtitleSource => Selected?.SubtitleUrl ?? $"{StreamBasePath}/{Selected?.Id}/subtitle";
@@ -233,6 +236,8 @@
         ?? $"{StreamBasePath}/{Selected?.Id}/audio";
 
     private bool IsPlaylistMode => Mode == PlayerPresentationMode.Playlist;
+
+    private bool ShowOverlayControls => _fillTab.IsActive || _isFullscreen;
 
     private bool ShowPlaylistButton => PlayerState.CanReturnToPlaylist && !PlayerState.PlaylistViewActive;
 
@@ -265,13 +270,13 @@
             ? "playlist-player-media d-flex flex-column w-100 flex-grow-1 min-h-0"
             : "player-footer-media d-flex flex-row align-items-stretch gap-3 flex-grow-1 flex-lg-grow-0 flex-shrink-1 min-w-0";
 
-    private string VideoViewportCssClass => _fillTab.IsActive
-        ? "position-relative w-100 h-100 overflow-hidden bg-dark"
+    private string VideoViewportCssClass => _fillTab.IsActive || _isFullscreen
+        ? "video-viewport position-relative w-100 h-100 overflow-hidden bg-dark"
         : IsPlaylistMode
-            ? "playlist-player-preview position-relative w-100 flex-grow-1 min-h-0 overflow-hidden bg-dark"
-            : "player-footer-preview ratio position-relative overflow-hidden bg-dark border rounded-3 flex-shrink-0";
+            ? "video-viewport playlist-player-preview position-relative w-100 flex-grow-1 min-h-0 overflow-hidden bg-dark"
+            : "video-viewport player-footer-preview ratio position-relative overflow-hidden bg-dark border rounded-3 flex-shrink-0";
 
-    private string? VideoViewportStyle => _fillTab.IsActive || IsPlaylistMode
+    private string? VideoViewportStyle => _fillTab.IsActive || _isFullscreen || IsPlaylistMode
         ? null
         : "--bs-aspect-ratio: 56.25%";
 
@@ -339,6 +344,8 @@
         if (firstRender)
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/videoEditor.js");
+            _dotNetReference ??= DotNetObjectReference.Create(this);
+            await _module.InvokeVoidAsync("registerVideoFullscreenChange", _viewport, _dotNetReference);
         }
 
         if (_module is not null && _pendingFillTabCleanup)
@@ -390,6 +397,23 @@
 
     [JSInvokable]
     public Task ExitFillTabFromEscapeAsync() => ExitFillTabAsync();
+
+    private Task ToggleFullscreenAsync()
+    {
+        if (_module is null || Selected is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return _module.InvokeVoidAsync("toggleVideoFullscreen", _viewport).AsTask();
+    }
+
+    [JSInvokable]
+    public async Task OnVideoFullscreenChanged(bool isFullscreen)
+    {
+        _isFullscreen = isFullscreen;
+        await InvokeAsync(StateHasChanged);
+    }
 
     private async Task ExitFillTabAsync()
     {
@@ -837,6 +861,7 @@
             if (_module is not null)
             {
                 await _module.InvokeVoidAsync("exitFillTab");
+                await _module.InvokeVoidAsync("unregisterVideoFullscreenChange", _viewport);
             }
         }
         finally

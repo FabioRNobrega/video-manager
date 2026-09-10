@@ -262,6 +262,15 @@
             <i class="bi bi-music-note-list" aria-hidden="true"></i>
         </button>
         }
+        <button class="btn @ActionCssClass"
+                type="button"
+                aria-label="@(IsFullscreenActive ? "Exit full screen" : "Full screen")"
+                title="@(IsFullscreenActive ? "Exit full screen" : "Full screen")"
+                data-bs-toggle="tooltip"
+                data-bs-title="@(IsFullscreenActive ? "Exit full screen" : "Full screen")"
+                @onclick="HandleToggleFullscreenAsync">
+            <i class="bi @(IsFullscreenActive ? "bi-arrows-angle-contract" : "bi-arrows-angle-expand")" aria-hidden="true"></i>
+        </button>
         <button @ref="_fillTabButton"
                 class="btn @ToggleCssClass(IsFillTabActive)"
                 type="button"
@@ -311,6 +320,8 @@
     [Parameter] public EventCallback HoverEnded { get; set; }
     [Parameter] public EventCallback EnterFillTab { get; set; }
     [Parameter] public bool IsFillTabActive { get; set; }
+    [Parameter] public EventCallback ToggleFullscreen { get; set; }
+    [Parameter] public bool IsFullscreenActive { get; set; }
     [Parameter] public int FillTabFocusRequest { get; set; }
     [Parameter] public bool HasSubtitles { get; set; }
     [Parameter] public EventCallback ToggleSubtitles { get; set; }
@@ -450,6 +461,7 @@
     private Task HandleSelectNextTrackAsync() => SelectNextTrack.InvokeAsync();
     private Task HandleOpenPlaylistAsync() => OpenPlaylist.InvokeAsync();
     private Task HandleEnterFillTabAsync() => EnterFillTab.InvokeAsync();
+    private Task HandleToggleFullscreenAsync() => ToggleFullscreen.InvokeAsync();
     private Task HandleSetMarkerAAsync() => SetMarkerA.InvokeAsync();
     private Task HandleSetMarkerBAsync() => SetMarkerB.InvokeAsync();
     private Task HandleToggleAbLoopAsync() => ToggleAbLoop.InvokeAsync();

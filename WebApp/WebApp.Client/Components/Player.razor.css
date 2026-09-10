@@ -19,6 +19,24 @@ video:active {
         0 0 3px #000;
 }
 
+.video-viewport:fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background-color: #000;
+}
+
+.video-viewport.ratio:fullscreen::before {
+    padding-top: 0 !important;
+}
+
+.video-viewport:fullscreen video {
+    object-fit: contain !important;
+}
+
 audio {
     position: absolute;
     width: 1px;

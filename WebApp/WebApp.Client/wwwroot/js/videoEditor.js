@@ -131,6 +131,45 @@ export function exitFillTab() {
     document.body.classList.remove("fill-tab-active");
 }
 
+const fullscreenHandlers = new WeakMap();
+
+export function registerVideoFullscreenChange(element, dotNetReference) {
+    if (!element) {
+        return;
+    }
+
+    const handler = () => {
+        dotNetReference.invokeMethodAsync("OnVideoFullscreenChanged", document.fullscreenElement === element).catch(() => { });
+    };
+
+    fullscreenHandlers.set(element, handler);
+    document.addEventListener("fullscreenchange", handler);
+}
+
+export function unregisterVideoFullscreenChange(element) {
+    if (!element) {
+        return;
+    }
+
+    const handler = fullscreenHandlers.get(element);
+    if (handler) {
+        document.removeEventListener("fullscreenchange", handler);
+        fullscreenHandlers.delete(element);
+    }
+}
+
+export async function toggleVideoFullscreen(element) {
+    if (!element) {
+        return;
+    }
+
+    if (document.fullscreenElement === element) {
+        await document.exitFullscreen();
+    } else {
+        await element.requestFullscreen();
+    }
+}
+
 export function addArrowKeyNavigation(dotNetReference) {
     removeArrowKeyNavigation();
 
