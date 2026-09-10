@@ -91,6 +91,7 @@
     private IJSObjectReference? _module;
     private DotNetObjectReference<TextDocumentEditor>? _dotNetReference;
     private CancellationTokenSource? _previewCts;
+    private bool _shortcutRegistered;
 
     private bool _dirty => !string.Equals(_source, _originalSource, StringComparison.Ordinal);
     private string SourceId => $"text-document-source-{ItemId}";
@@ -121,25 +122,38 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (firstRender)
+        {
+            try
+            {
+                _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/textDocumentEditor.js");
+            }
+            catch (JSException)
+            {
+            }
+        }
+
+        if (_module is null || _shortcutRegistered || _loading)
         {
             return;
         }
 
         try
         {
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/textDocumentEditor.js");
-            _dotNetReference = DotNetObjectReference.Create(this);
+            _shortcutRegistered = true;
+            _dotNetReference ??= DotNetObjectReference.Create(this);
             await _module.InvokeVoidAsync("registerSaveShortcut", _sourceElement, _dotNetReference);
         }
         catch (JSException)
         {
+            _shortcutRegistered = false;
         }
     }
 
     private async Task LoadAsync()
     {
         _loading = true;
+        _shortcutRegistered = false;
         _error = null;
         _conflict = false;
         try
@@ -274,6 +288,10 @@
         {
             _busy = false;
             _saving = false;
+            // Ctrl+S reaches this method via a [JSInvokable] call from JS, which bypasses Blazor's
+            // automatic post-event re-render (that only happens for @onclick/@oninput-style handlers),
+            // so without this the UI stays stuck showing "Saving..." until something else re-renders it.
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -287,6 +305,7 @@
         finally
         {
             _busy = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
