@@ -28,7 +28,7 @@ internal sealed class EpubContentSanitizer : IEpubContentSanitizer
         }
 
         var document = new HtmlDocument();
-        document.LoadHtml(html);
+        document.LoadHtml(EpubXhtmlRepair.FixSelfClosedLiteralTags(html));
 
         var body = document.DocumentNode.SelectSingleNode("//body") ?? document.DocumentNode;
         SanitizeChildren(body);

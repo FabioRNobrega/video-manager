@@ -119,6 +119,18 @@ public sealed class EpubContentSanitizerTests
     }
 
     [Fact]
+    public void Recovers_body_content_when_head_has_a_self_closed_title()
+    {
+        const string html =
+            "<html><head><title/><link href=\"css/style.css\" rel=\"stylesheet\"/></head>" +
+            "<body><p>Chapter text</p></body></html>";
+
+        var sanitized = _sanitizer.Sanitize(html);
+
+        Assert.Contains("Chapter text", sanitized);
+    }
+
+    [Fact]
     public void Returns_empty_string_for_null_or_whitespace_input()
     {
         Assert.Equal(string.Empty, _sanitizer.Sanitize(string.Empty));
