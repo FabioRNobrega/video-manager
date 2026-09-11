@@ -32,6 +32,10 @@ export function disposeTooltips(root) {
     });
 }
 
+export function clickElement(element) {
+    element?.click();
+}
+
 export function hideModal(id) {
     const Modal = globalThis.bootstrap?.Modal;
     const element = document.getElementById(id);

@@ -60,6 +60,102 @@ public sealed class ArchiveServiceTests
     }
 
     [Fact]
+    public void CreateFile_creates_an_empty_file_with_the_requested_extension()
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+
+        var listing = service.CreateFile("documents", null, "notes", ".md");
+
+        Assert.Contains(listing.Items, item => item.Name == "notes.md" && item.Kind == ArchiveItemKind.File);
+        Assert.True(File.Exists(Path.Combine(root.Path, "Documents", "notes.md")));
+        Assert.Equal(0, new FileInfo(Path.Combine(root.Path, "Documents", "notes.md")).Length);
+    }
+
+    [Fact]
+    public void CreateFile_throws_when_category_cannot_create_folders()
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+
+        Assert.Throws<ArchiveForbiddenException>(() => service.CreateFile("trash", null, "notes", ".txt"));
+    }
+
+    [Fact]
+    public void CreateFile_throws_on_conflict_with_an_existing_item()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Documents", "notes.txt"));
+        var service = CreateService(root.Path);
+
+        Assert.Throws<ArchiveConflictException>(() => service.CreateFile("documents", null, "notes", ".txt"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(".hidden")]
+    [InlineData("bad/name")]
+    [InlineData("CON")]
+    public void CreateFile_rejects_unsafe_names(string name)
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+
+        Assert.Throws<ArchiveValidationException>(() => service.CreateFile("documents", null, name, ".txt"));
+    }
+
+    [Fact]
+    public async Task SaveUploadedFileAsync_writes_the_uploaded_content_and_is_readable_afterward()
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+        await using var content = new MemoryStream("hello world"u8.ToArray());
+
+        var listing = await service.SaveUploadedFileAsync("documents", null, "note.txt", content, CancellationToken.None);
+
+        Assert.Contains(listing.Items, item => item.Name == "note.txt");
+        var writtenPath = Path.Combine(root.Path, "Documents", "note.txt");
+        Assert.True(File.Exists(writtenPath));
+        Assert.Equal("hello world", await File.ReadAllTextAsync(writtenPath));
+    }
+
+    [Fact]
+    public async Task SaveUploadedFileAsync_rejects_unsupported_extension_and_leaves_no_file_behind()
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+        await using var content = new MemoryStream([1, 2, 3]);
+
+        await Assert.ThrowsAsync<ArchiveValidationException>(
+            () => service.SaveUploadedFileAsync("documents", null, "malware.exe", content, CancellationToken.None));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(root.Path, "Documents")));
+    }
+
+    [Fact]
+    public async Task SaveUploadedFileAsync_throws_on_name_collision()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Documents", "note.txt"));
+        var service = CreateService(root.Path);
+        await using var content = new MemoryStream("new"u8.ToArray());
+
+        await Assert.ThrowsAsync<ArchiveConflictException>(
+            () => service.SaveUploadedFileAsync("documents", null, "note.txt", content, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveUploadedFileAsync_rejects_a_path_traversal_style_name()
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+        await using var content = new MemoryStream([1, 2, 3]);
+
+        await Assert.ThrowsAsync<ArchiveValidationException>(
+            () => service.SaveUploadedFileAsync("documents", null, "../evil.txt", content, CancellationToken.None));
+    }
+
+    [Fact]
     public void Rename_rejects_duplicate_sibling_name()
     {
         using var root = CreateArchive();

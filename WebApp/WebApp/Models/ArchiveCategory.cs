@@ -17,7 +17,7 @@ internal sealed record ArchiveCategory(
         new("downloads", "Downloads", "Downloads", "bi-download", true),
         new("shared", "Shared", "Shared", "bi-people", true),
         new("family", "Family", "Family", "bi-house-heart", true),
-        new("history", "History", "History", "bi-clock-history", true),
+        new("history", "History", "History", "bi-clock-history", false),
         new("trash", "Trash", "Trash", "bi-trash3", false)
     ];
 

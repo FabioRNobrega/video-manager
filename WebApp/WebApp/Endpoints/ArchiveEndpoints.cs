@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using WebApp.Client.Models;
 using WebApp.Models;
 using WebApp.Services;
@@ -31,6 +32,8 @@ internal static class ArchiveEndpoints
         endpoints.MapGet("/api/archive/{category}/items/{id}/book/progress", GetBookProgressAsync);
         endpoints.MapPut("/api/archive/{category}/items/{id}/book/progress", SaveBookProgressAsync);
         endpoints.MapPost("/api/archive/{category}/folders", CreateFolder);
+        endpoints.MapPost("/api/archive/{category}/files", CreateFile);
+        endpoints.MapPost("/api/archive/{category}/upload", UploadAsync).DisableAntiforgery();
         endpoints.MapPatch("/api/archive/{category}/items/{id}/name", Rename);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/location", Move);
         endpoints.MapDelete("/api/archive/{category}/items/{id}", MoveToTrash);
@@ -93,6 +96,50 @@ internal static class ArchiveEndpoints
             metadataCoordinator,
             epubBookService,
             cancellationToken));
+
+    private static async Task<IResult> CreateFile(
+        string category,
+        CreateFileRequest request,
+        IArchiveService archive,
+        ThumbnailCoordinator thumbnailCoordinator,
+        HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
+        VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
+        CancellationToken cancellationToken) =>
+        await ExecuteAsync(() => ToDtoAsync(
+            archive.CreateFile(category, request.ParentId, request.Name, request.Extension),
+            thumbnailCoordinator,
+            hoverPreviewCoordinator,
+            subtitleCoordinator,
+            metadataCoordinator,
+            epubBookService,
+            cancellationToken));
+
+    private static async Task<IResult> UploadAsync(
+        string category,
+        IFormFile file,
+        [FromQuery] string? parentId,
+        IArchiveService archive,
+        ThumbnailCoordinator thumbnailCoordinator,
+        HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
+        VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
+        CancellationToken cancellationToken) =>
+        await ExecuteAsync(async () =>
+        {
+            await using var stream = file.OpenReadStream();
+            var listing = await archive.SaveUploadedFileAsync(category, parentId, file.FileName, stream, cancellationToken);
+            return await ToDtoAsync(
+                listing,
+                thumbnailCoordinator,
+                hoverPreviewCoordinator,
+                subtitleCoordinator,
+                metadataCoordinator,
+                epubBookService,
+                cancellationToken);
+        });
 
     private static async Task<IResult> Rename(
         string category,

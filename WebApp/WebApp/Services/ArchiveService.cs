@@ -25,6 +25,18 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
     private static readonly HashSet<string> PdfDocumentExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".pdf" };
 
+    private static readonly HashSet<string> CreatableFileExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".txt", ".md" };
+
+    private static readonly HashSet<string> UploadableExtensions = new(
+        VideoExtensions
+            .Concat(MusicExtensions)
+            .Concat(ImageExtensions)
+            .Concat(BookExtensions)
+            .Concat(TextDocumentExtensions)
+            .Concat(PdfDocumentExtensions),
+        StringComparer.OrdinalIgnoreCase);
+
     private const string BooksCategoryKey = "books";
 
     private static readonly HashSet<string> AlbumCoverExtensions =
@@ -78,6 +90,79 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         }
 
         Directory.CreateDirectory(destination);
+        return BuildListing(category, parent);
+    }
+
+    public ArchiveListing CreateFile(string categoryKey, string? parentId, string name, string extension)
+    {
+        var category = ResolveCategory(categoryKey);
+        if (!category.CanCreateFolder)
+        {
+            throw new ArchiveForbiddenException("Files cannot be created in this category.");
+        }
+
+        if (!CreatableFileExtensions.Contains(extension))
+        {
+            throw new ArchiveValidationException("Use a supported file type.");
+        }
+
+        var parent = ResolveFolder(category, parentId);
+        var safeName = ValidateName(name);
+        var fileName = $"{safeName}{extension}";
+        var destination = ContainedPath(category, Path.Combine(parent.PhysicalPath, fileName));
+        if (Exists(destination))
+        {
+            throw new ArchiveConflictException("An item with that name already exists.");
+        }
+
+        File.Create(destination).Dispose();
+        return BuildListing(category, parent);
+    }
+
+    public async Task<ArchiveListing> SaveUploadedFileAsync(
+        string categoryKey, string? parentId, string fileName, Stream content, CancellationToken cancellationToken)
+    {
+        var category = ResolveCategory(categoryKey);
+        if (!category.CanCreateFolder)
+        {
+            throw new ArchiveForbiddenException("Files cannot be uploaded to this category.");
+        }
+
+        var safeName = ValidateName(fileName);
+        var extension = Path.GetExtension(safeName).ToLowerInvariant();
+        if (string.IsNullOrEmpty(extension) || !UploadableExtensions.Contains(extension))
+        {
+            throw new ArchiveValidationException("This file type is not supported.");
+        }
+
+        var parent = ResolveFolder(category, parentId);
+        var destination = ContainedPath(category, Path.Combine(parent.PhysicalPath, safeName));
+        if (Exists(destination))
+        {
+            throw new ArchiveConflictException("An item with that name already exists.");
+        }
+
+        var tempPath = Path.Combine(parent.PhysicalPath, Path.GetRandomFileName());
+        try
+        {
+            await using (var fileStream = new FileStream(
+                tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 64 * 1024, useAsync: true))
+            {
+                await content.CopyToAsync(fileStream, cancellationToken);
+            }
+
+            File.Move(tempPath, destination);
+        }
+        catch
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+
+            throw;
+        }
+
         return BuildListing(category, parent);
     }
 

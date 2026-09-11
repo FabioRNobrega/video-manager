@@ -10,6 +10,10 @@ internal interface IArchiveService
 
     ArchiveListing CreateFolder(string categoryKey, string? parentId, string name);
 
+    ArchiveListing CreateFile(string categoryKey, string? parentId, string name, string extension);
+
+    Task<ArchiveListing> SaveUploadedFileAsync(string categoryKey, string? parentId, string fileName, Stream content, CancellationToken cancellationToken);
+
     ArchiveListing Rename(string categoryKey, string itemId, string name);
 
     ArchiveListing Move(string categoryKey, string itemId, string? destinationFolderId);

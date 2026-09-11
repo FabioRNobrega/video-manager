@@ -50,17 +50,91 @@
         }
         @if (_listing?.CanCreateFolder == true)
         {
-            <button class="btn btn-primary rounded-circle d-inline-flex align-items-center justify-content-center"
-                    style="width:44px;height:44px;"
-                    type="button"
-                    disabled="@_operationPending"
-                    data-bs-toggle="modal"
-                    data-bs-target="#@CreateModalId"
-                    aria-label="Create folder">
-                <i class="bi bi-plus fs-4 lh-1" aria-hidden="true"></i>
-            </button>
+            <div class="d-flex align-items-center gap-2">
+                <div class="dropdown">
+                    <button class="btn btn-primary rounded-circle d-inline-flex align-items-center justify-content-center"
+                            style="width:44px;height:44px;"
+                            type="button"
+                            disabled="@_operationPending"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            aria-label="Create">
+                        <i class="bi bi-plus fs-4 lh-1" aria-hidden="true"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center"
+                                    type="button"
+                                    disabled="@_operationPending"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#@CreateModalId">
+                                <i class="bi bi-folder-plus me-2" aria-hidden="true"></i>
+                                Folder
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center"
+                                    type="button"
+                                    disabled="@_operationPending"
+                                    @onclick="StartCreateTextFile"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#@CreateFileModalId">
+                                <i class="bi bi-file-earmark-text me-2" aria-hidden="true"></i>
+                                Text file (.txt)
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center"
+                                    type="button"
+                                    disabled="@_operationPending"
+                                    @onclick="StartCreateMarkdownFile"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#@CreateFileModalId">
+                                <i class="bi bi-markdown me-2" aria-hidden="true"></i>
+                                Markdown file (.md)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <button class="btn btn-secondary rounded-circle d-inline-flex align-items-center justify-content-center"
+                        style="width:44px;height:44px;"
+                        type="button"
+                        disabled="@_operationPending"
+                        @onclick="TriggerUpload"
+                        aria-label="Upload">
+                    <i class="bi bi-upload fs-5 lh-1" aria-hidden="true"></i>
+                </button>
+                <InputFile @ref="_fileInput" OnChange="OnFilesSelected" multiple class="visually-hidden" aria-hidden="true" />
+            </div>
         }
     </div>
+
+    @if (_uploads.Count > 0)
+    {
+        <div class="list-group list-group-flush border-top" aria-label="Upload status">
+            @foreach (var upload in _uploads)
+            {
+                <div class="list-group-item d-flex align-items-center justify-content-between gap-2">
+                    <span class="text-truncate">@upload.Name</span>
+                    @switch (upload.Status)
+                    {
+                        case UploadStatus.Uploading:
+                            <span class="badge text-bg-secondary d-inline-flex align-items-center gap-1">
+                                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                Uploading
+                            </span>
+                            break;
+                        case UploadStatus.Done:
+                            <span class="badge text-bg-success">Done</span>
+                            break;
+                        case UploadStatus.Error:
+                            <span class="badge text-bg-danger" title="@upload.ErrorMessage">Error</span>
+                            break;
+                    }
+                </div>
+            }
+        </div>
+    }
 
     @if (_error is not null)
     {
@@ -342,6 +416,36 @@
     </div>
 }
 
+@if (_listing?.CanCreateFolder == true)
+{
+    <div class="modal fade" id="@CreateFileModalId" tabindex="-1" aria-labelledby="@CreateFileModalLabelId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <EditForm Model="_createFile" OnValidSubmit="CreateFileAsync">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="@CreateFileModalLabelId">New @(_createFile.Extension == ".md" ? "Markdown" : "Text") file</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" disabled="@_operationPending"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label" for="@CreateFileInputId">File name</label>
+                        <div class="input-group">
+                            <InputText id="@CreateFileInputId" class="form-control" @bind-Value="_createFile.Name" />
+                            <span class="input-group-text">@_createFile.Extension</span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal" disabled="@_operationPending">Cancel</button>
+                        <button class="btn btn-primary d-inline-flex align-items-center" type="submit" disabled="@_operationPending">
+                            <i class="bi bi-file-earmark-plus me-2" aria-hidden="true"></i>
+                            Create
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
 @if (_moving is not null)
 {
     <div class="modal fade show d-block" tabindex="-1" aria-labelledby="@MoveModalLabelId" aria-modal="true" role="dialog">
@@ -404,6 +508,9 @@
     [Parameter] public EventCallback<ArchiveItemDto> OnPdfDocumentSelected { get; set; }
 
     private readonly FolderForm _createFolder = new();
+    private readonly FileForm _createFile = new();
+    private readonly List<UploadItem> _uploads = [];
+    private InputFile? _fileInput;
     private ArchiveListingDto? _listing;
     private ArchiveItemDto? _renaming;
     private ArchiveItemDto? _moving;
@@ -428,6 +535,9 @@
     private string CreateModalId => $"archive-{Category}-create-modal";
     private string CreateModalLabelId => $"archive-{Category}-create-modal-label";
     private string CreateInputId => $"archive-{Category}-create-folder";
+    private string CreateFileModalId => $"archive-{Category}-create-file-modal";
+    private string CreateFileModalLabelId => $"archive-{Category}-create-file-modal-label";
+    private string CreateFileInputId => $"archive-{Category}-create-file";
     private string MoveModalLabelId => $"archive-{Category}-move-modal-label";
     private string RenameModalLabelId => $"archive-{Category}-rename-modal-label";
     private string RenameInputId => $"archive-{Category}-rename";
@@ -646,6 +756,101 @@
         await LoadAsync(createdFolder.Id);
     }
 
+    private void StartCreateTextFile() => StartCreateFile(".txt");
+
+    private void StartCreateMarkdownFile() => StartCreateFile(".md");
+
+    private void StartCreateFile(string extension)
+    {
+        _createFile.Extension = extension;
+        _createFile.Name = string.Empty;
+    }
+
+    private async Task CreateFileAsync()
+    {
+        var fileName = _createFile.Name.Trim();
+        var extension = _createFile.Extension;
+        var listing = await SendMutationAsync(() => Http.PostAsJsonAsync(
+            $"api/archive/{Category}/files",
+            new CreateFileRequest(_listing?.CurrentFolderId, _createFile.Name, extension)));
+        _createFile.Name = string.Empty;
+
+        var createdFile = listing?.Items.FirstOrDefault(item =>
+            item.Kind == ArchiveItemKind.File &&
+            string.Equals(item.Name, $"{fileName}{extension}", StringComparison.OrdinalIgnoreCase));
+        if (createdFile is null)
+        {
+            return;
+        }
+
+        await HideCreateFileModalAsync();
+        if (OnTextDocumentSelected.HasDelegate)
+        {
+            await OnTextDocumentSelected.InvokeAsync(createdFile);
+        }
+    }
+
+    private async Task TriggerUpload()
+    {
+        if (_fileInput?.Element is not { } element || _bootstrapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _bootstrapModule.InvokeVoidAsync("clickElement", element);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles(e.FileCount))
+        {
+            var upload = new UploadItem(file.Name);
+            _uploads.Add(upload);
+            StateHasChanged();
+
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                await using var stream = file.OpenReadStream(MaxUploadFileSizeBytes);
+                using var streamContent = new StreamContent(stream);
+                content.Add(streamContent, "file", file.Name);
+
+                var url = $"api/archive/{Category}/upload";
+                if (!string.IsNullOrWhiteSpace(_listing?.CurrentFolderId))
+                {
+                    url += $"?parentId={Uri.EscapeDataString(_listing!.CurrentFolderId!)}";
+                }
+
+                using var response = await Http.PostAsync(url, content);
+                if (response.IsSuccessStatusCode)
+                {
+                    upload.Status = UploadStatus.Done;
+                    await LoadAsync(_listing?.CurrentFolderId, restartPolling: true, showLoading: false);
+                }
+                else
+                {
+                    upload.Status = UploadStatus.Error;
+                    upload.ErrorMessage = response.StatusCode == System.Net.HttpStatusCode.Conflict
+                        ? "An item with that name already exists."
+                        : "This file type is not supported or could not be uploaded.";
+                }
+            }
+            catch (Exception exception) when (exception is HttpRequestException or IOException)
+            {
+                upload.Status = UploadStatus.Error;
+                upload.ErrorMessage = "The upload could not reach the server.";
+            }
+
+            StateHasChanged();
+        }
+    }
+
     private void StartRename(ArchiveItemDto item)
     {
         _renaming = item;
@@ -748,6 +953,22 @@
         try
         {
             await _bootstrapModule.InvokeVoidAsync("hideModal", CreateModalId);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task HideCreateFileModalAsync()
+    {
+        if (_bootstrapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _bootstrapModule.InvokeVoidAsync("hideModal", CreateFileModalId);
         }
         catch (JSException)
         {
@@ -948,4 +1169,26 @@
     {
         public string Name { get; set; } = string.Empty;
     }
+
+    private sealed class FileForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Extension { get; set; } = ".txt";
+    }
+
+    private enum UploadStatus
+    {
+        Uploading,
+        Done,
+        Error
+    }
+
+    private sealed class UploadItem(string name)
+    {
+        public string Name { get; } = name;
+        public UploadStatus Status { get; set; } = UploadStatus.Uploading;
+        public string? ErrorMessage { get; set; }
+    }
+
+    private const long MaxUploadFileSizeBytes = 2L * 1024 * 1024 * 1024;
 }

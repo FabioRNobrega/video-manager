@@ -236,6 +236,70 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task CreateFile_with_valid_markdown_name_appears_in_a_subsequent_listing()
+    {
+        using var root = CreateArchive();
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var created = await client.PostAsJsonAsync("/api/archive/documents/files", new CreateFileRequest(null, "notes", ".md"));
+        var listing = await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items");
+
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        Assert.Contains(listing!.Items, item => item.Name == "notes.md" && item.Kind == ArchiveItemKind.File);
+        Assert.True(File.Exists(Path.Combine(root.Path, "Documents", "notes.md")));
+    }
+
+    [Fact]
+    public async Task CreateFile_against_trash_returns_forbidden()
+    {
+        using var root = CreateArchive();
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync("/api/archive/trash/files", new CreateFileRequest(null, "notes", ".txt"));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Upload_with_valid_multipart_file_is_retrievable_and_listed_afterward()
+    {
+        using var root = CreateArchive();
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent("hello archive"u8.ToArray());
+        content.Add(fileContent, "file", "notes.txt");
+
+        using var response = await client.PostAsync("/api/archive/documents/upload", content);
+        var listing = await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(listing!.Items, item => item.Name == "notes.txt");
+        Assert.Equal("hello archive", await File.ReadAllTextAsync(Path.Combine(root.Path, "Documents", "notes.txt")));
+    }
+
+    [Fact]
+    public async Task Upload_with_unsupported_extension_returns_bad_request_and_is_not_listed()
+    {
+        using var root = CreateArchive();
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent([1, 2, 3]);
+        content.Add(fileContent, "file", "malware.exe");
+
+        using var response = await client.PostAsync("/api/archive/documents/upload", content);
+        var listing = await client.GetFromJsonAsync<ArchiveListingDto>("/api/archive/documents/items");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.DoesNotContain(listing!.Items, item => item.Name == "malware.exe");
+    }
+
+    [Fact]
     public async Task Delete_moves_item_to_trash()
     {
         using var root = CreateArchive();
