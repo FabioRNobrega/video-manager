@@ -107,6 +107,17 @@
                 <InputFile @ref="_fileInput" OnChange="OnFilesSelected" multiple class="visually-hidden" aria-hidden="true" />
             </div>
         }
+        @if (Category == "trash")
+        {
+            <button class="btn btn-danger d-inline-flex align-items-center gap-2"
+                    type="button"
+                    disabled="@(_operationPending || _listing is null || _listing.Items.Count == 0)"
+                    aria-label="Empty Trash"
+                    @onclick="StartEmptyTrash">
+                <i class="bi bi-recycle" aria-hidden="true"></i>
+                Empty Trash
+            </button>
+        }
     </div>
 
     @if (_uploads.Count > 0)
@@ -498,6 +509,28 @@
     <div class="modal-backdrop fade show"></div>
 }
 
+@if (_confirmingEmptyTrash)
+{
+    <div class="modal fade show d-block" tabindex="-1" aria-labelledby="@EmptyTrashModalLabelId" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="@EmptyTrashModalLabelId">Empty Trash</h1>
+                    <button type="button" class="btn-close" aria-label="Close" disabled="@_operationPending" @onclick="CancelDialogs"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">This permanently deletes all items in Trash. This cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" disabled="@_operationPending" @onclick="CancelDialogs">Cancel</button>
+                    <button class="btn btn-danger" type="button" disabled="@_operationPending" @onclick="EmptyTrashAsync">Empty Trash</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
     [Parameter, EditorRequired] public string Category { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
@@ -514,6 +547,7 @@
     private ArchiveListingDto? _listing;
     private ArchiveItemDto? _renaming;
     private ArchiveItemDto? _moving;
+    private bool _confirmingEmptyTrash;
     private List<ArchiveItemDto> _folderChoices = [];
     private string _renameName = string.Empty;
     private string? _moveDestinationId;
@@ -540,6 +574,7 @@
     private string CreateFileInputId => $"archive-{Category}-create-file";
     private string MoveModalLabelId => $"archive-{Category}-move-modal-label";
     private string RenameModalLabelId => $"archive-{Category}-rename-modal-label";
+    private string EmptyTrashModalLabelId => $"archive-{Category}-empty-trash-modal-label";
     private string RenameInputId => $"archive-{Category}-rename";
     private string MoveInputId => $"archive-{Category}-move";
     private string ArchiveStreamBasePath => $"api/archive/{Uri.EscapeDataString(Category)}/items";
@@ -856,6 +891,7 @@
         _renaming = item;
         _renameName = item.Name;
         _moving = null;
+        _confirmingEmptyTrash = false;
     }
 
     private void StartMove(ArchiveItemDto item)
@@ -863,6 +899,14 @@
         _moving = item;
         _moveDestinationId = null;
         _renaming = null;
+        _confirmingEmptyTrash = false;
+    }
+
+    private void StartEmptyTrash()
+    {
+        _confirmingEmptyTrash = true;
+        _renaming = null;
+        _moving = null;
     }
 
     private async Task RenameAsync()
@@ -895,6 +939,12 @@
 
     private async Task DeleteAsync(ArchiveItemDto item) =>
         _ = await SendMutationAsync(() => Http.DeleteAsync($"api/archive/{Category}/items/{Uri.EscapeDataString(item.Id)}"));
+
+    private async Task EmptyTrashAsync()
+    {
+        _ = await SendMutationAsync(() => Http.DeleteAsync($"api/archive/{Category}/items"));
+        CancelDialogs();
+    }
 
     private void StartPreview(ArchiveItemDto item)
     {
@@ -979,6 +1029,7 @@
     {
         _renaming = null;
         _moving = null;
+        _confirmingEmptyTrash = false;
         _renameName = string.Empty;
         _moveDestinationId = null;
     }

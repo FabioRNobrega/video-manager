@@ -37,6 +37,7 @@ internal static class ArchiveEndpoints
         endpoints.MapPatch("/api/archive/{category}/items/{id}/name", Rename);
         endpoints.MapPatch("/api/archive/{category}/items/{id}/location", Move);
         endpoints.MapDelete("/api/archive/{category}/items/{id}", MoveToTrash);
+        endpoints.MapDelete("/api/archive/{category}/items", EmptyTrash);
         return endpoints;
     }
 
@@ -193,6 +194,24 @@ internal static class ArchiveEndpoints
         CancellationToken cancellationToken) =>
         await ExecuteAsync(() => ToDtoAsync(
             archive.MoveToTrash(category, id),
+            thumbnailCoordinator,
+            hoverPreviewCoordinator,
+            subtitleCoordinator,
+            metadataCoordinator,
+            epubBookService,
+            cancellationToken));
+
+    private static async Task<IResult> EmptyTrash(
+        string category,
+        IArchiveService archive,
+        ThumbnailCoordinator thumbnailCoordinator,
+        HoverPreviewCoordinator hoverPreviewCoordinator,
+        SubtitleCoordinator subtitleCoordinator,
+        VideoMetadataCoordinator metadataCoordinator,
+        IEpubBookService epubBookService,
+        CancellationToken cancellationToken) =>
+        await ExecuteAsync(() => ToDtoAsync(
+            archive.EmptyTrash(category),
             thumbnailCoordinator,
             hoverPreviewCoordinator,
             subtitleCoordinator,

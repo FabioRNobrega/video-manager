@@ -20,6 +20,8 @@ internal interface IArchiveService
 
     ArchiveListing MoveToTrash(string categoryKey, string itemId);
 
+    ArchiveListing EmptyTrash(string categoryKey);
+
     bool TryResolveVideo(string categoryKey, string itemId, out ArchiveItemEntry? item);
 
     bool TryResolveMusic(string categoryKey, string itemId, out ArchiveItemEntry? item);

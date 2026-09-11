@@ -225,6 +225,39 @@ internal sealed class ArchiveService(IOptions<ArchiveRootOptions> options) : IAr
         return BuildListing(category, GetParentEntry(category, item.PhysicalPath));
     }
 
+    public ArchiveListing EmptyTrash(string categoryKey)
+    {
+        var category = ResolveCategory(categoryKey);
+        if (!string.Equals(category.Key, "trash", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArchiveForbiddenException("Only Trash can be permanently emptied.");
+        }
+
+        var trashRoot = GetCategoryRoot(category);
+        var entries = Directory.EnumerateFileSystemEntries(trashRoot).ToArray();
+        try
+        {
+            foreach (var path in entries)
+            {
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    Directory.Delete(path, recursive: true);
+                }
+                else
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new ArchiveConflictException("Trash could not be fully emptied. No items were removed.");
+        }
+
+        return BuildListing(category, CreateEntry(category, trashRoot));
+    }
+
     public bool TryResolveVideo(string categoryKey, string itemId, out ArchiveItemEntry? item)
     {
         item = null;

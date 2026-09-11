@@ -287,6 +287,11 @@ h1:focus { outline: none; }
 .alert-danger { --bs-alert-bg: var(--alert-danger-bg); --bs-alert-border-color: var(--alert-danger-border); --bs-alert-color: var(--alert-danger-text); }
 .alert-info { --bs-alert-bg: var(--alert-info-bg); --bs-alert-border-color: var(--alert-info-border); --bs-alert-color: var(--alert-info-text); }
 
+.btn-success { --bs-btn-bg: #2F7A4F; --bs-btn-border-color: #2F7A4F; --bs-btn-hover-bg: #286843; --bs-btn-hover-border-color: #26623F; --bs-btn-active-bg: #26623F; --bs-btn-active-border-color: #235C3B; --bs-btn-disabled-bg: #2F7A4F; --bs-btn-disabled-border-color: #2F7A4F; --bs-btn-focus-shadow-rgb: 47, 122, 79; }
+.btn-warning { --bs-btn-color: #fff; --bs-btn-bg: #C9762E; --bs-btn-border-color: #C9762E; --bs-btn-hover-color: #fff; --bs-btn-hover-bg: #AB6427; --bs-btn-hover-border-color: #A15E25; --bs-btn-active-color: #fff; --bs-btn-active-bg: #A15E25; --bs-btn-active-border-color: #975823; --bs-btn-disabled-color: #fff; --bs-btn-disabled-bg: #C9762E; --bs-btn-disabled-border-color: #C9762E; --bs-btn-focus-shadow-rgb: 201, 118, 46; }
+.btn-danger { --bs-btn-bg: #B5432E; --bs-btn-border-color: #B5432E; --bs-btn-hover-bg: #9A3927; --bs-btn-hover-border-color: #903525; --bs-btn-active-bg: #903525; --bs-btn-active-border-color: #873223; --bs-btn-disabled-bg: #B5432E; --bs-btn-disabled-border-color: #B5432E; --bs-btn-focus-shadow-rgb: 181, 67, 46; }
+.btn-info { --bs-btn-color: #fff; --bs-btn-bg: #2F6690; --bs-btn-border-color: #2F6690; --bs-btn-hover-color: #fff; --bs-btn-hover-bg: #28577A; --bs-btn-hover-border-color: #265273; --bs-btn-active-color: #fff; --bs-btn-active-bg: #265273; --bs-btn-active-border-color: #244D6C; --bs-btn-disabled-color: #fff; --bs-btn-disabled-bg: #2F6690; --bs-btn-disabled-border-color: #2F6690; --bs-btn-focus-shadow-rgb: 47, 102, 144; }
+
 .form-label { color: var(--text-muted); font-family: var(--font-family-meta); font-size: .78rem; }
 .form-control,
 .form-select { color: var(--text-strong); background-color: var(--bg-elevated); border-color: var(--border); font-family: var(--font-family-base); }

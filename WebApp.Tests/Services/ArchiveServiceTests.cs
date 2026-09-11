@@ -183,6 +183,57 @@ public sealed class ArchiveServiceTests
     }
 
     [Fact]
+    public void EmptyTrash_deletes_all_files_in_trash_root()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Trash", "one.txt"));
+        awaitFile(Path.Combine(root.Path, "Trash", "two.txt"));
+        var service = CreateService(root.Path);
+
+        var listing = service.EmptyTrash("trash");
+
+        Assert.Empty(listing.Items);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(root.Path, "Trash")));
+    }
+
+    [Fact]
+    public void EmptyTrash_deletes_folders_recursively()
+    {
+        using var root = CreateArchive();
+        var folder = Path.Combine(root.Path, "Trash", "Nested");
+        Directory.CreateDirectory(folder);
+        awaitFile(Path.Combine(folder, "inner.txt"));
+        var service = CreateService(root.Path);
+
+        var listing = service.EmptyTrash("trash");
+
+        Assert.Empty(listing.Items);
+        Assert.False(Directory.Exists(folder));
+    }
+
+    [Fact]
+    public void EmptyTrash_on_non_trash_category_throws_ArchiveForbiddenException()
+    {
+        using var root = CreateArchive();
+        awaitFile(Path.Combine(root.Path, "Documents", "note.txt"));
+        var service = CreateService(root.Path);
+
+        Assert.Throws<ArchiveForbiddenException>(() => service.EmptyTrash("documents"));
+        Assert.True(File.Exists(Path.Combine(root.Path, "Documents", "note.txt")));
+    }
+
+    [Fact]
+    public void EmptyTrash_with_empty_trash_returns_empty_listing_without_error()
+    {
+        using var root = CreateArchive();
+        var service = CreateService(root.Path);
+
+        var listing = service.EmptyTrash("trash");
+
+        Assert.Empty(listing.Items);
+    }
+
+    [Fact]
     public void Video_files_are_marked_for_player_selection()
     {
         using var root = CreateArchive();

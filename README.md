@@ -37,7 +37,7 @@ Table of contents
 | Books | ✅ | Read `.epub` books with progress, highlights, and notes. |
 | Text documents | ✅ | View and edit `.md`, `.markdown`, and `.txt` documents. |
 | PDF documents | ✅ | Browse and open `.pdf` documents. |
-| Archive management | ✅ | Browse archive categories; create folders, `.txt`/`.md` text files, and upload video/music/image/book/text/PDF files; rename, move, and send supported files and folders to Trash. |
+| Archive management | ✅ | Browse archive categories; create folders, `.txt`/`.md` text files, and upload video/music/image/book/text/PDF files; rename, move, and send supported files and folders to Trash; permanently empty Trash with a confirmation prompt. |
 | Appearance | ✅ | Dark and Kindle-paper light themes, responsive layout, and Fill-tab video mode. |
 
 ## Install

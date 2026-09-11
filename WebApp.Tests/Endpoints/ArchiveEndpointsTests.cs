@@ -316,6 +316,36 @@ public sealed class ArchiveEndpointsTests
     }
 
     [Fact]
+    public async Task EmptyTrash_permanently_deletes_items_in_trash_root()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Trash", "note.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var response = await client.DeleteAsync("/api/archive/trash/items");
+        var listing = await response.Content.ReadFromJsonAsync<ArchiveListingDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(listing!.Items);
+        Assert.False(File.Exists(Path.Combine(root.Path, "Trash", "note.txt")));
+    }
+
+    [Fact]
+    public async Task EmptyTrash_on_non_trash_category_returns_forbidden()
+    {
+        using var root = CreateArchive();
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "Documents", "note.txt"), "content");
+        using var factory = new VideoManagerFactory(root.Path);
+        using var client = factory.CreateClient();
+
+        using var response = await client.DeleteAsync("/api/archive/documents/items");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.True(File.Exists(Path.Combine(root.Path, "Documents", "note.txt")));
+    }
+
+    [Fact]
     public async Task Stream_video_serves_supported_archive_file_without_exposing_paths()
     {
         using var root = CreateArchive();
