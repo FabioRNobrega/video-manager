@@ -688,10 +688,7 @@
 
     private void ClearAbLoop() => _player.ClearAbLoop();
 
-    private static readonly Dictionary<string, string> CategoryRoutes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["history"] = "/",
-    };
+    private static readonly Dictionary<string, string> CategoryRoutes = new(StringComparer.OrdinalIgnoreCase);
 
     private async Task StopAsync()
     {

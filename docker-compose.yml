@@ -26,6 +26,15 @@ services:
       - /workspace/WebApp.Tests/bin
       - /workspace/WebApp.Tests/obj
       - nuget_cache:/root/.nuget/packages
+      # Read-only access to the host's Docker Engine API, used only to list/inspect sibling
+      # containers and read their stats for the System Dashboard's Docker card (FR9). The
+      # dashboard never starts, stops, or execs into a container through this socket.
+      # Defaults to the standard Docker path; set DASHBOARD_DOCKER_SOCKET in .env to override
+      # (for example, a rootless Podman socket at /run/user/<uid>/podman/podman.sock).
+      - type: bind
+        source: ${DASHBOARD_DOCKER_SOCKET:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER: "true"

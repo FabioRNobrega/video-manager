@@ -1,0 +1,87 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100 flex-fill min-h-0 overflow-hidden d-flex flex-column">
+    <div class="card-body flex-fill min-h-0 d-flex flex-column">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-boxes" aria-hidden="true"></i>Docker
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_metrics is null || !_metrics.IsAvailable)
+        {
+            <p class="small text-body-secondary mb-0">Docker metrics unavailable</p>
+        }
+        else if (_metrics.Containers.Count == 0)
+        {
+            <p class="small text-body-secondary mb-0">No containers detected</p>
+        }
+        else
+        {
+            <div class="table-responsive overflow-auto scrollbar-none flex-fill min-h-0">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">CPU</th>
+                            <th scope="col">RAM</th>
+                            <th scope="col">Uptime</th>
+                            <th scope="col">Restarts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var container in _metrics.Containers)
+                        {
+                            <tr>
+                                <td>@container.Name</td>
+                                <td class="@ThresholdColor.TextClass(container.CpuPercent)">@DashboardFormat.Percent(container.CpuPercent)</td>
+                                <td>@DashboardFormat.Bytes(container.MemoryUsedBytes)</td>
+                                <td>@DashboardFormat.Duration(container.UptimeSeconds)</td>
+                                <td>@container.RestartCount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardDockerDto? _metrics;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _metrics = await Http.GetFromJsonAsync<DashboardDockerDto>("api/dashboard/docker", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _metrics = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

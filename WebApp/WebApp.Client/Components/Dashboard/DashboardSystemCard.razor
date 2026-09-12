@@ -1,0 +1,82 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100">
+    <div class="card-body">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-cpu" aria-hidden="true"></i>System
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_metrics is null || !_metrics.IsAvailable)
+        {
+            <p class="small text-body-secondary mb-0">System metrics unavailable</p>
+        }
+        else
+        {
+            <div class="mb-2">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span>CPU</span>
+                    <span class="@ThresholdColor.TextClass(_metrics.CpuPercent)">@DashboardFormat.Percent(_metrics.CpuPercent)</span>
+                </div>
+                <div class="progress" role="progressbar" aria-label="CPU utilization"
+                     aria-valuenow="@(_metrics.CpuPercent ?? 0)" aria-valuemin="0" aria-valuemax="100" style="height: 6px;">
+                    <div class="progress-bar @ThresholdColor.ProgressBarClass(_metrics.CpuPercent)" style="width: @DashboardFormat.CssPercent(_metrics.CpuPercent)%;"></div>
+                </div>
+            </div>
+            <dl class="row small mb-0">
+                <dt class="col-7">Load average (1/5/15m)</dt>
+                <dd class="col-5 text-end">
+                    @FormatLoad(_metrics.LoadAverage1m) / @FormatLoad(_metrics.LoadAverage5m) / @FormatLoad(_metrics.LoadAverage15m)
+                </dd>
+                <dt class="col-7">Temperature</dt>
+                <dd class="col-5 text-end">
+                    @(_metrics.TemperatureCelsius is null ? "unavailable" : $"{_metrics.TemperatureCelsius:0.#} °C")
+                </dd>
+                <dt class="col-7">Uptime</dt>
+                <dd class="col-5 text-end">@DashboardFormat.Duration(_metrics.UptimeSeconds)</dd>
+            </dl>
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardSystemDto? _metrics;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _metrics = await Http.GetFromJsonAsync<DashboardSystemDto>("api/dashboard/system", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _metrics = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatLoad(double? value) => value is null ? "-" : value.Value.ToString("0.00");
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

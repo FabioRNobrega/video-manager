@@ -8,6 +8,7 @@ namespace WebApp.Services;
 internal sealed class CompositionJobQueue : ICompositionJobQueue
 {
     private readonly Channel<CompositionJob> _channel;
+    private int _activeCount;
 
     public CompositionJobQueue(IOptions<VideoCompositionOptions> options)
     {
@@ -20,8 +21,21 @@ internal sealed class CompositionJobQueue : ICompositionJobQueue
         });
     }
 
-    public bool TryEnqueue(CompositionJob job) => _channel.Writer.TryWrite(job);
+    public bool TryEnqueue(CompositionJob job)
+    {
+        if (!_channel.Writer.TryWrite(job))
+        {
+            return false;
+        }
+
+        Interlocked.Increment(ref _activeCount);
+        return true;
+    }
 
     public async Task<CompositionJob> DequeueAsync(CancellationToken cancellationToken) =>
         await _channel.Reader.ReadAsync(cancellationToken);
+
+    public void Complete() => Interlocked.Decrement(ref _activeCount);
+
+    public int ActiveCount => Volatile.Read(ref _activeCount);
 }

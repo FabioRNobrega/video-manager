@@ -47,6 +47,10 @@ internal sealed class CutBackgroundWorker(
             {
                 logger.LogError(exception, "Cut generation threw for media {MediaId} (job {JobId}).", job.SourceEntry.Id, job.JobId);
             }
+            finally
+            {
+                queue.Complete();
+            }
         }
     }
 }

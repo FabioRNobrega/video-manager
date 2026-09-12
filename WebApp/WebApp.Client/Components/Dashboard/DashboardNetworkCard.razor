@@ -1,0 +1,82 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100">
+    <div class="card-body">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-ethernet" aria-hidden="true"></i>Network
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_metrics is null || !_metrics.IsAvailable)
+        {
+            <p class="small text-body-secondary mb-0">Network metrics unavailable</p>
+        }
+        else
+        {
+            <dl class="row small mb-2">
+                <dt class="col-7">Upload</dt>
+                <dd class="col-5 text-end">@DashboardFormat.BytesPerSecond(_metrics.UploadBytesPerSecond)</dd>
+                <dt class="col-7">Download</dt>
+                <dd class="col-5 text-end">@DashboardFormat.BytesPerSecond(_metrics.DownloadBytesPerSecond)</dd>
+                <dt class="col-7">Errors / Drops</dt>
+                <dd class="col-5 text-end">@_metrics.TotalErrors / @_metrics.TotalDrops</dd>
+            </dl>
+            @if (_metrics.Interfaces.Count == 0)
+            {
+                <p class="small text-body-secondary mb-0">No interfaces reported</p>
+            }
+            else
+            {
+                <ul class="list-unstyled small mb-0">
+                    @foreach (var iface in _metrics.Interfaces)
+                    {
+                        <li class="d-flex justify-content-between">
+                            <span>@iface.Name</span>
+                            <span>@DashboardFormat.Bytes(iface.RxBytes) &darr; / @DashboardFormat.Bytes(iface.TxBytes) &uarr;</span>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardNetworkDto? _metrics;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _metrics = await Http.GetFromJsonAsync<DashboardNetworkDto>("api/dashboard/network", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _metrics = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

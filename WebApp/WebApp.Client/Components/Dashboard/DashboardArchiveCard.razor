@@ -1,0 +1,80 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100 flex-fill min-h-0 overflow-hidden d-flex flex-column">
+    <div class="card-body flex-fill min-h-0 d-flex flex-column">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-archive" aria-hidden="true"></i>PereneArchive
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_metrics is null)
+        {
+            <p class="small text-body-secondary mb-0">Archive metrics unavailable</p>
+        }
+        else
+        {
+            <div class="flex-fill min-h-0 overflow-auto scrollbar-none">
+                <table class="table table-sm table-striped mb-0">
+                    <tbody>
+                        <tr><th scope="row">Indexed files</th><td class="text-end text-success">@_metrics.TotalFiles</td></tr>
+                        <tr><th scope="row">Videos</th><td class="text-end text-success">@_metrics.VideoFiles</td></tr>
+                        <tr><th scope="row">Audio</th><td class="text-end text-success">@_metrics.AudioFiles</td></tr>
+                        <tr><th scope="row">EPUB books</th><td class="text-end text-success">@_metrics.EpubFiles</td></tr>
+                        <tr><th scope="row">Images</th><td class="text-end text-success">@_metrics.ImageFiles</td></tr>
+                        <tr><th scope="row">PDFs</th><td class="text-end text-success">@_metrics.PdfFiles</td></tr>
+                        <tr><th scope="row">Text documents</th><td class="text-end text-success">@_metrics.TextDocumentFiles</td></tr>
+                        <tr><th scope="row">Other files</th><td class="text-end text-success">@_metrics.OtherFiles</td></tr>
+                        <tr><th scope="row">Active users (approx.)</th><td class="text-end text-success">@_metrics.ActiveUsers</td></tr>
+                        <tr><th scope="row">Active media streams</th><td class="text-end text-success">@_metrics.ActiveMediaStreams</td></tr>
+                        <tr><th scope="row">Active ffmpeg processes</th><td class="text-end text-success">@_metrics.ActiveFfmpegProcesses</td></tr>
+                        <tr><th scope="row">Queued thumbnail jobs</th><td class="text-end text-success">@_metrics.QueuedThumbnailJobs</td></tr>
+                        <tr><th scope="row">Queued hover-preview jobs</th><td class="text-end text-success">@_metrics.QueuedHoverPreviewJobs</td></tr>
+                        <tr><th scope="row">Queued subtitle jobs</th><td class="text-end text-success">@_metrics.QueuedSubtitleJobs</td></tr>
+                        <tr><th scope="row">Queued cut jobs</th><td class="text-end text-success">@_metrics.QueuedCutJobs</td></tr>
+                        <tr><th scope="row">Queued composition jobs</th><td class="text-end text-success">@_metrics.QueuedCompositionJobs</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardArchiveDto? _metrics;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _metrics = await Http.GetFromJsonAsync<DashboardArchiveDto>("api/dashboard/archive", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _metrics = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

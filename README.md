@@ -39,6 +39,7 @@ Table of contents
 | PDF documents | ✅ | Browse and open `.pdf` documents. |
 | Archive management | ✅ | Browse archive categories; create folders, `.txt`/`.md` text files, and upload video/music/image/book/text/PDF files; rename, move, and send supported files and folders to Trash; permanently empty Trash with a confirmation prompt. |
 | Appearance | ✅ | Dark and Kindle-paper light themes, responsive layout, and Fill-tab video mode. |
+| System dashboard | ✅ | The home page (`/`) shows System, Memory, Storage, Network, PereneArchive, Docker, Health, History, and Alerts cards with a manual Refresh control, backed by dedicated `/api/dashboard/*` endpoints. |
 
 ## Install
 

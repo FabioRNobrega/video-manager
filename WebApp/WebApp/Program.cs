@@ -96,6 +96,19 @@ builder.Services.AddSingleton<ICompositionGenerator, FfmpegCompositionGenerator>
 builder.Services.AddHostedService<CompositionBackgroundWorker>();
 builder.Services.AddSingleton<IStorageUsageService, StorageUsageService>();
 builder.Services.AddSingleton<IArchiveService, ArchiveService>();
+builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
+builder.Services.AddSingleton<INetworkMetricsService, NetworkMetricsService>();
+builder.Services.AddSingleton<IActiveClientTracker, ActiveClientTracker>();
+builder.Services.AddSingleton<IProcessLister, SystemProcessLister>();
+builder.Services.AddSingleton<IArchiveMetricsService, ArchiveMetricsService>();
+builder.Services.AddSingleton<IDockerApiClient, DockerEngineApiClient>();
+builder.Services.AddSingleton<IDockerMetricsService, DockerMetricsService>();
+builder.Services.AddSingleton<IFfmpegAvailabilityProbe, FfmpegAvailabilityProbe>();
+builder.Services.AddSingleton<IHealthAggregationService, HealthAggregationService>();
+builder.Services.AddSingleton<IAlertEvaluationService, AlertEvaluationService>();
+builder.Services.AddSingleton<MetricsHistoryBackgroundWorker>();
+builder.Services.AddSingleton<IMetricsHistoryService>(sp => sp.GetRequiredService<MetricsHistoryBackgroundWorker>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MetricsHistoryBackgroundWorker>());
 builder.Services.AddSingleton<ImageCropNamingService>();
 builder.Services.AddSingleton<IImageCropGenerator, ImageSharpCropGenerator>();
 builder.Services.AddSingleton<IImageCropService, ImageCropService>();
@@ -146,6 +159,17 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        var clientId = context.Connection.RemoteIpAddress?.ToString() ?? context.Request.Host.Value ?? string.Empty;
+        context.RequestServices.GetRequiredService<IActiveClientTracker>().Track(clientId);
+    }
+
+    await next();
+});
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
@@ -154,6 +178,7 @@ app.MapCutEndpoints();
 app.MapCompositionEndpoints();
 app.MapStorageEndpoints();
 app.MapArchiveEndpoints();
+app.MapDashboardEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(WebApp.Client._Imports).Assembly);

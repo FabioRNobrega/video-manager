@@ -1,0 +1,79 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100">
+    <div class="card-body">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-hdd" aria-hidden="true"></i>Storage
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_metrics is null || !_metrics.IsAvailable)
+        {
+            <p class="small text-body-secondary mb-0">Storage metrics unavailable</p>
+        }
+        else
+        {
+            <div class="mb-2">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span>Capacity</span>
+                    <span class="@ThresholdColor.TextClass(UsedPercent)">@DashboardFormat.Bytes(_metrics.UsedBytes) of @DashboardFormat.Bytes(_metrics.TotalBytes)</span>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Storage used"
+                     aria-valuenow="@(UsedPercent ?? 0)" aria-valuemin="0" aria-valuemax="100" style="height: 6px;">
+                    <div class="progress-bar @ThresholdColor.ProgressBarClass(UsedPercent)" style="width: @DashboardFormat.CssPercent(UsedPercent)%;"></div>
+                </div>
+            </div>
+            <dl class="row small mb-0">
+                <dt class="col-7">Read throughput</dt>
+                <dd class="col-5 text-end">@DashboardFormat.BytesPerSecond(_metrics.ReadBytesPerSecond)</dd>
+                <dt class="col-7">Write throughput</dt>
+                <dd class="col-5 text-end">@DashboardFormat.BytesPerSecond(_metrics.WriteBytesPerSecond)</dd>
+                <dt class="col-7">Health</dt>
+                <dd class="col-5 text-end">@_metrics.Health</dd>
+            </dl>
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardStorageDto? _metrics;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    private double? UsedPercent =>
+        _metrics is { TotalBytes: > 0 } ? _metrics.UsedBytes * 100.0 / _metrics.TotalBytes : null;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _metrics = await Http.GetFromJsonAsync<DashboardStorageDto>("api/dashboard/storage", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _metrics = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

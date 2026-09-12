@@ -1,0 +1,48 @@
+@page "/"
+
+<PageTitle>Dashboard · PereneArchive</PageTitle>
+
+<div class="dashboard position-relative h-100 min-h-0">
+    <DashboardSystemCard @ref="_systemCard" />
+    <DashboardMemoryCard @ref="_memoryCard" />
+    <DashboardStorageCard @ref="_storageCard" />
+    <DashboardNetworkCard @ref="_networkCard" />
+    <DashboardArchiveCard @ref="_archiveCard" />
+    <DashboardDockerCard @ref="_dockerCard" />
+    <DashboardHealthCard @ref="_healthCard" />
+    <DashboardHistoryCard @ref="_historyCard" />
+    <DashboardAlertsCard @ref="_alertsCard" />
+    <button type="button"
+            class="btn btn-secondary d-inline-flex align-items-center justify-content-center rounded-circle px-3 py-2 position-absolute bottom-0 end-0 z-2"
+            title="Refresh"
+            aria-label="Refresh dashboard"
+            @onclick="RefreshAllAsync">
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+    </button>
+</div>
+
+@code {
+    private DashboardSystemCard? _systemCard;
+    private DashboardMemoryCard? _memoryCard;
+    private DashboardStorageCard? _storageCard;
+    private DashboardNetworkCard? _networkCard;
+    private DashboardArchiveCard? _archiveCard;
+    private DashboardDockerCard? _dockerCard;
+    private DashboardHealthCard? _healthCard;
+    private DashboardHistoryCard? _historyCard;
+    private DashboardAlertsCard? _alertsCard;
+
+    private async Task RefreshAllAsync()
+    {
+        await Task.WhenAll(
+            _systemCard?.RefreshAsync() ?? Task.CompletedTask,
+            _memoryCard?.RefreshAsync() ?? Task.CompletedTask,
+            _storageCard?.RefreshAsync() ?? Task.CompletedTask,
+            _networkCard?.RefreshAsync() ?? Task.CompletedTask,
+            _archiveCard?.RefreshAsync() ?? Task.CompletedTask,
+            _dockerCard?.RefreshAsync() ?? Task.CompletedTask,
+            _healthCard?.RefreshAsync() ?? Task.CompletedTask,
+            _historyCard?.RefreshAsync() ?? Task.CompletedTask,
+            _alertsCard?.RefreshAsync() ?? Task.CompletedTask);
+    }
+}

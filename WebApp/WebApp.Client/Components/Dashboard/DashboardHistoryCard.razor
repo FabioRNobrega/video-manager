@@ -1,0 +1,87 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100">
+    <div class="card-body">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-graph-up" aria-hidden="true"></i>History
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_history is null || _history.Samples.Count == 0)
+        {
+            <p class="small text-body-secondary mb-0">No samples collected yet</p>
+        }
+        else
+        {
+            @RenderRow("CPU", _history.Samples.Select(sample => sample.CpuPercent))
+            @RenderRow("RAM", _history.Samples.Select(sample => sample.MemoryPercent))
+            @RenderRow("Disk", _history.Samples.Select(sample => sample.DiskUsedPercent))
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardHistoryDto? _history;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _history = await Http.GetFromJsonAsync<DashboardHistoryDto>("api/dashboard/history", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _history = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static RenderFragment RenderRow(string label, IEnumerable<double?> values) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "mb-2");
+
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "class", "small text-body-secondary mb-1");
+        builder.AddContent(4, label);
+        builder.CloseElement();
+
+        builder.OpenElement(5, "div");
+        builder.AddAttribute(6, "class", "d-flex gap-1");
+        var sequence = 7;
+        foreach (var value in values)
+        {
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", $"rounded-1 {ThresholdColor.ProgressBarClass(value)}");
+            builder.AddAttribute(sequence++, "style", "width: 10px; height: 18px;");
+            builder.AddAttribute(sequence++, "title", value is null ? "unavailable" : $"{value:0}%");
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

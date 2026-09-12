@@ -11,4 +11,6 @@ internal interface IThumbnailJobQueue
     bool IsActive(string cacheKey);
 
     void Release(string cacheKey);
+
+    int ActiveCount { get; }
 }

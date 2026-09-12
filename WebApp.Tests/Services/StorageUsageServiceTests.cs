@@ -30,6 +30,39 @@ public sealed class StorageUsageServiceTests
         Assert.Equal(0, usage.TotalBytes);
     }
 
+    [Fact]
+    public void ParseDiskStats_sums_sectors_across_devices_excluding_loop_and_ram()
+    {
+        const string diskStats =
+            "   8       0 sda 100 0 2000 0 50 0 1000 0 0 0 0\n" +
+            "   7       0 loop0 999 0 999999 0 999 0 999999 0 0 0 0\n" +
+            "  253       0 ram0 999 0 999999 0 999 0 999999 0 0 0 0\n";
+
+        var totals = StorageUsageService.ParseDiskStats(diskStats);
+
+        Assert.NotNull(totals);
+        Assert.Equal(2000, totals!.Value.ReadSectors);
+        Assert.Equal(1000, totals.Value.WriteSectors);
+    }
+
+    [Fact]
+    public void ParseDiskStats_returns_null_for_content_with_no_recognizable_devices()
+    {
+        Assert.Null(StorageUsageService.ParseDiskStats("not-diskstats-content"));
+    }
+
+    [Fact]
+    public void GetThroughput_returns_non_negative_values_or_null_when_unavailable()
+    {
+        using var directory = new TemporaryDirectory();
+        var service = new StorageUsageService(Options.Create(new ArchiveRootOptions { Path = directory.Path }));
+
+        var (readBytesPerSecond, writeBytesPerSecond) = service.GetThroughput();
+
+        Assert.True(readBytesPerSecond is null or >= 0);
+        Assert.True(writeBytesPerSecond is null or >= 0);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public TemporaryDirectory()

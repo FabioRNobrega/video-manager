@@ -8,6 +8,7 @@ namespace WebApp.Services;
 internal sealed class CutJobQueue : ICutJobQueue
 {
     private readonly Channel<CutJob> _channel;
+    private int _activeCount;
 
     public CutJobQueue(IOptions<VideoCutOptions> options)
     {
@@ -20,8 +21,21 @@ internal sealed class CutJobQueue : ICutJobQueue
         });
     }
 
-    public bool TryEnqueue(CutJob job) => _channel.Writer.TryWrite(job);
+    public bool TryEnqueue(CutJob job)
+    {
+        if (!_channel.Writer.TryWrite(job))
+        {
+            return false;
+        }
+
+        Interlocked.Increment(ref _activeCount);
+        return true;
+    }
 
     public async Task<CutJob> DequeueAsync(CancellationToken cancellationToken) =>
         await _channel.Reader.ReadAsync(cancellationToken);
+
+    public void Complete() => Interlocked.Decrement(ref _activeCount);
+
+    public int ActiveCount => Volatile.Read(ref _activeCount);
 }

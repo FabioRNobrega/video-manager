@@ -54,6 +54,10 @@ internal sealed class CompositionBackgroundWorker(
                 statusStore.MarkFailed(job.JobId, "unexpected error during composition generation");
                 logger.LogError(exception, "Composition generation threw for job {JobId}.", job.JobId);
             }
+            finally
+            {
+                queue.Complete();
+            }
         }
     }
 }

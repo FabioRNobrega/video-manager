@@ -15,6 +15,7 @@
     <PackageReference Include="HtmlAgilityPack" Version="1.11.71" />
     <PackageReference Include="Markdig" Version="0.43.0" />
     <PackageReference Include="QuestPDF" Version="2025.7.0" />
+    <PackageReference Include="Docker.DotNet" Version="3.125.15" />
   </ItemGroup>
 
 </Project>

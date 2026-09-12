@@ -1,0 +1,83 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100">
+    <div class="card-body">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-heart-pulse" aria-hidden="true"></i>Health
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_metrics is null)
+        {
+            <p class="small text-body-secondary mb-0">Health status unavailable</p>
+        }
+        else
+        {
+            <dl class="row small mb-0">
+                <dt class="col-7">Overall</dt>
+                <dd class="col-5 text-end">@StatusBadge(_metrics.Overall)</dd>
+                <dt class="col-7">Storage</dt>
+                <dd class="col-5 text-end">@StatusBadge(_metrics.Storage)</dd>
+                <dt class="col-7">Application</dt>
+                <dd class="col-5 text-end">@StatusBadge(_metrics.Application)</dd>
+                <dt class="col-7">Dependencies (ffmpeg/ffprobe)</dt>
+                <dd class="col-5 text-end">@StatusBadge(_metrics.Dependencies)</dd>
+                <dt class="col-7">Backups</dt>
+                <dd class="col-5 text-end">@StatusBadge(_metrics.Backups)</dd>
+            </dl>
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardHealthDto? _metrics;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _metrics = await Http.GetFromJsonAsync<DashboardHealthDto>("api/dashboard/health", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _metrics = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static MarkupString StatusBadge(DashboardHealthStatus status)
+    {
+        var badgeClass = status switch
+        {
+            DashboardHealthStatus.Critical => "text-bg-danger",
+            DashboardHealthStatus.Warning => "text-bg-warning",
+            DashboardHealthStatus.Ok => "text-bg-success",
+            _ => "text-bg-secondary",
+        };
+
+        return new MarkupString($"<span class=\"badge {badgeClass}\">{status}</span>");
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

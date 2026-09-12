@@ -1,0 +1,10 @@
+using WebApp.Client.Models;
+
+namespace WebApp.Services;
+
+internal interface ISystemMetricsService
+{
+    DashboardSystemDto GetSystemMetrics();
+
+    DashboardMemoryDto GetMemoryMetrics();
+}

@@ -1,0 +1,73 @@
+@inject HttpClient Http
+@implements IDisposable
+@using WebApp.Client.Models
+
+<div class="card h-100">
+    <div class="card-body">
+        <h2 class="h6 card-title d-flex align-items-center gap-2">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Alerts
+        </h2>
+        @if (_isLoading)
+        {
+            <p class="small text-body-secondary mb-0" aria-live="polite">Loading&hellip;</p>
+        }
+        else if (_alerts is null)
+        {
+            <p class="small text-body-secondary mb-0">Alerts unavailable</p>
+        }
+        else if (_alerts.Alerts.Count == 0)
+        {
+            <p class="small text-success mb-0">
+                <i class="bi bi-check-circle me-1" aria-hidden="true"></i>No active alerts
+            </p>
+        }
+        else
+        {
+            <ul class="list-unstyled small mb-0 d-flex flex-column gap-2">
+                @foreach (var alert in _alerts.Alerts)
+                {
+                    <li class="d-flex align-items-start gap-2 @(alert.Severity == DashboardAlertSeverity.Critical ? "text-danger" : "text-warning")">
+                        <i class="bi @(alert.Severity == DashboardAlertSeverity.Critical ? "bi-exclamation-octagon-fill" : "bi-exclamation-triangle-fill") mt-1" aria-hidden="true"></i>
+                        <span>@alert.Message</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@code {
+    private DashboardAlertsDto? _alerts;
+    private bool _isLoading = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _alerts = await Http.GetFromJsonAsync<DashboardAlertsDto>("api/dashboard/alerts", _cts.Token);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            _alerts = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

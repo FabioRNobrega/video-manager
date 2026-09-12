@@ -63,4 +63,15 @@ internal sealed class ThumbnailJobQueue : IThumbnailJobQueue
             _activeKeys.Remove(cacheKey);
         }
     }
+
+    public int ActiveCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _activeKeys.Count;
+            }
+        }
+    }
 }

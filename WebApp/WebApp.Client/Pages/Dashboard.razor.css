@@ -1,0 +1,19 @@
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+@media (min-width: 1200px) {
+    .dashboard {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        gap: .5rem;
+        overflow: hidden;
+    }
+
+    .dashboard ::deep .card {
+        min-height: 0;
+    }
+}

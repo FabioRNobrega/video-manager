@@ -11,4 +11,6 @@ internal interface ISubtitleJobQueue
     bool IsActive(string cacheKey);
 
     void Release(string cacheKey);
+
+    int ActiveCount { get; }
 }
